@@ -1,0 +1,76 @@
+<div class="auth-container animate-fade-in">
+  <div class="auth-card glass-card">
+    <div class="auth-header">
+      <div class="logo">
+        <span class="logo-icon">✦</span> CarePath <span class="accent-text">AI</span>
+      </div>
+      <p class="subtitle">Continuous medical insights and personalized care plans</p>
+    </div>
+
+    <!-- Alert Messages -->
+    <div class="alert alert-error" *ngIf="errorMessage">
+      <span>⚠️</span> {{ errorMessage }}
+    </div>
+    <div class="alert alert-success" *ngIf="successMessage">
+      <span>✓</span> {{ successMessage }}
+    </div>
+
+    <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email"
+          class="form-input"
+          [class.is-invalid]="emailTouched && !isEmailValid"
+          [class.is-valid]="emailTouched && isEmailValid"
+          placeholder="yourname&#64;domain.com"
+          [(ngModel)]="email"
+          (blur)="emailTouched = true"
+          (input)="emailTouched = true"
+          required
+        />
+        <span class="field-error-msg" *ngIf="emailTouched && !isEmailValid">
+          ⚠️ Please enter a valid email address (e.g. name&#64;domain.com)
+        </span>
+        <span class="field-valid-msg" *ngIf="emailTouched && isEmailValid">
+          ✓ Valid email address
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password"
+          class="form-input"
+          [class.is-invalid]="passwordTouched && !isPasswordValid"
+          [class.is-valid]="passwordTouched && isPasswordValid"
+          placeholder="••••••••"
+          [(ngModel)]="password"
+          (blur)="passwordTouched = true"
+          (input)="passwordTouched = true"
+          required
+        />
+        <span class="field-error-msg" *ngIf="passwordTouched && !isPasswordValid">
+          ⚠️ Password must be at least 6 characters
+        </span>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-full" [disabled]="isLoading || !isEmailValid || !isPasswordValid">
+        <span class="spinner" *ngIf="isLoading"></span>
+        {{ isLoading ? 'Signing in...' : 'Sign In' }}
+      </button>
+    </form>
+
+    <div class="google-signin-section mt-3">
+      <div id="googleBtn" class="d-flex justify-content-center"></div>
+    </div>
+
+    <div class="auth-footer">
+      New to CarePath AI? <a routerLink="/auth/register" class="link">Create an account</a>
+    </div>
+  </div>
+</div>

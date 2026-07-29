@@ -1,0 +1,309 @@
+.landing-container {
+  min-height: 100vh;
+  padding: 1.5rem;
+  background: radial-gradient(circle at 15% 20%, rgba(0, 128, 148, 0.25) 0%, transparent 45%),
+              radial-gradient(circle at 85% 75%, rgba(43, 182, 115, 0.2) 0%, transparent 50%),
+              var(--bg-primary, #08131f);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.landing-navbar {
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.75rem;
+  margin-bottom: 3.5rem;
+  border-radius: 18px;
+  position: relative;
+  z-index: 100;
+  background: rgba(13, 35, 58, 0.65);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(20px);
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.brand-svg {
+  filter: drop-shadow(0 0 8px rgba(0, 180, 216, 0.4));
+}
+
+.brand-text {
+  color: #ffffff;
+}
+
+.accent-teal {
+  color: var(--brand-teal-light, #00b4d8);
+}
+
+.badge-ai {
+  background: var(--grad-badge, linear-gradient(135deg, #0077b6 0%, #2bb673 100%));
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 8px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 12px rgba(43, 182, 115, 0.35);
+}
+
+.accent-text {
+  background: linear-gradient(135deg, #00b4d8 0%, #2bb673 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.nav-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.btn-sm {
+  padding: 0.6rem 1.4rem;
+  font-size: 0.9rem;
+}
+
+.btn-emerald {
+  background: linear-gradient(135deg, #008094 0%, #2bb673 100%);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 14px rgba(43, 182, 115, 0.35);
+}
+
+.btn-emerald:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(43, 182, 115, 0.5);
+}
+
+/* Dropdown Menu Styles */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.chevron {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.dropdown:hover .chevron {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  right: 0;
+  width: 250px;
+  background: rgba(13, 35, 58, 0.96);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 180, 216, 0.2);
+  border-radius: 16px;
+  padding: 0.5rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 24px;
+  width: 10px;
+  height: 10px;
+  background: rgba(13, 35, 58, 0.96);
+  border-left: 1px solid rgba(0, 180, 216, 0.2);
+  border-top: 1px solid rgba(0, 180, 216, 0.2);
+  transform: rotate(45deg);
+}
+
+.dropdown:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: #cbd5e1;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background: rgba(0, 128, 148, 0.25);
+  color: #fff;
+}
+
+.item-icon {
+  font-size: 1.35rem;
+}
+
+.item-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.item-desc {
+  font-size: 0.725rem;
+  color: #94a3b8;
+}
+
+/* Hero Section */
+.hero-section {
+  width: 100%;
+  max-width: 960px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1.5rem;
+}
+
+.hero-slogan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1.35rem;
+  border-radius: 50px;
+  background: rgba(0, 128, 148, 0.15);
+  border: 1px solid rgba(43, 182, 115, 0.35);
+  color: #a7f3d0;
+  font-size: 0.825rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 2rem;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-emerald, #2bb673);
+  box-shadow: 0 0 10px var(--brand-emerald);
+  animation: blink 1.8s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.25rem;
+}
+
+.hero-description {
+  font-size: 1.2rem;
+  color: #94a3b8;
+  max-width: 680px;
+  line-height: 1.6;
+  margin-bottom: 3.5rem;
+}
+
+/* Feature Grid */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.feature-card {
+  text-align: left;
+  padding: 1.75rem;
+  border-radius: 18px;
+  background: rgba(13, 35, 58, 0.5);
+  border: 1px solid rgba(0, 180, 216, 0.18);
+  transition: all 0.25s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(43, 182, 115, 0.45);
+  box-shadow: 0 12px 30px rgba(0, 128, 148, 0.25);
+}
+
+.feature-icon {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.feature-card h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.feature-card p {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+@media (max-width: 850px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-title {
+    font-size: 2.25rem;
+  }
+}

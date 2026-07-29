@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build & Dist output
+dist/
+**/dist/
+frontend/dist/
+
+# Environment variables & secrets
+.env
+*.env
+backend/.env
+
+# Angular cache
+.angular/
+
+# Uploaded files
+backend/uploads/
+uploads/
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

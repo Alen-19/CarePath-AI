@@ -1,0 +1,96 @@
+<div class="landing-container animate-fade-in">
+  <!-- Top Navigation Bar with Hover Dropdowns -->
+  <header class="landing-navbar glass-card">
+    <div class="logo">
+      <svg class="brand-svg" width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 20,50 A 35,35 0 1,1 65,85" stroke="url(#tealGrad)" stroke-width="7" stroke-linecap="round" fill="none"/>
+        <rect x="62" y="18" width="22" height="22" rx="6" fill="url(#tealGrad)"/>
+        <path d="M 66,29 H 70 L 72,24 L 75,34 L 77,29 H 80" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="45" cy="27" r="5" fill="#00B4D8"/>
+        <path d="M 38,48 C 38,36 52,36 52,48 Z" fill="#00B4D8"/>
+        <path d="M 40,82 C 45,62 65,70 70,50 C 72,45 68,40 62,40" stroke="url(#emeraldGrad)" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <path d="M 72,36 C 78,32 82,38 78,44 C 74,42 72,36 72,36 Z" fill="#2BB673"/>
+        <path d="M 18,52 C 18,78 42,85 60,82 C 50,72 32,72 28,58 Z" fill="#0D233A"/>
+        <defs>
+          <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#008094" />
+            <stop offset="100%" stop-color="#00B4D8" />
+          </linearGradient>
+          <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#2BB673" />
+            <stop offset="100%" stop-color="#48BB78" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="brand-text">Care<span class="accent-teal">Path</span></span>
+      <span class="badge-ai">AI</span>
+    </div>
+    
+    <div class="nav-actions">
+      <!-- Sign In Dropdown -->
+      <div class="dropdown">
+        <button type="button" class="btn btn-secondary btn-sm dropdown-trigger">
+          Sign In <span class="chevron">▾</span>
+        </button>
+        <div class="dropdown-menu">
+          <button type="button" class="dropdown-item" (click)="navigateWithRole('login', 'patient')">
+            <span class="item-icon">👤</span>
+            <div class="item-text">
+              <span class="item-title">Patient Login</span>
+              <span class="item-desc">Access health records & AI plans</span>
+            </div>
+          </button>
+          <button type="button" class="dropdown-item" (click)="navigateWithRole('login', 'doctor')">
+            <span class="item-icon">🩺</span>
+            <div class="item-text">
+              <span class="item-title">Doctor Login</span>
+              <span class="item-desc">Access clinical portal & patients</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sign Up Button -->
+      <a routerLink="/auth/register" class="btn btn-primary btn-sm btn-emerald">
+        Sign Up
+      </a>
+    </div>
+  </header>
+
+  <!-- Clean Hero Welcome Section -->
+  <main class="hero-section">
+    <div class="hero-slogan-badge">
+      <span class="pulse-dot"></span>
+      <span class="slogan-text">YOUR HEALTH. OUR PATH. BETTER EVERY DAY.</span>
+    </div>
+
+    <h1 class="hero-title">
+      Welcome to <span class="accent-text">CarePath AI</span>
+    </h1>
+    
+    <p class="hero-description">
+      Continuous medical insights, personalized care plans, and seamless communication between patients and verified clinicians.
+    </p>
+
+    <!-- Feature Pillars derived from Logo -->
+    <div class="feature-grid">
+      <div class="feature-card glass-card">
+        <div class="feature-icon teal-glow">🩺</div>
+        <h3>AI Health Diagnostics</h3>
+        <p>Continuous vitals monitoring & smart medical Insights.</p>
+      </div>
+
+      <div class="feature-card glass-card">
+        <div class="feature-icon emerald-glow">🛣️</div>
+        <h3>Personalized Health Paths</h3>
+        <p>Dynamic recovery milestones & daily wellness guidance.</p>
+      </div>
+
+      <div class="feature-card glass-card">
+        <div class="feature-icon navy-glow">🤝</div>
+        <h3>Doctor-Patient Portal</h3>
+        <p>Seamless communication & clinician-verified care.</p>
+      </div>
+    </div>
+  </main>
+</div>

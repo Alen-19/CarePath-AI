@@ -1,0 +1,317 @@
+<div class="auth-container animate-fade-in">
+  <div class="auth-card glass-card">
+    <div class="auth-header">
+      <div class="logo">
+        <span class="logo-icon">✦</span> CarePath <span class="accent-text">AI</span>
+      </div>
+      <p class="subtitle">Join our connected digital health ecosystem</p>
+    </div>
+
+    <!-- Alert Messages -->
+    <div class="alert alert-error" *ngIf="errorMessage && !isPendingApproval">
+      <span>⚠️</span> {{ errorMessage }}
+    </div>
+    <div class="alert alert-success" *ngIf="successMessage && !isPendingApproval">
+      <span>✓</span> {{ successMessage }}
+    </div>
+
+    <!-- Pending Doctor Approval Card -->
+    <div *ngIf="isPendingApproval" class="pending-approval-card text-center p-3 animate-fade-in">
+      <div style="font-size: 3.5rem; margin-bottom: 1rem;">🩺 ⏳</div>
+      <h2 style="font-size: 1.4rem; font-weight: 600; margin-bottom: 0.75rem; color: #f8fafc;">
+        Verification Required
+      </h2>
+      <p style="color: #94a3b8; line-height: 1.5; margin-bottom: 1.25rem; font-size: 0.95rem;">
+        {{ successMessage }}
+      </p>
+      <div style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 14px; margin-bottom: 1.5rem; text-align: left; font-size: 0.88rem; color: #93c5fd; line-height: 1.5;">
+        ℹ️ <strong>Admin Review in Progress:</strong> Our system administrators review all registered medical licenses. You will receive access once your account is verified.
+      </div>
+      <a routerLink="/auth/login" [queryParams]="{ role: 'doctor' }" class="btn btn-primary w-full" style="text-decoration: none; display: inline-block; text-align: center;">
+        Return to Sign In
+      </a>
+    </div>
+
+    <ng-container *ngIf="!isPendingApproval">
+      <form (ngSubmit)="onSubmit()" #registerForm="ngForm">
+      <!-- Role Switcher Segment -->
+      <div class="role-selector">
+        <button 
+          type="button" 
+          class="role-btn" 
+          [class.active]="role === 'patient'"
+          (click)="role = 'patient'"
+        >
+          👤 Patient Account
+        </button>
+        <button 
+          type="button" 
+          class="role-btn" 
+          [class.active]="role === 'doctor'"
+          (click)="role = 'doctor'"
+        >
+          🩺 Doctor Account
+        </button>
+      </div>
+
+      <!-- Core Credentials -->
+      <div class="form-row">
+        <div class="form-group col">
+          <label class="form-label" for="firstName">First Name *</label>
+          <input 
+            type="text" 
+            id="firstName" 
+            name="firstName" 
+            class="form-input" 
+            [class.is-invalid]="firstNameTouched && !isFirstNameValid"
+            [class.is-valid]="firstNameTouched && isFirstNameValid"
+            placeholder="John" 
+            [(ngModel)]="firstName" 
+            (blur)="firstNameTouched = true"
+            (input)="firstNameTouched = true"
+            required 
+          />
+          <span class="field-error-msg" *ngIf="firstNameTouched && !isFirstNameValid">
+            ⚠️ Please enter your first name
+          </span>
+        </div>
+        <div class="form-group col">
+          <label class="form-label" for="lastName">Last Name *</label>
+          <input 
+            type="text" 
+            id="lastName" 
+            name="lastName" 
+            class="form-input" 
+            [class.is-invalid]="lastNameTouched && !isLastNameValid"
+            [class.is-valid]="lastNameTouched && isLastNameValid"
+            placeholder="Doe" 
+            [(ngModel)]="lastName" 
+            (blur)="lastNameTouched = true"
+            (input)="lastNameTouched = true"
+            required 
+          />
+          <span class="field-error-msg" *ngIf="lastNameTouched && !isLastNameValid">
+            ⚠️ Please enter your last name
+          </span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address *</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          class="form-input" 
+          [class.is-invalid]="emailTouched && !isEmailValid"
+          [class.is-valid]="emailTouched && isEmailValid"
+          placeholder="john.doe&#64;example.com" 
+          [(ngModel)]="email" 
+          (blur)="emailTouched = true"
+          (input)="emailTouched = true"
+          required 
+        />
+        <span class="field-error-msg" *ngIf="emailTouched && !isEmailValid">
+          ⚠️ Please enter a valid email address (e.g. name&#64;domain.com)
+        </span>
+        <span class="field-valid-msg" *ngIf="emailTouched && isEmailValid">
+          ✓ Valid email address
+        </span>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col">
+          <label class="form-label" for="password">Password *</label>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            class="form-input" 
+            [class.is-invalid]="passwordTouched && !isPasswordValid"
+            [class.is-valid]="passwordTouched && isPasswordValid"
+            placeholder="••••••••" 
+            [(ngModel)]="password" 
+            (blur)="passwordTouched = true"
+            (input)="passwordTouched = true"
+            required 
+          />
+          
+          <!-- Live Password Strength Rules -->
+          <div class="password-rules" *ngIf="passwordTouched || password.length > 0">
+            <div class="rule-item" [class.valid]="hasMinLength">
+              <span>{{ hasMinLength ? '✓' : '○' }}</span> At least 8 characters
+            </div>
+            <div class="rule-item" [class.valid]="hasLetterAndNumber">
+              <span>{{ hasLetterAndNumber ? '✓' : '○' }}</span> At least one letter & number
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group col">
+          <label class="form-label" for="confirmPassword">Confirm Password *</label>
+          <input 
+            type="password" 
+            id="confirmPassword" 
+            name="confirmPassword" 
+            class="form-input" 
+            [class.is-invalid]="confirmPasswordTouched && !isConfirmPasswordValid"
+            [class.is-valid]="confirmPasswordTouched && isConfirmPasswordValid"
+            placeholder="••••••••" 
+            [(ngModel)]="confirmPassword" 
+            (blur)="confirmPasswordTouched = true"
+            (input)="confirmPasswordTouched = true"
+            required 
+          />
+          <span class="field-error-msg" *ngIf="confirmPasswordTouched && !isConfirmPasswordValid">
+            ⚠️ Passwords do not match
+          </span>
+          <span class="field-valid-msg" *ngIf="confirmPasswordTouched && isConfirmPasswordValid">
+            ✓ Passwords match
+          </span>
+        </div>
+      </div>
+
+      <!-- Patient Specific Profile Form -->
+      <div *ngIf="role === 'patient'" class="role-specific-fields animate-fade-in">
+        <div class="form-row">
+          <div class="form-group col">
+            <label class="form-label" for="dateOfBirth">Date of Birth</label>
+            <input 
+              type="date" 
+              id="dateOfBirth" 
+              name="dateOfBirth" 
+              class="form-input" 
+              [(ngModel)]="dateOfBirth" 
+            />
+          </div>
+          <div class="form-group col">
+            <label class="form-label" for="bloodGroup">Blood Group</label>
+            <select id="bloodGroup" name="bloodGroup" class="form-input form-select" [(ngModel)]="bloodGroup">
+              <option value="">Select Blood Group</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col">
+            <label class="form-label" for="phone">Phone Number</label>
+            <input 
+              type="tel" 
+              id="phone" 
+              name="phone" 
+              class="form-input" 
+              [class.is-invalid]="phoneTouched && !isPhoneValid"
+              [class.is-valid]="phoneTouched && isPhoneValid && phone.trim().length > 0"
+              placeholder="+1 234 567 890" 
+              [(ngModel)]="phone" 
+              (blur)="phoneTouched = true"
+              (input)="phoneTouched = true"
+            />
+            <span class="field-error-msg" *ngIf="phoneTouched && !isPhoneValid">
+              ⚠️ Please enter a valid phone number
+            </span>
+          </div>
+          <div class="form-group col">
+            <label class="form-label" for="gender">Gender</label>
+            <select id="gender" name="gender" class="form-input form-select" [(ngModel)]="gender">
+              <option value="Prefer not to say">Prefer not to say</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Doctor Specific Profile Form -->
+      <div *ngIf="role === 'doctor'" class="role-specific-fields animate-fade-in">
+        <div class="form-row">
+          <div class="form-group col">
+            <label class="form-label" for="specialization">Specialization *</label>
+            <input 
+              type="text" 
+              id="specialization" 
+              name="specialization" 
+              class="form-input" 
+              [class.is-invalid]="specializationTouched && specialization.trim().length < 2"
+              [class.is-valid]="specializationTouched && specialization.trim().length >= 2"
+              placeholder="Cardiologist, General Physician..." 
+              [(ngModel)]="specialization" 
+              (blur)="specializationTouched = true"
+              (input)="specializationTouched = true"
+              [required]="role === 'doctor'" 
+            />
+            <span class="field-error-msg" *ngIf="specializationTouched && specialization.trim().length < 2">
+              ⚠️ Specialization is required for doctors
+            </span>
+          </div>
+          <div class="form-group col">
+            <label class="form-label" for="experienceYears">Years of Experience</label>
+            <input 
+              type="number" 
+              id="experienceYears" 
+              name="experienceYears" 
+              class="form-input" 
+              placeholder="e.g. 8" 
+              [(ngModel)]="experienceYears" 
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="licenseNumber">Medical License Number *</label>
+          <input 
+            type="text" 
+            id="licenseNumber" 
+            name="licenseNumber" 
+            class="form-input" 
+            [class.is-invalid]="licenseNumberTouched && licenseNumber.trim().length < 3"
+            [class.is-valid]="licenseNumberTouched && licenseNumber.trim().length >= 3"
+            placeholder="LIC-12345678" 
+            [(ngModel)]="licenseNumber" 
+            (blur)="licenseNumberTouched = true"
+            (input)="licenseNumberTouched = true"
+            [required]="role === 'doctor'" 
+          />
+          <span class="field-error-msg" *ngIf="licenseNumberTouched && licenseNumber.trim().length < 3">
+            ⚠️ Medical License Number is required for doctors
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="clinicAddress">Clinic/Hospital Address</label>
+          <textarea 
+            id="clinicAddress" 
+            name="clinicAddress" 
+            class="form-input form-textarea" 
+            rows="2" 
+            placeholder="123 Health Ave, Medical District..."
+            [(ngModel)]="clinicAddress"
+          ></textarea>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-full" [disabled]="isLoading || !isFormValid">
+        <span class="spinner" *ngIf="isLoading"></span>
+        {{ isLoading ? 'Creating Account...' : 'Register' }}
+      </button>
+    </form>
+
+    <div class="google-signin-section mt-3">
+      <div id="googleBtnRegister" class="d-flex justify-content-center"></div>
+    </div>
+
+    <div class="auth-footer">
+      Already have an account? <a routerLink="/auth/login" [queryParams]="{ role: role }" class="link">Sign In</a>
+    </div>
+    </ng-container>
+  </div>
+</div>

@@ -1,0 +1,162 @@
+<div class="dashboard-container animate-fade-in">
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="navbar-brand">
+      <span class="logo-icon">✦</span> CarePath <span class="accent-text">AI</span>
+    </div>
+    <div class="user-menu">
+      <span class="user-greeting">Welcome, <strong>{{ patientName }}</strong></span>
+      <button class="btn btn-secondary btn-sm logout-btn" (click)="onLogout()">
+        Sign Out
+      </button>
+    </div>
+  </header>
+
+  <!-- Dashboard Overview Panels -->
+  <main class="dashboard-grid">
+    
+    <!-- LEFT SIDE: Care Plan & Workouts -->
+    <section class="grid-col span-2">
+      <!-- Active Care Plan Card -->
+      <div class="glass-card plan-card">
+        <div class="card-header">
+          <div>
+            <span class="card-tag">Active Protocol</span>
+            <h3>{{ activeCarePlan.planName }}</h3>
+          </div>
+          <span class="doctor-badge">By {{ activeCarePlan.prescribedBy }}</span>
+        </div>
+        <p class="plan-meta">Assigned on: {{ activeCarePlan.startDate }}</p>
+        
+        <div class="goals-list">
+          <h4>Daily Target Goals</h4>
+          <div 
+            class="goal-item" 
+            *ngFor="let goal of activeCarePlan.dailyGoals; let i = index"
+            [class.completed]="goal.completed"
+            (click)="toggleGoal(i)"
+          >
+            <div class="checkbox-circle">
+              <span class="checkmark" *ngIf="goal.completed">✓</span>
+            </div>
+            <span class="goal-text">{{ goal.text }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prescribed Exercises Card -->
+      <div class="glass-card exercises-card">
+        <div class="card-header-simple">
+          <h3>Prescribed Exercises</h3>
+          <span class="summary-stat">{{ exercises.length }} active tasks</span>
+        </div>
+        
+        <div class="exercise-items">
+          <div 
+            class="exercise-item" 
+            *ngFor="let ex of exercises; let i = index"
+            [class.done]="ex.isCompleted"
+          >
+            <div class="exercise-info">
+              <h5>{{ ex.name }}</h5>
+              <p>Duration: {{ ex.duration }}</p>
+            </div>
+            <div class="exercise-actions">
+              <a [href]="ex.videoUrl" target="_blank" class="btn btn-secondary btn-sm video-btn">
+                📺 Video Demo
+              </a>
+              <button 
+                class="btn btn-sm action-btn" 
+                [class.btn-primary]="!ex.isCompleted" 
+                [class.btn-secondary]="ex.isCompleted"
+                (click)="toggleExercise(i)"
+              >
+                {{ ex.isCompleted ? '✓ Done' : 'Complete' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT SIDE: Appointments, Nutrition & Logs -->
+    <section class="grid-col span-1">
+      <!-- Today's Appointments -->
+      <div class="glass-card appointment-card">
+        <h3>Today's Consultations</h3>
+        <div class="appointment-items" *ngIf="appointments.length > 0; else noAppointments">
+          <div class="appointment-item" *ngFor="let app of appointments">
+            <div class="appointment-meta">
+              <h4>{{ app.doctorName }}</h4>
+              <p>{{ app.specialty }}</p>
+            </div>
+            <div class="appointment-time-badge">
+              <span class="time">{{ app.time }}</span>
+              <span class="status-dot green"></span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noAppointments>
+          <p class="empty-text">No consultations scheduled for today.</p>
+        </ng-template>
+      </div>
+
+      <!-- Nutrition Summary -->
+      <div class="glass-card nutrition-card">
+        <h3>Nutrition Log Summary</h3>
+        <div class="progress-bar-container">
+          <div class="progress-bar-labels">
+            <span>Daily Calorie Budget</span>
+            <strong>{{ nutritionSummary.caloriesConsumed }} / {{ nutritionSummary.calorieGoal }} kcal</strong>
+          </div>
+          <div class="bar-outer">
+            <div class="bar-inner" [style.width.%]="(nutritionSummary.caloriesConsumed / nutritionSummary.calorieGoal) * 100"></div>
+          </div>
+        </div>
+        <div class="macronutrients-grid">
+          <div class="macro-item">
+            <span class="label">Carbs</span>
+            <strong>{{ nutritionSummary.carbsGrams }}g</strong>
+          </div>
+          <div class="macro-item">
+            <span class="label">Protein</span>
+            <strong>{{ nutritionSummary.proteinGrams }}g</strong>
+          </div>
+          <div class="macro-item">
+            <span class="label">Fat</span>
+            <strong>{{ nutritionSummary.fatGrams }}g</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Uploaded Medical Reports -->
+      <div class="glass-card reports-card">
+        <h3>Recent Diagnostics</h3>
+        <div class="report-items">
+          <div class="report-item" *ngFor="let rep of recentReports">
+            <div class="report-meta">
+              <h5>{{ rep.name }}</h5>
+              <p>Uploaded: {{ rep.date }}</p>
+            </div>
+            <div class="report-ai-badge">
+              <strong>AI Summary:</strong>
+              <p>{{ rep.aiSummary }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Notifications -->
+      <div class="glass-card notifications-card">
+        <h3>Activity Feeds</h3>
+        <div class="notif-items">
+          <div class="notif-item" *ngFor="let notif of notifications">
+            <p>{{ notif.text }}</p>
+            <span class="notif-time">{{ notif.time }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
