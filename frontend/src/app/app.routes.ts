@@ -12,6 +12,8 @@ import { AdminDashboardComponent } from './features/admin/admin-dashboard.compon
 
 import { LandingComponent } from './features/landing/landing.component';
 
+import { DoctorDashboardComponent } from './features/doctor/doctor-dashboard.component';
+
 export const routes: Routes = [
   {
     path: '',
@@ -37,7 +39,7 @@ export const routes: Routes = [
   },
   {
     path: 'doctor',
-    loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent), // Temporary fallback
+    component: DoctorDashboardComponent,
     canActivate: [authGuard, doctorGuard, profileCompletionGuard]
   },
   {

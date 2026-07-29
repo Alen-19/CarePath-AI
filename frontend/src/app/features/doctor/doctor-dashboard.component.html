@@ -1,0 +1,122 @@
+<div class="dashboard-container animate-fade-in">
+  <!-- Top Navigation Header -->
+  <header class="dashboard-navbar glass-card">
+    <div class="brand-group">
+      <span class="brand-logo">✦ CarePath <span class="accent-text">AI</span></span>
+      <span class="badge-role doctor-badge">🩺 Clinician Portal</span>
+    </div>
+    
+    <div class="user-profile-menu">
+      <div class="user-info">
+        <span class="user-name">{{ doctorName }}</span>
+        <span class="user-spec">{{ specialization }} • {{ licenseNumber }}</span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="onLogout()">
+        Sign Out 🚪
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero Welcome Banner -->
+  <section class="welcome-banner glass-card">
+    <div class="banner-content">
+      <div class="doctor-badge-status" [class.verified]="isVerified">
+        <span class="status-dot"></span> {{ isVerified ? 'Verified Medical Clinician' : 'Verification Pending' }}
+      </div>
+      <h1>Welcome back, <span class="accent-text">{{ doctorName }}</span></h1>
+      <p class="subtitle">{{ specialization }} • {{ clinicAddress }}</p>
+    </div>
+    <div class="banner-date">
+      <span class="date-label">Today's Schedule</span>
+      <span class="date-value">{{ today | date:'EEEE, MMMM d, y' }}</span>
+    </div>
+  </section>
+
+  <!-- Quick Stats Summary -->
+  <section class="stats-grid">
+    <div class="stat-card glass-card">
+      <div class="stat-icon teal-glow">📅</div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.totalAppointments }}</span>
+        <span class="stat-label">Total Appointments</span>
+      </div>
+    </div>
+
+    <div class="stat-card glass-card">
+      <div class="stat-icon amber-glow">⏳</div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.pendingRequests }}</span>
+        <span class="stat-label">Pending Reviews</span>
+      </div>
+    </div>
+
+    <div class="stat-card glass-card">
+      <div class="stat-icon emerald-glow">👥</div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.activePatients }}</span>
+        <span class="stat-label">Active Care Patients</span>
+      </div>
+    </div>
+
+    <div class="stat-card glass-card">
+      <div class="stat-icon purple-glow">⭐</div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.rating }} / 5.0</span>
+        <span class="stat-label">Patient Feedback</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Layout -->
+  <div class="dashboard-main-grid">
+    <!-- Today's Consultations -->
+    <div class="grid-card glass-card">
+      <div class="card-header">
+        <h2>🩺 Today's Consultations</h2>
+        <span class="badge-pill">{{ todayAppointments.length }} Scheduled</span>
+      </div>
+
+      <div class="appointment-list">
+        <div class="appointment-item" *ngFor="let apt of todayAppointments">
+          <div class="apt-time">
+            <span class="time-text">{{ apt.time }}</span>
+            <span class="apt-status" [class.confirmed]="apt.status === 'Confirmed'" [class.completed]="apt.status === 'Completed'" [class.pending]="apt.status === 'Pending'">
+              {{ apt.status }}
+            </span>
+          </div>
+          <div class="apt-details">
+            <h4>{{ apt.patientName }} <span class="patient-age">({{ apt.age }} yrs)</span></h4>
+            <p class="apt-reason"><strong>Reason:</strong> {{ apt.symptoms }}</p>
+          </div>
+          <div class="apt-actions">
+            <button class="btn btn-primary btn-xs">View EHR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Patient Care Plans -->
+    <div class="grid-card glass-card">
+      <div class="card-header">
+        <h2>📋 Active Patient Care Plans</h2>
+      </div>
+
+      <div class="careplan-list">
+        <div class="careplan-item" *ngFor="let plan of activeCarePlans">
+          <div class="plan-info">
+            <h4>{{ plan.planTitle }}</h4>
+            <span class="plan-patient">Patient: {{ plan.patientName }}</span>
+          </div>
+          <div class="plan-meta">
+            <span class="plan-progress">Progress: {{ plan.progress }}</span>
+            <span class="plan-review">Review: {{ plan.nextReview }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="quick-action-box mt-3">
+        <button class="btn btn-secondary w-full">+ Create New Care Plan</button>
+      </div>
+    </div>
+  </div>
+</div>
