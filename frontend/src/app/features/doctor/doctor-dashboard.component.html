@@ -17,18 +17,42 @@
     </div>
   </header>
 
+  <!-- Suspended Account Warning Banner -->
+  <section class="suspension-banner-card glass-card animate-fade-in" *ngIf="isSuspended">
+    <div class="suspension-header">
+      <span class="suspension-badge">🔴 Account Suspended by System Administration</span>
+      <h2>Clinician Access Restricted</h2>
+      <p class="suspension-sub">Your clinician portal features and appointment slot bookings have been suspended.</p>
+    </div>
+
+    <div class="suspension-reason-panel">
+      <span class="reason-title">Official Administrative Reason Note:</span>
+      <p class="reason-body">"{{ suspensionReason }}"</p>
+      <span class="action-date" *ngIf="suspendedAt">Date of Action: {{ suspendedAt | date:'medium' }}</span>
+    </div>
+
+    <div class="suspension-contact-footer">
+      <span>📧 To submit compliance documents or appeal this decision, please contact system administration at <a href="mailto:support&#64;carepath.ai" class="appeal-link">support&#64;carepath.ai</a>.</span>
+    </div>
+  </section>
+
   <!-- Hero Welcome Banner -->
-  <section class="welcome-banner glass-card">
+  <section class="welcome-banner glass-card" [class.suspended-border]="isSuspended">
     <div class="banner-content">
-      <div class="doctor-badge-status" [class.verified]="isVerified">
-        <span class="status-dot"></span> {{ isVerified ? 'Verified Medical Clinician' : 'Verification Pending' }}
+      <div class="doctor-badge-status" [class.verified]="isVerified && !isSuspended" [class.suspended-badge]="isSuspended">
+        <span class="status-dot"></span> {{ isSuspended ? 'Account Suspended' : (isVerified ? 'Verified Medical Clinician' : 'Verification Pending') }}
       </div>
       <h1>Welcome back, <span class="accent-text">{{ doctorName }}</span></h1>
-      <p class="subtitle">{{ specialization }} • {{ clinicAddress }}</p>
+      <p class="subtitle">{{ specialization }} • Fee: <strong class="text-emerald">₹{{ consultationFee }}</strong> / Session</p>
     </div>
-    <div class="banner-date">
-      <span class="date-label">Today's Schedule</span>
-      <span class="date-value">{{ today | date:'EEEE, MMMM d, y' }}</span>
+    <div class="banner-actions">
+      <button class="btn btn-primary btn-md shadow-glow" (click)="openScheduleModal()" [disabled]="isSuspended" [title]="isSuspended ? 'Schedule management is disabled while account is suspended' : ''">
+        ⚙️ Manage Slots & Pricing (₹)
+      </button>
+      <div class="banner-date mt-2">
+        <span class="date-label">Today's Schedule</span>
+        <span class="date-value">{{ today | date:'EEEE, MMMM d, y' }}</span>
+      </div>
     </div>
   </section>
 
@@ -51,10 +75,10 @@
     </div>
 
     <div class="stat-card glass-card">
-      <div class="stat-icon emerald-glow">👥</div>
+      <div class="stat-icon emerald-glow">💰</div>
       <div class="stat-info">
-        <span class="stat-value">{{ stats.activePatients }}</span>
-        <span class="stat-label">Active Care Patients</span>
+        <span class="stat-value">₹{{ consultationFee }}</span>
+        <span class="stat-label">Fee per Appointment</span>
       </div>
     </div>
 
@@ -117,6 +141,192 @@
       <div class="quick-action-box mt-3">
         <button class="btn btn-secondary w-full">+ Create New Care Plan</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- SCHEDULE & PRICING MANAGER MODAL -->
+<!-- ========================================== -->
+<div class="modal-backdrop animate-fade-in" *ngIf="showScheduleModal" (click)="closeScheduleModal()">
+  <div class="modal-card schedule-modal" (click)="$event.stopPropagation()">
+    
+    <div class="modal-header">
+      <div>
+        <h3>⚙️ Weekly Schedule & Pricing Settings</h3>
+        <p class="subtitle-sm">Configure session working hours, lunch breaks, fee in ₹, and single-day leave overrides.</p>
+      </div>
+      <button class="close-btn" (click)="closeScheduleModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Status Alerts -->
+      <div class="alert alert-success" *ngIf="scheduleSuccessMsg">
+        ✅ {{ scheduleSuccessMsg }}
+      </div>
+      <div class="alert alert-danger" *ngIf="scheduleErrMsg">
+        ⚠️ {{ scheduleErrMsg }}
+      </div>
+
+      <!-- Pricing & Slot Duration -->
+      <div class="config-row glass-panel mb-4">
+        <div class="input-group-item">
+          <label class="form-label">Consultation Fee (₹0 to ₹25,000):</label>
+          <div class="input-prefix">
+            <span class="prefix">₹</span>
+            <input type="number" class="form-input" [(ngModel)]="consultationFee" (input)="onFeeInput($event)" min="0" max="25000" step="50" placeholder="500">
+          </div>
+        </div>
+
+        <div class="input-group-item">
+          <label class="form-label">Slot Duration (Minutes):</label>
+          <select class="form-select" [(ngModel)]="slotDurationMinutes">
+            <option [value]="15">15 Minutes</option>
+            <option [value]="30">30 Minutes (Recommended)</option>
+            <option [value]="45">45 Minutes</option>
+            <option [value]="60">60 Minutes</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Weekly Recurring Template -->
+      <div class="section-block mb-4">
+        <h4 class="section-title">📅 Default Weekly Availability & Session Break Template</h4>
+        <p class="section-desc">Set Morning & Evening sessions with a lunch break in between. Repeating every week automatically.</p>
+        
+        <div class="weekly-days-list">
+          <div class="day-card" *ngFor="let day of weeklySchedule">
+            <div class="day-header-row">
+              <label class="checkbox-container">
+                <input type="checkbox" [(ngModel)]="day.isWorkingDay">
+                <span class="checkmark"></span>
+                <strong>{{ day.dayOfWeek }}</strong>
+              </label>
+
+              <span class="badge-off" *ngIf="!day.isWorkingDay">Off Day</span>
+            </div>
+
+            <div class="day-sessions-container mt-2" *ngIf="day.isWorkingDay">
+              <!-- Session 1 (Morning) -->
+              <div class="session-box">
+                <span class="session-badge">Session 1 (Morning)</span>
+                <div class="time-pickers">
+                  <div class="time-picker-group">
+                    <span class="time-label">From:</span>
+                    <select class="form-select-sm" [(ngModel)]="day.session1Start">
+                      <option *ngFor="let t of timeOptions" [value]="t">{{ t }}</option>
+                    </select>
+                  </div>
+                  <div class="time-picker-group">
+                    <span class="time-label">To:</span>
+                    <select class="form-select-sm" [(ngModel)]="day.session1End">
+                      <option *ngFor="let t of timeOptions" [value]="t">{{ t }}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Session Break Toggle & Session 2 (Evening) -->
+              <div class="session-box">
+                <div class="session-toggle-row">
+                  <label class="checkbox-container-sm">
+                    <input type="checkbox" [(ngModel)]="day.hasSecondSession">
+                    <span>Enable Evening Session (After Break)</span>
+                  </label>
+                </div>
+
+                <div class="time-pickers mt-1" *ngIf="day.hasSecondSession">
+                  <div class="time-picker-group">
+                    <span class="time-label">From:</span>
+                    <select class="form-select-sm" [(ngModel)]="day.session2Start">
+                      <option *ngFor="let t of timeOptions" [value]="t">{{ t }}</option>
+                    </select>
+                  </div>
+                  <div class="time-picker-group">
+                    <span class="time-label">To:</span>
+                    <select class="form-select-sm" [(ngModel)]="day.session2End">
+                      <option *ngFor="let t of timeOptions" [value]="t">{{ t }}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="actions-footer mt-3">
+          <button class="btn btn-primary btn-md" (click)="onSaveWeeklySchedule()" [disabled]="isSavingSchedule">
+            {{ isSavingSchedule ? 'Saving Settings...' : '💾 Save Default Weekly Schedule & Pricing' }}
+          </button>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Single Day Exceptions / Leave Manager -->
+      <div class="section-block mt-4">
+        <h4 class="section-title">🌴 Single-Day Edits & Leave Overrides</h4>
+        <p class="section-desc">Mark off days or set custom hours for dates between Today and 1 Year from today.</p>
+
+        <div class="override-form glass-panel">
+          <div class="form-row">
+            <div class="form-field">
+              <label class="form-label">Select Specific Date:</label>
+              <input type="date" class="form-input" [min]="minDateStr" [max]="maxDateStr" [(ngModel)]="overrideDateInput">
+            </div>
+
+            <div class="form-field">
+              <label class="form-label">Override Type:</label>
+              <select class="form-select" [(ngModel)]="overrideIsOffDay">
+                <option [ngValue]="true">Mark as ON LEAVE (Unavailable)</option>
+                <option [ngValue]="false">Custom Working Hours for this Date</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row mt-3" *ngIf="!overrideIsOffDay">
+            <div class="form-field">
+              <label class="form-label">Session 1 From:</label>
+              <select class="form-select" [(ngModel)]="overrideSession1Start">
+                <option *ngFor="let t of timeOptions" [value]="t">{{ t }}</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Session 1 To:</label>
+              <select class="form-select" [(ngModel)]="overrideSession1End">
+                <option *ngFor="let t of timeOptions" [value]="t">{{ t }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row mt-2">
+            <div class="form-field w-full">
+              <label class="form-label">Reason / Note:</label>
+              <input type="text" class="form-input" [(ngModel)]="overrideReason" placeholder="Personal Leave / Medical Conference">
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <button class="btn btn-secondary btn-sm" (click)="onAddDateOverride()" [disabled]="isSavingSchedule">
+              + Save Date Override
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Overrides List -->
+        <div class="active-overrides-list mt-3" *ngIf="dateOverrides.length > 0">
+          <h5 class="list-heading">Active Single-Day Overrides:</h5>
+          <div class="override-chip" *ngFor="let ov of dateOverrides">
+            <span class="chip-date">📅 {{ ov.date }}</span>
+            <span class="chip-status" [class.off]="ov.isOffDay">
+              {{ ov.isOffDay ? '🌴 ON LEAVE (' + ov.reason + ')' : '⏰ Custom Hours' }}
+            </span>
+            <button class="chip-remove" (click)="onDeleteDateOverride(ov._id!)" title="Remove Override">✕</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>

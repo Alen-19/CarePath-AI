@@ -17,6 +17,9 @@ export interface DoctorVerificationItem {
   experienceYears?: number;
   clinicAddress?: string;
   isVerified: boolean;
+  status?: 'pending' | 'approved' | 'suspended';
+  suspensionReason?: string;
+  suspendedAt?: string;
   rating?: number;
   createdAt?: string;
 }
@@ -25,6 +28,7 @@ export interface AdminStats {
   totalDoctors: number;
   pendingVerifications: number;
   approvedDoctors: number;
+  suspendedDoctors?: number;
   totalPatients: number;
 }
 
@@ -57,7 +61,7 @@ export class AdminService {
     return this.http.get<StatsResponse>(`${this.apiUrl}/stats`);
   }
 
-  getDoctorRequests(status?: 'pending' | 'approved' | 'all'): Observable<DoctorsResponse> {
+  getDoctorRequests(status?: 'pending' | 'approved' | 'suspended' | 'all'): Observable<DoctorsResponse> {
     const url = status && status !== 'all' ? `${this.apiUrl}/doctors?status=${status}` : `${this.apiUrl}/doctors`;
     return this.http.get<DoctorsResponse>(url);
   }
@@ -68,5 +72,13 @@ export class AdminService {
 
   rejectDoctor(doctorId: string): Observable<ActionResponse> {
     return this.http.put<ActionResponse>(`${this.apiUrl}/doctors/${doctorId}/reject`, {});
+  }
+
+  suspendDoctor(doctorId: string, reason: string): Observable<ActionResponse> {
+    return this.http.put<ActionResponse>(`${this.apiUrl}/doctors/${doctorId}/suspend`, { reason });
+  }
+
+  unsuspendDoctor(doctorId: string): Observable<ActionResponse> {
+    return this.http.put<ActionResponse>(`${this.apiUrl}/doctors/${doctorId}/unsuspend`, {});
   }
 }

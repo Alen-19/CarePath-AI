@@ -4,7 +4,9 @@ const {
   getAdminStats,
   getDoctorVerificationRequests,
   approveDoctor,
-  rejectDoctor
+  rejectDoctor,
+  suspendDoctor,
+  unsuspendDoctor
 } = require('../controllers/admin.controller');
 const { authenticateJWT, authorizeRoles } = require('../middlewares/auth.middleware');
 
@@ -16,5 +18,7 @@ router.get('/stats', getAdminStats);
 router.get('/doctors', getDoctorVerificationRequests);
 router.put('/doctors/:id/approve', approveDoctor);
 router.put('/doctors/:id/reject', rejectDoctor);
+router.put('/doctors/:id/suspend', suspendDoctor);
+router.put('/doctors/:id/unsuspend', unsuspendDoctor);
 
 module.exports = router;

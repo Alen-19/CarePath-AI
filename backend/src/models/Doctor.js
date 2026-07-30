@@ -41,6 +41,20 @@ const DoctorSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'suspended'],
+    default: 'pending'
+  },
+  suspensionReason: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  suspendedAt: {
+    type: Date,
+    default: null
+  },
   rating: {
     type: Number,
     default: 5.0

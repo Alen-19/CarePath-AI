@@ -7,6 +7,12 @@ export const doctorGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
 
   if (authService.isAuthenticated() && authService.userRole() === 'doctor') {
+    const user = authService.currentUser();
+    if (user?.doctorProfile && user.doctorProfile.isVerified === false) {
+      authService.logout();
+      router.navigate(['/auth/login'], { queryParams: { role: 'doctor' } });
+      return false;
+    }
     return true;
   }
 

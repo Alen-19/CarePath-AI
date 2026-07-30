@@ -8,8 +8,11 @@ const User = require('../models/User');
 const getAdminStats = async (req, res) => {
   try {
     const totalDoctors = await Doctor.countDocuments();
-    const pendingVerifications = await Doctor.countDocuments({ isVerified: false });
-    const approvedDoctors = await Doctor.countDocuments({ isVerified: true });
+    const pendingVerifications = await Doctor.countDocuments({ 
+      $or: [{ status: 'pending' }, { isVerified: false, status: { $ne: 'suspended' } }]
+    });
+    const approvedDoctors = await Doctor.countDocuments({ isVerified: true, status: 'approved' });
+    const suspendedDoctors = await Doctor.countDocuments({ status: 'suspended' });
     const totalPatients = await Patient.countDocuments();
 
     res.json({
@@ -18,6 +21,7 @@ const getAdminStats = async (req, res) => {
         totalDoctors,
         pendingVerifications,
         approvedDoctors,
+        suspendedDoctors,
         totalPatients
       }
     });
@@ -27,8 +31,8 @@ const getAdminStats = async (req, res) => {
   }
 };
 
-// @desc    Get all doctor verification requests with filter option
-// @route   GET /api/admin/doctors?status=pending|approved|all
+// @desc    Get doctor verification/management requests with filter option
+// @route   GET /api/admin/doctors?status=pending|approved|suspended|all
 // @access  Private/Admin
 const getDoctorVerificationRequests = async (req, res) => {
   try {
@@ -36,22 +40,32 @@ const getDoctorVerificationRequests = async (req, res) => {
     let queryFilter = {};
 
     if (status === 'pending') {
-      queryFilter.isVerified = false;
+      queryFilter.$or = [{ status: 'pending' }, { status: { $exists: false }, isVerified: false }];
     } else if (status === 'approved') {
-      queryFilter.isVerified = true;
+      queryFilter.$or = [{ status: 'approved' }, { status: { $exists: false }, isVerified: true }];
+    } else if (status === 'suspended') {
+      queryFilter.status = 'suspended';
     }
 
     const doctors = await Doctor.find(queryFilter)
       .populate('userId', 'email isActive createdAt')
       .sort({ createdAt: -1 });
 
+    const formattedDoctors = doctors.map(doc => {
+      const docObj = doc.toObject();
+      if (!docObj.status) {
+        docObj.status = docObj.isVerified ? 'approved' : 'pending';
+      }
+      return docObj;
+    });
+
     res.json({
       success: true,
-      count: doctors.length,
-      doctors
+      count: formattedDoctors.length,
+      doctors: formattedDoctors
     });
   } catch (error) {
-    console.error('Error fetching doctor verification requests:', error);
+    console.error('Error fetching doctor requests:', error);
     res.status(500).json({ message: 'Server error fetching doctor requests.', error: error.message });
   }
 };
@@ -63,7 +77,6 @@ const approveDoctor = async (req, res) => {
   try {
     const doctorId = req.params.id;
 
-    // Find by Doctor _id or by userId
     let doctor = await Doctor.findById(doctorId);
     if (!doctor) {
       doctor = await Doctor.findOne({ userId: doctorId });
@@ -74,6 +87,9 @@ const approveDoctor = async (req, res) => {
     }
 
     doctor.isVerified = true;
+    doctor.status = 'approved';
+    doctor.suspensionReason = null;
+    doctor.suspendedAt = null;
     await doctor.save();
 
     const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'email isActive createdAt');
@@ -106,6 +122,7 @@ const rejectDoctor = async (req, res) => {
     }
 
     doctor.isVerified = false;
+    doctor.status = 'pending';
     await doctor.save();
 
     const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'email isActive createdAt');
@@ -121,9 +138,85 @@ const rejectDoctor = async (req, res) => {
   }
 };
 
+// @desc    Suspend / Block a Doctor Account with Mandatory Reason Note
+// @route   PUT /api/admin/doctors/:id/suspend
+// @access  Private/Admin
+const suspendDoctor = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+    const { reason } = req.body;
+
+    if (!reason || typeof reason !== 'string' || !reason.trim()) {
+      return res.status(400).json({ message: 'A mandatory suspension reason note is required.' });
+    }
+
+    let doctor = await Doctor.findById(doctorId);
+    if (!doctor) {
+      doctor = await Doctor.findOne({ userId: doctorId });
+    }
+
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor profile not found.' });
+    }
+
+    doctor.status = 'suspended';
+    doctor.suspensionReason = reason.trim();
+    doctor.suspendedAt = new Date();
+    await doctor.save();
+
+    const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'email isActive createdAt');
+
+    res.json({
+      success: true,
+      message: `Doctor Dr. ${doctor.firstName} ${doctor.lastName} has been suspended/blocked.`,
+      doctor: populatedDoctor
+    });
+  } catch (error) {
+    console.error('Error suspending doctor:', error);
+    res.status(500).json({ message: 'Server error suspending doctor.', error: error.message });
+  }
+};
+
+// @desc    Unsuspend / Reinstate a Doctor Account
+// @route   PUT /api/admin/doctors/:id/unsuspend
+// @access  Private/Admin
+const unsuspendDoctor = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+
+    let doctor = await Doctor.findById(doctorId);
+    if (!doctor) {
+      doctor = await Doctor.findOne({ userId: doctorId });
+    }
+
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor profile not found.' });
+    }
+
+    doctor.isVerified = true;
+    doctor.status = 'approved';
+    doctor.suspensionReason = null;
+    doctor.suspendedAt = null;
+    await doctor.save();
+
+    const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'email isActive createdAt');
+
+    res.json({
+      success: true,
+      message: `Doctor Dr. ${doctor.firstName} ${doctor.lastName} has been reinstated and unblocked.`,
+      doctor: populatedDoctor
+    });
+  } catch (error) {
+    console.error('Error unsuspending doctor:', error);
+    res.status(500).json({ message: 'Server error unsuspending doctor.', error: error.message });
+  }
+};
+
 module.exports = {
   getAdminStats,
   getDoctorVerificationRequests,
   approveDoctor,
-  rejectDoctor
+  rejectDoctor,
+  suspendDoctor,
+  unsuspendDoctor
 };

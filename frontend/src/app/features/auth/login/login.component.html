@@ -8,15 +8,41 @@
     </div>
 
     <!-- Alert Messages -->
-    <div class="alert alert-error" *ngIf="errorMessage && !isPendingApproval">
+    <div class="alert alert-error" *ngIf="errorMessage && !isPendingApproval && !isSuspendedAccount">
       <span>⚠️</span> {{ errorMessage }}
     </div>
-    <div class="alert alert-success" *ngIf="successMessage && !isPendingApproval">
+    <div class="alert alert-success" *ngIf="successMessage && !isPendingApproval && !isSuspendedAccount">
       <span>✓</span> {{ successMessage }}
     </div>
 
+    <!-- Suspended Doctor Account Card -->
+    <div *ngIf="isSuspendedAccount" class="pending-approval-card text-center p-3 animate-fade-in" style="border: 1px solid rgba(239, 68, 68, 0.4); background: rgba(30, 10, 10, 0.6);">
+      <div style="font-size: 3.5rem; margin-bottom: 0.75rem;">🔴 🚫</div>
+      <h2 style="font-size: 1.4rem; font-weight: 600; margin-bottom: 0.5rem; color: #fecdd3;">
+        Account Suspended
+      </h2>
+      <p style="color: #fda4af; line-height: 1.5; margin-bottom: 1.25rem; font-size: 0.95rem;">
+        Your doctor account has been suspended by system administration.
+      </p>
+
+      <div style="background: rgba(225, 29, 72, 0.12); border: 1px solid rgba(225, 29, 72, 0.3); border-radius: 10px; padding: 14px; margin-bottom: 1.5rem; text-align: left; font-size: 0.88rem; color: #fecdd3; line-height: 1.5;">
+        <strong>Official Administrative Reason Note:</strong>
+        <p style="margin: 6px 0 4px 0; font-size: 1.05rem; font-weight: 600; color: #ffffff; font-style: italic;">
+          "{{ suspensionReasonMessage }}"
+        </p>
+      </div>
+
+      <div style="font-size: 0.82rem; color: #cbd5e1; margin-bottom: 1.5rem;">
+        📧 To appeal this suspension or submit updated documents, contact <a href="mailto:support&#64;carepath.ai" style="color: #38bdf8; text-decoration: underline;">support&#64;carepath.ai</a>.
+      </div>
+
+      <button type="button" class="btn btn-primary w-full" (click)="isSuspendedAccount = false; errorMessage = '';">
+        Return to Sign In
+      </button>
+    </div>
+
     <!-- Pending Doctor Approval Card -->
-    <div *ngIf="isPendingApproval" class="pending-approval-card text-center p-3 animate-fade-in">
+    <div *ngIf="isPendingApproval && !isSuspendedAccount" class="pending-approval-card text-center p-3 animate-fade-in">
       <div style="font-size: 3.5rem; margin-bottom: 1rem;">🩺 ⏳</div>
       <h2 style="font-size: 1.4rem; font-weight: 600; margin-bottom: 0.75rem; color: #f8fafc;">
         Verification Pending
@@ -32,7 +58,7 @@
       </button>
     </div>
 
-    <ng-container *ngIf="!isPendingApproval">
+    <ng-container *ngIf="!isPendingApproval && !isSuspendedAccount">
       <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
       <div class="form-group">
         <label class="form-label" for="email">Email Address</label>

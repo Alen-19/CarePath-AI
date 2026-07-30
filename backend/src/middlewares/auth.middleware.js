@@ -45,7 +45,17 @@ const authorizeRoles = (roles = []) => {
 
     if (req.user.role === 'doctor') {
       const doctor = await Doctor.findOne({ userId: req.user._id });
-      if (!doctor || !doctor.isVerified) {
+      if (!doctor) {
+        return res.status(403).json({ message: 'Doctor profile not found.' });
+      }
+      if (doctor.status === 'suspended') {
+        return res.status(403).json({ 
+          message: `Access denied. Your account is suspended. Reason: ${doctor.suspensionReason || 'Administrative suspension'}`,
+          isSuspended: true,
+          suspensionReason: doctor.suspensionReason
+        });
+      }
+      if (!doctor.isVerified) {
         return res.status(403).json({ 
           message: 'Access denied. Your doctor account is pending administrator verification.' 
         });

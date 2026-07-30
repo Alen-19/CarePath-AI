@@ -196,10 +196,16 @@ const loginUser = async (req, res) => {
     // Fetch corresponding profile document
     const userProfile = await getProfileForUser(user._id, user.role);
 
-    // Doctor Verification Guard: Block login if Doctor is not verified by Admin
+    // Doctor Verification & Suspension Guard
     if (user.role === 'doctor') {
-      if (!userProfile || !userProfile.isVerified) {
+      if (userProfile && userProfile.status === 'suspended') {
         return res.status(403).json({ 
+          isSuspended: true,
+          message: userProfile.suspensionReason || 'Your doctor account has been suspended by system administration.' 
+        });
+      } else if (!userProfile || (!userProfile.isVerified && userProfile.status !== 'approved')) {
+        return res.status(403).json({ 
+          isSuspended: false,
           message: 'Your doctor account is pending admin verification. You will be able to log in once an administrator approves your medical license.' 
         });
       }
@@ -435,6 +441,7 @@ const completeProfile = async (req, res) => {
 
     res.json({
       message: 'Profile completed successfully.',
+      token: (user.role === 'doctor' && !userProfile.isVerified) ? null : generateToken(user._id),
       user: {
         _id: user._id,
         email: user.email,

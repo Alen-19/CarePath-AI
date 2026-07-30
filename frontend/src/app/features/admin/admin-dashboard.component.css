@@ -870,3 +870,194 @@
     width: 100%;
   }
 }
+
+/* Status Badges */
+.status-badge.status-suspended {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.status-badge.status-suspended .dot {
+  background-color: #ef4444;
+}
+
+.stat-icon-wrapper.rose {
+  background: rgba(244, 63, 94, 0.1);
+  color: #e11d48;
+}
+
+.rose-count {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
+/* Action Buttons */
+.btn-suspend {
+  background-color: rgba(225, 29, 72, 0.08);
+  color: #e11d48;
+  border: 1.5px solid rgba(225, 29, 72, 0.3);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-suspend:hover {
+  background-color: #e11d48;
+  color: #ffffff;
+  border-color: #e11d48;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-unsuspend {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1.5px solid rgba(16, 185, 129, 0.35);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-unsuspend:hover {
+  background-color: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Suspend Modal Styling */
+.modal-card.suspend-modal {
+  max-width: 540px;
+  border: 1px solid #fca5a5;
+}
+
+.modal-header.header-suspend {
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+}
+
+.modal-header.header-suspend h3 {
+  color: #991b1b;
+}
+
+.sub-text {
+  font-size: 0.8rem;
+  color: #7f1d1d;
+}
+
+.target-doc-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.target-doc-card strong {
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.target-doc-card span {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.target-doc-card .email-muted {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-help {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0 0 6px 0;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.modal-suspend-btn {
+  padding: 10px 20px;
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+}
+
+.modal-suspend-btn:hover {
+  background: #b91c1c;
+}
+
+.modal-suspend-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Suspension Note Banner inside details modal */
+.suspension-note-banner {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 12px;
+  padding: 14px 18px;
+  color: #9f1239;
+}
+
+.suspension-note-banner h5 {
+  margin: 0 0 6px 0;
+  font-size: 0.95rem;
+}
+
+.suspension-note-banner p {
+  margin: 0 0 6px 0;
+  font-size: 0.88rem;
+}
+
+.suspension-note-banner .date-tag {
+  font-size: 0.78rem;
+  color: #be123c;
+  font-weight: 500;
+}
+

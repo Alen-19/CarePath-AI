@@ -87,6 +87,8 @@ export class LoginComponent implements AfterViewInit {
 
   isPendingApproval = false;
   pendingApprovalMessage = '';
+  isSuspendedAccount = false;
+  suspensionReasonMessage = '';
 
   handleGoogleCredential(credential: string) {
     this.ngZone.run(() => {
@@ -94,6 +96,7 @@ export class LoginComponent implements AfterViewInit {
       this.errorMessage = '';
       this.successMessage = '';
       this.isPendingApproval = false;
+      this.isSuspendedAccount = false;
 
       this.authService.loginWithGoogle(credential, this.role).subscribe({
         next: (res) => {
@@ -107,9 +110,15 @@ export class LoginComponent implements AfterViewInit {
         error: (err) => {
           this.isLoading = false;
           if (err.status === 403) {
-            const msg = err.error?.message || 'Your doctor account is pending administrator verification.';
-            this.isPendingApproval = true;
-            this.pendingApprovalMessage = msg;
+            const msg = err.error?.message || 'Access denied.';
+            if (err.error?.isSuspended || msg.toLowerCase().includes('suspended')) {
+              this.isPendingApproval = false;
+              this.isSuspendedAccount = true;
+              this.suspensionReasonMessage = msg;
+            } else {
+              this.isPendingApproval = true;
+              this.pendingApprovalMessage = msg;
+            }
           } else {
             this.errorMessage = err.error?.message || 'Google authentication failed.';
           }
@@ -123,6 +132,7 @@ export class LoginComponent implements AfterViewInit {
     this.errorMessage = '';
     this.successMessage = '';
     this.isPendingApproval = false;
+    this.isSuspendedAccount = false;
 
     const cleanEmail = this.email.trim();
     if (!cleanEmail || !this.password) {
@@ -154,8 +164,12 @@ export class LoginComponent implements AfterViewInit {
       error: (err) => {
         this.isLoading = false;
         if (err.status === 403) {
-          const msg = err.error?.message || 'Your doctor account is pending administrator verification.';
-          if (this.role === 'doctor' || msg.toLowerCase().includes('doctor') || msg.toLowerCase().includes('pending') || msg.toLowerCase().includes('verification')) {
+          const msg = err.error?.message || 'Access denied.';
+          if (err.error?.isSuspended || msg.toLowerCase().includes('suspended')) {
+            this.isPendingApproval = false;
+            this.isSuspendedAccount = true;
+            this.suspensionReasonMessage = msg;
+          } else if (this.role === 'doctor' || msg.toLowerCase().includes('pending') || msg.toLowerCase().includes('verification')) {
             this.isPendingApproval = true;
             this.pendingApprovalMessage = msg;
           } else {

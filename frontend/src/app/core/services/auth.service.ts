@@ -22,6 +22,10 @@ export interface User {
     isVerified: boolean;
     experienceYears?: number;
     clinicAddress?: string;
+    consultationFee?: number;
+    status?: 'pending' | 'approved' | 'suspended';
+    suspensionReason?: string;
+    suspendedAt?: string;
   };
 }
 
@@ -99,10 +103,14 @@ export class AuthService {
   }
 
   private handleAuthentication(res: AuthResponse) {
-    if (res && res.token) {
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('user', JSON.stringify(res.user));
-      this.currentUser.set(res.user);
+    if (res) {
+      if (res.token) {
+        localStorage.setItem('token', res.token);
+      }
+      if (res.user) {
+        localStorage.setItem('user', JSON.stringify(res.user));
+        this.currentUser.set(res.user);
+      }
     }
   }
 
