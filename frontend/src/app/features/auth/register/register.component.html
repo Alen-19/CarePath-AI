@@ -236,20 +236,21 @@
         <div class="form-row">
           <div class="form-group col">
             <label class="form-label" for="specialization">Specialization *</label>
-            <input 
-              type="text" 
+            <select 
               id="specialization" 
               name="specialization" 
-              class="form-input" 
-              [class.is-invalid]="specializationTouched && specialization.trim().length < 2"
-              [class.is-valid]="specializationTouched && specialization.trim().length >= 2"
-              placeholder="Cardiologist, General Physician..." 
+              class="form-input form-select" 
+              [class.is-invalid]="specializationTouched && !specialization"
+              [class.is-valid]="specializationTouched && specialization.length > 0"
               [(ngModel)]="specialization" 
               (blur)="specializationTouched = true"
-              (input)="specializationTouched = true"
-              [required]="role === 'doctor'" 
-            />
-            <span class="field-error-msg" *ngIf="specializationTouched && specialization.trim().length < 2">
+              (change)="specializationTouched = true"
+              [required]="role === 'doctor'"
+            >
+              <option value="">Select Specialization</option>
+              <option *ngFor="let spec of specializationsList" [value]="spec">{{ spec }}</option>
+            </select>
+            <span class="field-error-msg" *ngIf="specializationTouched && !specialization">
               ⚠️ Specialization is required for doctors
             </span>
           </div>
@@ -260,9 +261,18 @@
               id="experienceYears" 
               name="experienceYears" 
               class="form-input" 
+              [class.is-invalid]="experienceYearsTouched && !isExperienceValid"
+              [class.is-valid]="experienceYearsTouched && isExperienceValid && experienceYears !== null && experienceYears !== undefined"
+              min="0"
+              max="60"
               placeholder="e.g. 8" 
               [(ngModel)]="experienceYears" 
+              (blur)="experienceYearsTouched = true"
+              (input)="experienceYearsTouched = true"
             />
+            <span class="field-error-msg" *ngIf="experienceYearsTouched && !isExperienceValid">
+              ⚠️ Experience must be a number between 0 and 60 years
+            </span>
           </div>
         </div>
 

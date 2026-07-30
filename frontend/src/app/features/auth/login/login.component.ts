@@ -1,4 +1,4 @@
-import { Component, AfterViewInit } from '@angular/core';
+import { Component, AfterViewInit, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
@@ -39,7 +39,9 @@ export class LoginComponent implements AfterViewInit {
   constructor(
     private authService: AuthService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef
   ) {
     // Get return url from route parameters or default to '/'
     this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
@@ -83,33 +85,44 @@ export class LoginComponent implements AfterViewInit {
     renderGoogleBtn();
   }
 
-  handleGoogleCredential(credential: string) {
-    this.isLoading = true;
-    this.errorMessage = '';
-    this.successMessage = '';
+  isPendingApproval = false;
+  pendingApprovalMessage = '';
 
-    this.authService.loginWithGoogle(credential, this.role).subscribe({
-      next: (res) => {
-        this.isLoading = false;
-        this.successMessage = 'Google login successful!';
-        setTimeout(() => {
-          this.redirectUser(res.user.role);
-        }, 1000);
-      },
-      error: (err) => {
-        this.isLoading = false;
-        if (err.status === 403) {
-          this.errorMessage = err.error?.message || 'Your account is pending administrator verification or deactivated.';
-        } else {
-          this.errorMessage = err.error?.message || 'Google authentication failed.';
+  handleGoogleCredential(credential: string) {
+    this.ngZone.run(() => {
+      this.isLoading = true;
+      this.errorMessage = '';
+      this.successMessage = '';
+      this.isPendingApproval = false;
+
+      this.authService.loginWithGoogle(credential, this.role).subscribe({
+        next: (res) => {
+          this.isLoading = false;
+          this.successMessage = 'Google login successful!';
+          this.cdr.detectChanges();
+          setTimeout(() => {
+            this.redirectUser(res.user.role);
+          }, 1000);
+        },
+        error: (err) => {
+          this.isLoading = false;
+          if (err.status === 403) {
+            const msg = err.error?.message || 'Your doctor account is pending administrator verification.';
+            this.isPendingApproval = true;
+            this.pendingApprovalMessage = msg;
+          } else {
+            this.errorMessage = err.error?.message || 'Google authentication failed.';
+          }
+          this.cdr.detectChanges();
         }
-      }
+      });
     });
   }
 
   onSubmit() {
     this.errorMessage = '';
     this.successMessage = '';
+    this.isPendingApproval = false;
 
     const cleanEmail = this.email.trim();
     if (!cleanEmail || !this.password) {
@@ -141,7 +154,13 @@ export class LoginComponent implements AfterViewInit {
       error: (err) => {
         this.isLoading = false;
         if (err.status === 403) {
-          this.errorMessage = err.error?.message || 'Your account is pending administrator verification.';
+          const msg = err.error?.message || 'Your doctor account is pending administrator verification.';
+          if (this.role === 'doctor' || msg.toLowerCase().includes('doctor') || msg.toLowerCase().includes('pending') || msg.toLowerCase().includes('verification')) {
+            this.isPendingApproval = true;
+            this.pendingApprovalMessage = msg;
+          } else {
+            this.errorMessage = msg;
+          }
         } else {
           this.errorMessage = err.error?.message || 'Login failed. Please check your credentials.';
         }

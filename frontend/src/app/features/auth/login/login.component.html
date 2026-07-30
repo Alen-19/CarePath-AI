@@ -8,14 +8,32 @@
     </div>
 
     <!-- Alert Messages -->
-    <div class="alert alert-error" *ngIf="errorMessage">
+    <div class="alert alert-error" *ngIf="errorMessage && !isPendingApproval">
       <span>⚠️</span> {{ errorMessage }}
     </div>
-    <div class="alert alert-success" *ngIf="successMessage">
+    <div class="alert alert-success" *ngIf="successMessage && !isPendingApproval">
       <span>✓</span> {{ successMessage }}
     </div>
 
-    <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+    <!-- Pending Doctor Approval Card -->
+    <div *ngIf="isPendingApproval" class="pending-approval-card text-center p-3 animate-fade-in">
+      <div style="font-size: 3.5rem; margin-bottom: 1rem;">🩺 ⏳</div>
+      <h2 style="font-size: 1.4rem; font-weight: 600; margin-bottom: 0.75rem; color: #f8fafc;">
+        Verification Pending
+      </h2>
+      <p style="color: #94a3b8; line-height: 1.5; margin-bottom: 1.25rem; font-size: 0.95rem;">
+        {{ pendingApprovalMessage }}
+      </p>
+      <div style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 14px; margin-bottom: 1.5rem; text-align: left; font-size: 0.88rem; color: #93c5fd; line-height: 1.5;">
+        ℹ️ <strong>Admin Review in Progress:</strong> Your profile and medical license are currently being reviewed by system administrators. You will be granted access once an administrator approves your request.
+      </div>
+      <button type="button" class="btn btn-primary w-full" style="text-decoration: none; display: inline-block; text-align: center;" (click)="isPendingApproval = false; errorMessage = '';">
+        Return to Sign In
+      </button>
+    </div>
+
+    <ng-container *ngIf="!isPendingApproval">
+      <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
       <div class="form-group">
         <label class="form-label" for="email">Email Address</label>
         <input 
@@ -72,5 +90,6 @@
     <div class="auth-footer">
       New to CarePath AI? <a routerLink="/auth/register" class="link">Create an account</a>
     </div>
+    </ng-container>
   </div>
 </div>

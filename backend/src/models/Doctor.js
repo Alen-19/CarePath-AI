@@ -19,14 +19,15 @@ const DoctorSchema = new mongoose.Schema({
   },
   specialization: {
     type: String,
-    required: true,
+    default: '',
     trim: true
   },
   licenseNumber: {
     type: String,
-    required: true,
     unique: true,
-    trim: true
+    sparse: true,
+    trim: true,
+    default: undefined
   },
   experienceYears: {
     type: Number,

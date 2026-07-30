@@ -27,6 +27,43 @@ export class CompleteProfileComponent implements OnInit {
 
   // Doctor Specific
   specialization = '';
+  specializationsList: string[] = [
+    'General Practice / General Physician',
+    'Allergy & Immunology',
+    'Anesthesiology',
+    'Cardiology',
+    'Dermatology',
+    'Emergency Medicine',
+    'Endocrinology',
+    'Family Medicine',
+    'Gastroenterology',
+    'General Surgery',
+    'Geriatric Medicine',
+    'Hematology',
+    'Infectious Disease',
+    'Internal Medicine',
+    'Medical Genetics',
+    'Nephrology',
+    'Neurology',
+    'Neurosurgery',
+    'Obstetrics & Gynecology (OB-GYN)',
+    'Oncology',
+    'Ophthalmology',
+    'Orthopedic Surgery',
+    'Otolaryngology (ENT)',
+    'Pathology',
+    'Pediatrics',
+    'Physical Medicine & Rehabilitation',
+    'Plastic Surgery',
+    'Psychiatry',
+    'Pulmonology',
+    'Radiology',
+    'Rheumatology',
+    'Sports Medicine',
+    'Urology',
+    'Vascular Surgery',
+    'Other / Specialized'
+  ];
   experienceYears: number | null = null;
   licenseNumber = '';
   clinicAddress = '';
@@ -34,6 +71,21 @@ export class CompleteProfileComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
   isLoading = false;
+
+  // Validation Touch Flags
+  phoneTouched = false;
+  experienceYearsTouched = false;
+
+  get isPhoneValid(): boolean {
+    if (!this.phone.trim()) return true; // Phone optional unless patient where phone required
+    const phoneRegex = /^\+?[0-9\s\-()]{7,20}$/;
+    return phoneRegex.test(this.phone.trim());
+  }
+
+  get isExperienceValid(): boolean {
+    if (this.experienceYears === null || this.experienceYears === undefined || (this.experienceYears as any) === '') return true;
+    return this.experienceYears >= 0 && this.experienceYears <= 60;
+  }
 
   constructor(
     private authService: AuthService,
@@ -69,6 +121,8 @@ export class CompleteProfileComponent implements OnInit {
     this.roleSelected = true;
   }
 
+  isPendingApproval = false;
+
   onSubmit() {
     if (!this.firstName || !this.lastName) {
       this.errorMessage = 'First and Last name are required.';
@@ -82,6 +136,16 @@ export class CompleteProfileComponent implements OnInit {
 
     if (this.role === 'patient' && (!this.dateOfBirth || !this.phone)) {
       this.errorMessage = 'Date of Birth and Phone Number are required for Patients.';
+      return;
+    }
+
+    if (this.phone.trim() && !this.isPhoneValid) {
+      this.errorMessage = 'Please enter a valid phone number (e.g. +1 555-0199 or 9876543210).';
+      return;
+    }
+
+    if (this.role === 'doctor' && !this.isExperienceValid) {
+      this.errorMessage = 'Years of experience must be a number between 0 and 60.';
       return;
     }
 
@@ -112,16 +176,22 @@ export class CompleteProfileComponent implements OnInit {
     }).subscribe({
       next: (res) => {
         this.isLoading = false;
-        this.successMessage = 'Profile completed successfully! Redirecting...';
-        setTimeout(() => {
-          if (res.user.role === 'patient') {
-            this.router.navigate(['/patient']);
-          } else if (res.user.role === 'doctor') {
-            this.router.navigate(['/doctor']);
-          } else {
-            this.router.navigate(['/']);
-          }
-        }, 1500);
+        if (res.user.role === 'doctor' && !res.user.doctorProfile?.isVerified) {
+          this.authService.logout(); // Clear temporary token until admin approves
+          this.isPendingApproval = true;
+          this.successMessage = 'Profile completed successfully! Your doctor account has been submitted for administrator verification.';
+        } else {
+          this.successMessage = 'Profile completed successfully! Redirecting...';
+          setTimeout(() => {
+            if (res.user.role === 'patient') {
+              this.router.navigate(['/patient']);
+            } else if (res.user.role === 'doctor') {
+              this.router.navigate(['/doctor']);
+            } else {
+              this.router.navigate(['/']);
+            }
+          }, 1500);
+        }
       },
       error: (err) => {
         this.isLoading = false;

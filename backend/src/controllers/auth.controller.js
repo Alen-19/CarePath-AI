@@ -25,6 +25,18 @@ const isStrongPassword = (password) => {
   return passwordRegex.test(password);
 };
 
+const isValidPhone = (phone) => {
+  if (!phone) return true;
+  const phoneRegex = /^\+?[0-9\s\-()]{7,20}$/;
+  return phoneRegex.test(phone.trim());
+};
+
+const isValidExperience = (exp) => {
+  if (exp === undefined || exp === null || exp === '') return true;
+  const num = Number(exp);
+  return !isNaN(num) && num >= 0 && num <= 60;
+};
+
 // Helper to fetch user profile document
 const getProfileForUser = async (userId, role) => {
   if (role === 'patient') {
@@ -67,9 +79,17 @@ const registerUser = async (req, res) => {
       });
     }
 
+    if (profile?.phone && !isValidPhone(profile.phone)) {
+      return res.status(400).json({ message: 'Please enter a valid phone number (e.g. +1 555-0199 or 9876543210).' });
+    }
+
     if (role === 'doctor') {
       if (!profile?.specialization || !profile?.licenseNumber) {
         return res.status(400).json({ message: 'Doctors must provide specialization and medical license number.' });
+      }
+
+      if (profile?.experienceYears !== undefined && !isValidExperience(profile.experienceYears)) {
+        return res.status(400).json({ message: 'Years of experience must be a number between 0 and 60.' });
       }
 
       const existingDoc = await Doctor.findOne({ licenseNumber: profile.licenseNumber.trim() });
@@ -307,10 +327,9 @@ const googleLogin = async (req, res) => {
       } else if (selectedRole === 'doctor') {
         await Doctor.create({
           userId: user._id,
-          firstName: firstName || 'Google',
-          lastName: lastName || 'Doc',
-          specialization: 'General Physician',
-          licenseNumber: `GLIC-${Date.now()}`,
+          firstName: firstName || 'Doctor',
+          lastName: lastName || 'User',
+          specialization: '',
           isVerified: false
         });
       } else if (selectedRole === 'admin') {
@@ -329,9 +348,12 @@ const googleLogin = async (req, res) => {
 
     const userProfile = await getProfileForUser(user._id, user.role);
 
-    // Doctor Verification Guard: Block Google Login if Doctor is not verified by Admin
+    // Doctor Flow: If profile is incomplete (missing license/specialization), allow login token so doctor can reach /auth/complete-profile
     if (user.role === 'doctor') {
-      if (!userProfile || !userProfile.isVerified) {
+      const hasCompletedProfile = !!(userProfile && userProfile.licenseNumber && userProfile.specialization);
+      
+      // Only block with 403 if doctor has submitted their full profile and is waiting for admin verification
+      if (hasCompletedProfile && !userProfile.isVerified) {
         return res.status(403).json({ 
           message: 'Your doctor account is pending admin verification. You will be able to log in once an administrator approves your medical license.' 
         });
@@ -375,6 +397,14 @@ const completeProfile = async (req, res) => {
       await user.save();
     }
 
+    if (profile?.phone && !isValidPhone(profile.phone)) {
+      return res.status(400).json({ message: 'Please enter a valid phone number (e.g. +1 555-0199 or 9876543210).' });
+    }
+
+    if (profile?.experienceYears !== undefined && !isValidExperience(profile.experienceYears)) {
+      return res.status(400).json({ message: 'Years of experience must be a number between 0 and 60.' });
+    }
+
     let userProfile = await getProfileForUser(user._id, user.role);
 
     if (user.role === 'patient') {
@@ -392,12 +422,14 @@ const completeProfile = async (req, res) => {
       if (!userProfile) {
         userProfile = new Doctor({ userId: user._id });
       }
-      userProfile.firstName = profile?.firstName || userProfile.firstName || '';
-      userProfile.lastName = profile?.lastName || userProfile.lastName || '';
-      userProfile.specialization = profile?.specialization || userProfile.specialization || '';
-      userProfile.licenseNumber = profile?.licenseNumber || userProfile.licenseNumber || '';
-      userProfile.experienceYears = profile?.experienceYears || userProfile.experienceYears || 0;
-      userProfile.clinicAddress = profile?.clinicAddress || userProfile.clinicAddress || '';
+      if (profile?.firstName) userProfile.firstName = profile.firstName.trim();
+      if (profile?.lastName) userProfile.lastName = profile.lastName.trim();
+      if (profile?.specialization) userProfile.specialization = profile.specialization.trim();
+      if (profile?.licenseNumber) userProfile.licenseNumber = profile.licenseNumber.trim();
+      if (profile?.experienceYears !== undefined && profile?.experienceYears !== null) {
+        userProfile.experienceYears = profile.experienceYears;
+      }
+      if (profile?.clinicAddress) userProfile.clinicAddress = profile.clinicAddress.trim();
       await userProfile.save();
     }
 

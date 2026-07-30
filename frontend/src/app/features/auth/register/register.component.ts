@@ -1,4 +1,4 @@
-import { Component, AfterViewInit } from '@angular/core';
+import { Component, AfterViewInit, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
@@ -31,6 +31,43 @@ export class RegisterComponent implements AfterViewInit {
 
   // Doctor specific profile
   specialization = '';
+  specializationsList: string[] = [
+    'General Practice / General Physician',
+    'Allergy & Immunology',
+    'Anesthesiology',
+    'Cardiology',
+    'Dermatology',
+    'Emergency Medicine',
+    'Endocrinology',
+    'Family Medicine',
+    'Gastroenterology',
+    'General Surgery',
+    'Geriatric Medicine',
+    'Hematology',
+    'Infectious Disease',
+    'Internal Medicine',
+    'Medical Genetics',
+    'Nephrology',
+    'Neurology',
+    'Neurosurgery',
+    'Obstetrics & Gynecology (OB-GYN)',
+    'Oncology',
+    'Ophthalmology',
+    'Orthopedic Surgery',
+    'Otolaryngology (ENT)',
+    'Pathology',
+    'Pediatrics',
+    'Physical Medicine & Rehabilitation',
+    'Plastic Surgery',
+    'Psychiatry',
+    'Pulmonology',
+    'Radiology',
+    'Rheumatology',
+    'Sports Medicine',
+    'Urology',
+    'Vascular Surgery',
+    'Other / Specialized'
+  ];
   licenseNumber = '';
   experienceYears: number | null = null;
   clinicAddress = '';
@@ -48,6 +85,7 @@ export class RegisterComponent implements AfterViewInit {
   specializationTouched = false;
   licenseNumberTouched = false;
   phoneTouched = false;
+  experienceYearsTouched = false;
 
   // Live Validation Getters
   get isFirstNameValid(): boolean {
@@ -85,6 +123,11 @@ export class RegisterComponent implements AfterViewInit {
     return /^\+?[0-9\s\-()]{7,20}$/.test(this.phone.trim());
   }
 
+  get isExperienceValid(): boolean {
+    if (this.experienceYears === null || this.experienceYears === undefined || (this.experienceYears as any) === '') return true;
+    return this.experienceYears >= 0 && this.experienceYears <= 60;
+  }
+
   get isDoctorValid(): boolean {
     if (this.role !== 'doctor') return true;
     return this.specialization.trim().length >= 2 && this.licenseNumber.trim().length >= 3;
@@ -97,13 +140,16 @@ export class RegisterComponent implements AfterViewInit {
            this.isPasswordValid &&
            this.isConfirmPasswordValid &&
            this.isPhoneValid &&
-           this.isDoctorValid;
+           this.isDoctorValid &&
+           this.isExperienceValid;
   }
 
   constructor(
     private authService: AuthService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef
   ) {
     // Get pre-selected role from query parameters if provided
     const queryRole = this.route.snapshot.queryParams['role'];
@@ -147,28 +193,32 @@ export class RegisterComponent implements AfterViewInit {
   isPendingApproval = false;
 
   handleGoogleCredential(credential: string) {
-    this.isLoading = true;
-    this.errorMessage = '';
-    this.successMessage = '';
+    this.ngZone.run(() => {
+      this.isLoading = true;
+      this.errorMessage = '';
+      this.successMessage = '';
 
-    // Register with Google sends the chosen role to backend
-    this.authService.loginWithGoogle(credential, this.role).subscribe({
-      next: (res) => {
-        this.isLoading = false;
-        if (!res.token && res.user?.role === 'doctor') {
-          this.isPendingApproval = true;
-          this.successMessage = res.message || 'Your doctor account is pending administrator verification.';
-        } else {
-          this.successMessage = 'Google Sign-In successful!';
-          setTimeout(() => {
-            this.redirectUser(res.user.role);
-          }, 1000);
+      // Register with Google sends the chosen role to backend
+      this.authService.loginWithGoogle(credential, this.role).subscribe({
+        next: (res) => {
+          this.isLoading = false;
+          if (!res.token && res.user?.role === 'doctor') {
+            this.isPendingApproval = true;
+            this.successMessage = res.message || 'Your doctor account is pending administrator verification.';
+          } else {
+            this.successMessage = 'Google Sign-In successful!';
+            setTimeout(() => {
+              this.redirectUser(res.user.role);
+            }, 1000);
+          }
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.isLoading = false;
+          this.errorMessage = err.error?.message || 'Google authentication failed.';
+          this.cdr.detectChanges();
         }
-      },
-      error: (err) => {
-        this.isLoading = false;
-        this.errorMessage = err.error?.message || 'Google authentication failed.';
-      }
+      });
     });
   }
 

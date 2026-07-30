@@ -8,14 +8,32 @@
     </div>
 
     <!-- Alert Messages -->
-    <div class="alert alert-error" *ngIf="errorMessage">
+    <div class="alert alert-error" *ngIf="errorMessage && !isPendingApproval">
       <span>⚠️</span> {{ errorMessage }}
     </div>
-    <div class="alert alert-success" *ngIf="successMessage">
+    <div class="alert alert-success" *ngIf="successMessage && !isPendingApproval">
       <span>✓</span> {{ successMessage }}
     </div>
 
-    <form (ngSubmit)="onSubmit()" #profileForm="ngForm">
+    <!-- Pending Doctor Approval Card -->
+    <div *ngIf="isPendingApproval" class="pending-approval-card text-center p-3 animate-fade-in">
+      <div style="font-size: 3.5rem; margin-bottom: 1rem;">🩺 ⏳</div>
+      <h2 style="font-size: 1.4rem; font-weight: 600; margin-bottom: 0.75rem; color: #f8fafc;">
+        Verification Pending
+      </h2>
+      <p style="color: #94a3b8; line-height: 1.5; margin-bottom: 1.25rem; font-size: 0.95rem;">
+        {{ successMessage }}
+      </p>
+      <div style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 14px; margin-bottom: 1.5rem; text-align: left; font-size: 0.88rem; color: #93c5fd; line-height: 1.5;">
+        ℹ️ <strong>Admin Review Required:</strong> Your medical credentials have been sent to system administration for review. Once verified, you will be able to log in to your Doctor Portal.
+      </div>
+      <a routerLink="/auth/login" [queryParams]="{ role: 'doctor' }" class="btn btn-primary w-full" style="text-decoration: none; display: inline-block; text-align: center;">
+        Return to Sign In
+      </a>
+    </div>
+
+    <ng-container *ngIf="!isPendingApproval">
+      <form (ngSubmit)="onSubmit()" #profileForm="ngForm">
       <!-- Role Switcher Segment -->
       <div class="role-selector">
         <button 
@@ -102,10 +120,17 @@
               id="phone" 
               name="phone" 
               class="form-input" 
+              [class.is-invalid]="phoneTouched && !isPhoneValid"
+              [class.is-valid]="phoneTouched && isPhoneValid && phone.trim().length > 0"
               placeholder="+1 234 567 890" 
               [(ngModel)]="phone" 
+              (blur)="phoneTouched = true"
+              (input)="phoneTouched = true"
               required
             />
+            <span class="field-error-msg" *ngIf="phoneTouched && !isPhoneValid">
+              ⚠️ Please enter a valid phone number (e.g. +1 555-0199 or 9876543210)
+            </span>
           </div>
           <div class="form-group col">
             <label class="form-label" for="gender">Gender</label>
@@ -124,15 +149,16 @@
         <div class="form-row">
           <div class="form-group col">
             <label class="form-label" for="specialization">Specialization *</label>
-            <input 
-              type="text" 
+            <select 
               id="specialization" 
               name="specialization" 
-              class="form-input" 
-              placeholder="Cardiologist, General Physician..." 
+              class="form-input form-select" 
               [(ngModel)]="specialization" 
-              required 
-            />
+              required
+            >
+              <option value="">Select Specialization</option>
+              <option *ngFor="let spec of specializationsList" [value]="spec">{{ spec }}</option>
+            </select>
           </div>
           <div class="form-group col">
             <label class="form-label" for="experienceYears">Years of Experience</label>
@@ -141,9 +167,18 @@
               id="experienceYears" 
               name="experienceYears" 
               class="form-input" 
+              [class.is-invalid]="experienceYearsTouched && !isExperienceValid"
+              [class.is-valid]="experienceYearsTouched && isExperienceValid && experienceYears !== null && experienceYears !== undefined"
+              min="0"
+              max="60"
               placeholder="e.g. 8" 
               [(ngModel)]="experienceYears" 
+              (blur)="experienceYearsTouched = true"
+              (input)="experienceYearsTouched = true"
             />
+            <span class="field-error-msg" *ngIf="experienceYearsTouched && !isExperienceValid">
+              ⚠️ Experience must be a number between 0 and 60 years
+            </span>
           </div>
         </div>
 
@@ -178,5 +213,6 @@
         {{ isLoading ? 'Saving Profile...' : 'Complete Registration' }}
       </button>
     </form>
+    </ng-container>
   </div>
 </div>
