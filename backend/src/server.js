@@ -37,11 +37,13 @@ uploadDirs.forEach(dir => {
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
 const appointmentRoutes = require('./routes/appointment.routes');
+const bookingRoutes = require('./routes/booking.routes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/booking', bookingRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

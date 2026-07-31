@@ -91,6 +91,62 @@
     </div>
   </section>
 
+  <!-- Live Appointments Panel -->
+  <section class="appointments-panel glass-card" *ngIf="!isSuspended">
+    <div class="panel-header">
+      <h2>📅 Appointments</h2>
+      <div class="appt-tabs">
+        <button class="appt-tab-btn" [class.active]="apptTab === 'today'" (click)="apptTab = 'today'">
+          Today <span class="appt-count" *ngIf="todayApptsList.length > 0">{{ todayApptsList.length }}</span>
+        </button>
+        <button class="appt-tab-btn" [class.active]="apptTab === 'upcoming'" (click)="apptTab = 'upcoming'">
+          Upcoming <span class="appt-count" *ngIf="upcomingApptsList.length > 0">{{ upcomingApptsList.length }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="loadingAppts" class="appt-loading">
+      <div class="spinner-sm-d"></div> Loading appointments…
+    </div>
+
+    <!-- Today -->
+    <div *ngIf="apptTab === 'today' && !loadingAppts">
+      <div *ngIf="todayApptsList.length === 0" class="appt-empty">
+        <span>🌙</span> No appointments scheduled for today.
+      </div>
+      <div class="live-appt-list" *ngIf="todayApptsList.length > 0">
+        <div class="live-appt-item" *ngFor="let a of todayApptsList">
+          <div class="live-appt-time">{{ a.startTime }}</div>
+          <div class="live-appt-details">
+            <h4>{{ a.patientId ? a.patientId.firstName + ' ' + a.patientId.lastName : 'Patient' }}</h4>
+            <p>{{ a.type }}<span *ngIf="a.symptoms"> · {{ a.symptoms }}</span></p>
+          </div>
+          <span class="live-appt-status confirmed">{{ a.status }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upcoming -->
+    <div *ngIf="apptTab === 'upcoming' && !loadingAppts">
+      <div *ngIf="upcomingApptsList.length === 0" class="appt-empty">
+        <span>📆</span> No upcoming appointments yet.
+      </div>
+      <div class="live-appt-list" *ngIf="upcomingApptsList.length > 0">
+        <div class="live-appt-item" *ngFor="let a of upcomingApptsList">
+          <div class="live-appt-time">
+            <span class="live-appt-date">{{ formatApptDate(a.appointmentDate) }}</span>
+            <span>{{ a.startTime }}</span>
+          </div>
+          <div class="live-appt-details">
+            <h4>{{ a.patientId ? a.patientId.firstName + ' ' + a.patientId.lastName : 'Patient' }}</h4>
+            <p>{{ a.type }}</p>
+          </div>
+          <span class="live-appt-status confirmed">{{ a.status }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Main Content Layout -->
   <div class="dashboard-main-grid">
     <!-- Today's Consultations -->

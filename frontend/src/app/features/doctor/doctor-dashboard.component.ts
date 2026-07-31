@@ -7,7 +7,8 @@ import {
   AppointmentService,
   DoctorScheduleData,
   DaySchedule,
-  DoctorDateOverrideData
+  DoctorDateOverrideData,
+  DoctorAppointmentItem
 } from '../../core/services/appointment.service';
 
 @Component({
@@ -93,6 +94,12 @@ export class DoctorDashboardComponent implements OnInit {
   suspensionReason = '';
   suspendedAt = '';
 
+  // Appointments
+  todayApptsList: DoctorAppointmentItem[] = [];
+  upcomingApptsList: DoctorAppointmentItem[] = [];
+  loadingAppts = false;
+  apptTab: 'today' | 'upcoming' = 'today';
+
   constructor(
     private authService: AuthService,
     private appointmentService: AppointmentService,
@@ -123,6 +130,24 @@ export class DoctorDashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadDoctorSchedule();
+    this.loadDoctorAppointments();
+  }
+
+  loadDoctorAppointments(): void {
+    this.loadingAppts = true;
+    this.appointmentService.getDoctorAppointments().subscribe({
+      next: (res) => {
+        this.todayApptsList = res.today || [];
+        this.upcomingApptsList = res.upcoming || [];
+        this.loadingAppts = false;
+      },
+      error: () => { this.loadingAppts = false; }
+    });
+  }
+
+  formatApptDate(dateStr: string): string {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
   private getISOStringForDate(dateObj: Date): string {

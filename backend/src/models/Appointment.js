@@ -61,6 +61,19 @@ const AppointmentSchema = new mongoose.Schema({
   paidAt: {
     type: Date,
     default: null
+  },
+  // Cancellation
+  cancelledAt: {
+    type: Date,
+    default: null
+  },
+  cancellationReason: {
+    type: String,
+    default: null
+  },
+  refundId: {
+    type: String,
+    default: null // Razorpay refund ID after cancellation
   }
 }, { 
   timestamps: true,

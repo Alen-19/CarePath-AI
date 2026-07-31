@@ -3,13 +3,35 @@ const DoctorSchedule = require('../models/DoctorSchedule');
 const DoctorDateOverride = require('../models/DoctorDateOverride');
 const Appointment = require('../models/Appointment');
 
+function getNowIST() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(now);
+
+  let y, m, d, h = 0, min = 0;
+  parts.forEach(p => {
+    if (p.type === 'year') y = p.value;
+    if (p.type === 'month') m = p.value;
+    if (p.type === 'day') d = p.value;
+    if (p.type === 'hour') h = parseInt(p.value, 10) % 24;
+    if (p.type === 'minute') min = parseInt(p.value, 10);
+  });
+
+  const todayStr = `${y}-${m}-${d}`;
+  const nowMinutes = h * 60 + min;
+  return { todayStr, nowMinutes };
+}
+
 // Helper: Get today's ISO date string YYYY-MM-DD
 function getTodayDateString() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return getNowIST().todayStr;
 }
 
 // Helper: Get ISO date string YYYY-MM-DD for 1 year in future
@@ -323,7 +345,7 @@ exports.getAvailableSlots = async (req, res) => {
       return res.status(404).json({ message: 'Doctor not found.' });
     }
 
-    const todayStr = getTodayDateString();
+    const { todayStr, nowMinutes } = getNowIST();
     if (date < todayStr) {
       return res.json({
         success: true,
@@ -405,11 +427,15 @@ exports.getAvailableSlots = async (req, res) => {
 
     const bookedTimes = new Set(bookedAppointments.map(a => a.startTime));
 
-    // 5. Mark booked status
-    const slots = candidateSlots.map(slot => ({
+    // 5. Mark booked status & filter out past slots for today
+    let slots = candidateSlots.map(slot => ({
       ...slot,
       isBooked: bookedTimes.has(slot.startTime)
     }));
+
+    if (date === todayStr) {
+      slots = slots.filter(slot => parseTimeToMinutes(slot.startTime) > nowMinutes);
+    }
 
     res.json({
       success: true,
