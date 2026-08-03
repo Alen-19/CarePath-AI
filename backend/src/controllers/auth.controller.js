@@ -27,7 +27,7 @@ const isStrongPassword = (password) => {
 
 const isValidPhone = (phone) => {
   if (!phone) return true;
-  const phoneRegex = /^\+?[0-9\s\-()]{7,20}$/;
+  const phoneRegex = /^(?:\+?91[\s\-]?)?[6-9]\d{9}$/;
   return phoneRegex.test(phone.trim());
 };
 
@@ -80,7 +80,7 @@ const registerUser = async (req, res) => {
     }
 
     if (profile?.phone && !isValidPhone(profile.phone)) {
-      return res.status(400).json({ message: 'Please enter a valid phone number (e.g. +1 555-0199 or 9876543210).' });
+      return res.status(400).json({ message: 'Please enter a valid 10-digit Indian phone number (e.g. 9876543210 or +91 9876543210).' });
     }
 
     if (role === 'doctor') {
@@ -404,7 +404,7 @@ const completeProfile = async (req, res) => {
     }
 
     if (profile?.phone && !isValidPhone(profile.phone)) {
-      return res.status(400).json({ message: 'Please enter a valid phone number (e.g. +1 555-0199 or 9876543210).' });
+      return res.status(400).json({ message: 'Please enter a valid 10-digit Indian phone number (e.g. 9876543210 or +91 9876543210).' });
     }
 
     if (profile?.experienceYears !== undefined && !isValidExperience(profile.experienceYears)) {

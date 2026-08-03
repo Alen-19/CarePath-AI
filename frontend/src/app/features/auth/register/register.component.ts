@@ -120,7 +120,7 @@ export class RegisterComponent implements AfterViewInit {
 
   get isPhoneValid(): boolean {
     if (!this.phone.trim()) return true; // Phone is optional
-    return /^\+?[0-9\s\-()]{7,20}$/.test(this.phone.trim());
+    return /^(?:\+?91[\s\-]?)?[6-9]\d{9}$/.test(this.phone.trim());
   }
 
   get isExperienceValid(): boolean {
@@ -262,9 +262,9 @@ export class RegisterComponent implements AfterViewInit {
         return;
       }
     } else if (this.role === 'patient' && this.phone.trim()) {
-      const phoneRegex = /^\+?[0-9\s\-()]{7,20}$/;
+      const phoneRegex = /^(?:\+?91[\s\-]?)?[6-9]\d{9}$/;
       if (!phoneRegex.test(this.phone.trim())) {
-        this.errorMessage = 'Please enter a valid phone number.';
+        this.errorMessage = 'Please enter a valid 10-digit Indian phone number (e.g. 9876543210 or +91 9876543210).';
         return;
       }
     }

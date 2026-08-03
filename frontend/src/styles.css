@@ -255,3 +255,160 @@ h1, h2, h3, h4, h5, h6 {
   border-color: rgba(16, 185, 129, 0.2);
   color: #a7f3d0;
 }
+
+/* ==========================================
+   Modern Landing Page Redesign Utility Styles
+   ========================================== */
+.font-headline {
+  font-family: 'Plus Jakarta Sans', var(--font-primary), sans-serif;
+}
+
+.font-body {
+  font-family: 'Inter', var(--font-secondary), sans-serif;
+}
+
+.bg-navy-dark {
+  background-color: #00183d !important;
+}
+
+.bg-secondary-blue {
+  background-color: #0060a8 !important;
+}
+
+.bg-surface-light {
+  background-color: #faf9fd;
+}
+
+.text-navy {
+  color: #00183d !important;
+}
+
+.text-secondary-blue {
+  color: #0060a8 !important;
+}
+
+.text-cyan-accent {
+  color: #00a5b7 !important;
+}
+
+.glass-card-light {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 10px 30px rgba(15, 45, 92, 0.05);
+}
+
+.ai-gradient-border {
+  border-left: 4px solid #45d8ed !important;
+  background: rgba(0, 24, 61, 0.75) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Timeline Components */
+.timeline-number-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.timeline-connector {
+  position: relative;
+}
+
+.timeline-connector::after {
+  content: '';
+  position: absolute;
+  top: 50px;
+  left: 21px;
+  width: 2px;
+  height: calc(100% - 30px);
+  background-color: #e2e8f0;
+  z-index: 1;
+}
+
+.timeline-item:last-child .timeline-connector::after {
+  display: none;
+}
+
+/* Hero Badge Pulse */
+.hero-slogan-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 1rem;
+  border-radius: 50px;
+  background: rgba(0, 96, 168, 0.08);
+  border: 1px solid rgba(0, 96, 168, 0.2);
+  color: #0060a8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pulse-dot-cyan {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #0060a8;
+  box-shadow: 0 0 0 0 rgba(0, 96, 168, 0.4);
+  animation: pulseCyan 2s infinite;
+}
+
+/* Dropdown Contrast Fixes */
+.landing-page .dropdown-menu {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 24, 61, 0.12) !important;
+  box-shadow: 0 10px 30px rgba(0, 24, 61, 0.15) !important;
+}
+
+.landing-page .dropdown-item {
+  color: #1e293b !important;
+  transition: background-color 0.2s ease;
+}
+
+.landing-page .dropdown-item:hover, .landing-page .dropdown-item:focus {
+  background-color: rgba(0, 96, 168, 0.08) !important;
+}
+
+.landing-page .dropdown-item .item-title, .landing-page .dropdown-item .fw-bold {
+  color: #00183d !important;
+}
+
+.landing-page .dropdown-item .item-desc, .landing-page .dropdown-item .text-muted {
+  color: #64748b !important;
+}
+
+/* Video Frame Showcase */
+.hero-video-frame {
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0, 24, 61, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hero-video-frame:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 45px rgba(0, 165, 183, 0.25) !important;
+}
+
+/* Hover Lift Utility */
+.hover-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+.hover-lift:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 10px 25px rgba(0, 96, 168, 0.25) !important;
+}
+
+

@@ -1,96 +1,426 @@
-<div class="landing-container animate-fade-in">
-  <!-- Top Navigation Bar with Hover Dropdowns -->
-  <header class="landing-navbar glass-card">
-    <div class="logo">
-      <svg class="brand-svg" width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M 20,50 A 35,35 0 1,1 65,85" stroke="url(#tealGrad)" stroke-width="7" stroke-linecap="round" fill="none"/>
-        <rect x="62" y="18" width="22" height="22" rx="6" fill="url(#tealGrad)"/>
-        <path d="M 66,29 H 70 L 72,24 L 75,34 L 77,29 H 80" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="45" cy="27" r="5" fill="#00B4D8"/>
-        <path d="M 38,48 C 38,36 52,36 52,48 Z" fill="#00B4D8"/>
-        <path d="M 40,82 C 45,62 65,70 70,50 C 72,45 68,40 62,40" stroke="url(#emeraldGrad)" stroke-width="8" stroke-linecap="round" fill="none"/>
-        <path d="M 72,36 C 78,32 82,38 78,44 C 74,42 72,36 72,36 Z" fill="#2BB673"/>
-        <path d="M 18,52 C 18,78 42,85 60,82 C 50,72 32,72 28,58 Z" fill="#0D233A"/>
-        <defs>
-          <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#008094" />
-            <stop offset="100%" stop-color="#00B4D8" />
-          </linearGradient>
-          <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#2BB673" />
-            <stop offset="100%" stop-color="#48BB78" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <span class="brand-text">Care<span class="accent-teal">Path</span></span>
-      <span class="badge-ai">AI</span>
-    </div>
-    
-    <div class="nav-actions">
-      <!-- Sign In Dropdown -->
-      <div class="dropdown">
-        <button type="button" class="btn btn-secondary btn-sm dropdown-trigger">
-          Sign In <span class="chevron">▾</span>
-        </button>
-        <div class="dropdown-menu">
-          <button type="button" class="dropdown-item" (click)="navigateWithRole('login', 'patient')">
-            <span class="item-icon">👤</span>
-            <div class="item-text">
-              <span class="item-title">Patient Login</span>
-              <span class="item-desc">Access health records & AI plans</span>
-            </div>
-          </button>
-          <button type="button" class="dropdown-item" (click)="navigateWithRole('login', 'doctor')">
-            <span class="item-icon">🩺</span>
-            <div class="item-text">
-              <span class="item-title">Doctor Login</span>
-              <span class="item-desc">Access clinical portal & patients</span>
-            </div>
-          </button>
+<div class="landing-page font-body text-dark animate-fade-in">
+  <!-- Top Navigation Header -->
+  <header class="navbar navbar-expand-lg glass-card-light sticky-top px-3 px-md-5 py-2">
+    <div class="container-fluid px-0">
+      <!-- Brand Logo -->
+      <a class="navbar-brand d-flex align-items-center gap-2" (click)="scrollToSection('hero')" style="cursor: pointer;">
+        <svg class="brand-svg" width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 20,50 A 35,35 0 1,1 65,85" stroke="url(#tealGrad)" stroke-width="7" stroke-linecap="round" fill="none"/>
+          <rect x="62" y="18" width="22" height="22" rx="6" fill="url(#tealGrad)"/>
+          <path d="M 66,29 H 70 L 72,24 L 75,34 L 77,29 H 80" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="45" cy="27" r="5" fill="#00B4D8"/>
+          <path d="M 38,48 C 38,36 52,36 52,48 Z" fill="#00B4D8"/>
+          <path d="M 40,82 C 45,62 65,70 70,50 C 72,45 68,40 62,40" stroke="url(#emeraldGrad)" stroke-width="8" stroke-linecap="round" fill="none"/>
+          <path d="M 72,36 C 78,32 82,38 78,44 C 74,42 72,36 72,36 Z" fill="#2BB673"/>
+          <path d="M 18,52 C 18,78 42,85 60,82 C 50,72 32,72 28,58 Z" fill="#00183d"/>
+          <defs>
+            <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#0060a8" />
+              <stop offset="100%" stop-color="#45d8ed" />
+            </linearGradient>
+            <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#2BB673" />
+              <stop offset="100%" stop-color="#48BB78" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="font-headline fw-bold fs-4 text-navy ms-1">Care<span class="text-secondary-blue">Path</span></span>
+        <span class="badge bg-secondary-blue text-white font-headline px-2 py-1 rounded-pill" style="font-size: 0.7rem;">AI</span>
+      </a>
+
+      <!-- Navbar Toggler for Mobile -->
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#landingNav">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+
+      <!-- Nav Items & Action Buttons -->
+      <div class="collapse navbar-collapse" id="landingNav">
+        <ul class="navbar-nav mx-auto mb-2 mb-lg-0 gap-lg-3">
+          <li class="nav-item">
+            <a class="nav-link fw-semibold text-dark active" (click)="scrollToSection('hero')" style="cursor: pointer;">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link fw-semibold text-muted" (click)="scrollToSection('features')" style="cursor: pointer;">Features</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link fw-semibold text-muted" (click)="scrollToSection('how-it-works')" style="cursor: pointer;">How it Works</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link fw-semibold text-muted" (click)="scrollToSection('capabilities')" style="cursor: pointer;">AI Tech</a>
+          </li>
+        </ul>
+
+        <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
+          <!-- Sign In Role Dropdown -->
+          <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1 rounded-3 px-3 py-2 font-headline fw-semibold" type="button" data-bs-toggle="dropdown">
+              <span class="material-symbols-outlined fs-5">login</span> Sign In
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end bg-white shadow-lg border-0 p-2 rounded-3" style="min-width: 250px;">
+              <li>
+                <button class="dropdown-item d-flex align-items-center gap-2 p-2 rounded-2" (click)="navigateWithRole('login', 'patient')">
+                  <span class="fs-4">👤</span>
+                  <div>
+                    <div class="fw-bold text-dark fs-6">Patient Portal</div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Access health records & AI plans</div>
+                  </div>
+                </button>
+              </li>
+              <li><hr class="dropdown-divider opacity-10 my-1"></li>
+              <li>
+                <button class="dropdown-item d-flex align-items-center gap-2 p-2 rounded-2" (click)="navigateWithRole('login', 'doctor')">
+                  <span class="fs-4">🩺</span>
+                  <div>
+                    <div class="fw-bold text-dark fs-6">Doctor Portal</div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Access clinical dashboard</div>
+                  </div>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Get Started / Sign Up Button -->
+          <a routerLink="/auth/register" class="btn btn-primary bg-secondary-blue border-0 px-4 py-2 rounded-3 font-headline fw-bold shadow-sm hover-lift">
+            Get Started
+          </a>
         </div>
       </div>
-
-      <!-- Sign Up Button -->
-      <a routerLink="/auth/register" class="btn btn-primary btn-sm btn-emerald">
-        Sign Up
-      </a>
     </div>
   </header>
 
-  <!-- Clean Hero Welcome Section -->
-  <main class="hero-section">
-    <div class="hero-slogan-badge">
-      <span class="pulse-dot"></span>
-      <span class="slogan-text">YOUR HEALTH. OUR PATH. BETTER EVERY DAY.</span>
-    </div>
+  <main>
+    <!-- Hero Section -->
+    <section id="hero" class="py-5 bg-surface-light min-vh-75 d-flex align-items-center position-relative">
+      <div class="container py-lg-4">
+        <div class="row align-items-center g-5">
+          <!-- Hero Text -->
+          <div class="col-lg-6">
+            <div class="hero-slogan-pill mb-3">
+              <span class="pulse-dot-cyan"></span>
+              <span>AI MEDICAL ANALYSIS</span>
+            </div>
+            
+            <h1 class="font-headline display-5 fw-extrabold text-navy leading-tight mb-3">
+              Your Personalized Health Journey, <span class="text-secondary-blue">Powered by AI.</span>
+            </h1>
+            
+            <p class="fs-5 text-muted mb-4">
+              CarePath AI transforms complex medical data into clear, actionable steps. Manage records, track vitals, and book appointments with an intelligent companion that knows your health history.
+            </p>
+            
+            <div class="d-flex flex-wrap gap-3 mb-4">
+              <a routerLink="/auth/register" class="btn btn-primary bg-navy-dark border-0 px-4 py-3 rounded-3 font-headline fw-bold shadow">
+                Start Free Registration
+              </a>
+              <button (click)="scrollToSection('features')" class="btn btn-outline-secondary px-4 py-3 rounded-3 font-headline fw-semibold d-flex align-items-center gap-2">
+                <span class="material-symbols-outlined text-secondary-blue">explore</span>
+                Explore Features
+              </button>
+            </div>
 
-    <h1 class="hero-title">
-      Welcome to <span class="accent-text">CarePath AI</span>
-    </h1>
-    
-    <p class="hero-description">
-      Continuous medical insights, personalized care plans, and seamless communication between patients and verified clinicians.
-    </p>
+            <div class="pt-4 border-top border-secondary border-opacity-10 d-flex align-items-center gap-3">
+              <div class="d-flex align-items-center text-warning fs-5">
+                <i class="bi bi-star-fill"></i>
+                <i class="bi bi-star-fill ms-1"></i>
+                <i class="bi bi-star-fill ms-1"></i>
+                <i class="bi bi-star-fill ms-1"></i>
+                <i class="bi bi-star-fill ms-1"></i>
+              </div>
+              <p class="mb-0 text-muted small">
+                Trusted by <strong class="text-navy">Patients & Verified Clinicians</strong>
+              </p>
+            </div>
+          </div>
 
-    <!-- Feature Pillars derived from Logo -->
-    <div class="feature-grid">
-      <div class="feature-card glass-card">
-        <div class="feature-icon teal-glow">🩺</div>
-        <h3>AI Health Diagnostics</h3>
-        <p>Continuous vitals monitoring & smart medical Insights.</p>
+          <!-- Hero Right Showcase: Looping Animated Logo Video -->
+          <div class="col-lg-6">
+            <div class="position-relative">
+              <div class="glass-card-light p-3 p-md-4 rounded-4 shadow-lg position-relative z-2">
+                <!-- Video Container -->
+                <div class="hero-video-frame bg-navy-dark position-relative">
+                  <video autoplay loop muted playsinline class="w-100 h-auto d-block rounded-3">
+                    <source src="assets/videos/can_u_create_an_animated_video.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              </div>
+
+              <!-- Decorative Ambient Glow -->
+              <div class="position-absolute top-50 start-50 translate-middle w-100 h-100 bg-info opacity-10 blur-3xl rounded-circle z-1"></div>
+            </div>
+          </div>
+        </div>
       </div>
+    </section>
 
-      <div class="feature-card glass-card">
-        <div class="feature-icon emerald-glow">🛣️</div>
-        <h3>Personalized Health Paths</h3>
-        <p>Dynamic recovery milestones & daily wellness guidance.</p>
-      </div>
+    <!-- Features Bento Grid -->
+    <section id="features" class="py-5 bg-surface-light">
+      <div class="container py-lg-4">
+        <!-- High-Contrast Section Header -->
+        <div class="text-center max-w-2xl mx-auto mb-5">
+          <span class="text-secondary-blue font-headline fw-bold text-uppercase tracking-wider small d-block mb-1">INTELLIGENT PLATFORM</span>
+          <h2 class="font-headline display-6 fw-bold text-navy mb-2">Next-Gen Healthcare Features</h2>
+          <p class="text-muted fs-6">Designed to simplify health management for patients while empowering doctors with clinical intelligence.</p>
+        </div>
 
-      <div class="feature-card glass-card">
-        <div class="feature-icon navy-glow">🤝</div>
-        <h3>Doctor-Patient Portal</h3>
-        <p>Seamless communication & clinician-verified care.</p>
+        <div class="row g-4">
+          <!-- Large Feature Card 1 -->
+          <div class="col-lg-8">
+            <div class="glass-card-light p-4 p-md-5 rounded-4 h-100 d-flex flex-column justify-content-between position-relative overflow-hidden">
+              <div>
+                <div class="rounded-3 bg-primary bg-opacity-10 text-secondary-blue p-3 d-inline-block mb-3">
+                  <span class="material-symbols-outlined fs-2">psychiatry</span>
+                </div>
+                <h3 class="font-headline fw-bold text-navy mb-2">AI Medical Report Analysis</h3>
+                <p class="text-muted max-w-lg mb-4">
+                  Upload medical reports and let our clinical-grade AI summarize findings, identify trends, and provide easy-to-understand breakdowns backed by medical intelligence.
+                </p>
+              </div>
+              <a (click)="scrollToSection('capabilities')" class="text-secondary-blue fw-bold text-decoration-none d-inline-flex align-items-center gap-1" style="cursor: pointer;">
+                Learn more about AI analysis <span class="material-symbols-outlined fs-6">arrow_forward</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- Feature Card 2 -->
+          <div class="col-lg-4">
+            <div class="glass-card-light p-4 p-md-5 rounded-4 h-100">
+              <div class="rounded-3 bg-success bg-opacity-10 text-success p-3 d-inline-block mb-3">
+                <span class="material-symbols-outlined fs-2">calendar_today</span>
+              </div>
+              <h4 class="font-headline fw-bold text-navy mb-2">Smart Appointment Booking</h4>
+              <p class="text-muted mb-0">
+                Browse verified specialist profiles, select preferred time slots, and schedule appointments effortlessly.
+              </p>
+            </div>
+          </div>
+
+          <!-- Feature Card 3 -->
+          <div class="col-lg-4">
+            <div class="glass-card-light p-4 p-md-5 rounded-4 h-100">
+              <div class="rounded-3 bg-warning bg-opacity-10 text-warning p-3 d-inline-block mb-3">
+                <span class="material-symbols-outlined fs-2">route</span>
+              </div>
+              <h4 class="font-headline fw-bold text-navy mb-2">Personalized Care Plans</h4>
+              <p class="text-muted mb-0">
+                Receive customized health plans with actionable daily recovery goals, medication reminders, and doctor feedback.
+              </p>
+            </div>
+          </div>
+
+          <!-- Large Feature Card 4 -->
+          <div class="col-lg-8">
+            <div class="glass-card-light p-4 p-md-5 rounded-4 h-100 d-flex flex-col flex-md-row align-items-center justify-content-between gap-4">
+              <div>
+                <div class="rounded-3 bg-info bg-opacity-10 text-info p-3 d-inline-block mb-3">
+                  <span class="material-symbols-outlined fs-2">medical_services</span>
+                </div>
+                <h4 class="font-headline fw-bold text-navy mb-2">Doctor-Patient Portal</h4>
+                <p class="text-muted mb-0">
+                  Real-time communication bridge allowing doctors to review patient vitals, verify diagnostic notes, and adjust treatments dynamically.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
+
+    <!-- AI Capabilities Dark Section -->
+    <section id="capabilities" class="py-5 bg-navy-dark text-white">
+      <div class="container py-lg-4">
+        <div class="row align-items-center g-5">
+          <div class="col-lg-6">
+            <h2 class="font-headline display-6 fw-bold mb-4">
+              The Intelligence Behind <span class="text-cyan-accent">CarePath AI</span>
+            </h2>
+            
+            <div class="d-flex flex-column gap-3">
+              <div class="ai-gradient-border p-4 rounded-3">
+                <h5 class="font-headline fw-bold text-white mb-2 d-flex align-items-center gap-2">
+                  <span class="material-symbols-outlined text-cyan-accent fs-4">description</span>
+                  Clinical Report Reasoning
+                </h5>
+                <p class="mb-0 text-white-50 opacity-90 small">
+                  Our multimodal AI engine processes clinical reports, lab results, and vitals data, cross-referencing them against guidelines to generate simple summaries.
+                </p>
+              </div>
+
+              <div class="ai-gradient-border p-4 rounded-3">
+                <h5 class="font-headline fw-bold text-white mb-2 d-flex align-items-center gap-2">
+                  <span class="material-symbols-outlined text-cyan-accent fs-4">monitoring</span>
+                  Continuous Vitals & Milestone Tracking
+                </h5>
+                <p class="mb-0 text-white-50 opacity-90 small">
+                  Automated tracking that correlates patient vitals and symptoms with long-term recovery goals established by attending doctors.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-6">
+            <div class="p-4 p-md-5 rounded-4 bg-white text-dark shadow-lg">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="fw-bold text-navy font-headline">Clinical Data Vault</span>
+                <span class="badge bg-primary bg-opacity-10 text-primary">AES-256 Encrypted</span>
+              </div>
+              
+              <ul class="list-group list-group-flush mb-3">
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
+                  <span class="d-flex align-items-center gap-2"><i class="bi bi-shield-check text-success fs-5"></i> HIPAA Compliance</span>
+                  <span class="badge bg-success">Verified</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
+                  <span class="d-flex align-items-center gap-2"><i class="bi bi-person-badge text-primary fs-5"></i> Clinician Verification</span>
+                  <span class="badge bg-info text-dark">Doctor Approved</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
+                  <span class="d-flex align-items-center gap-2"><i class="bi bi-clock-history text-warning fs-5"></i> 24/7 Access</span>
+                  <span class="text-muted small">Always Online</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works (Timeline) -->
+    <section id="how-it-works" class="py-5 bg-white">
+      <div class="container py-lg-4">
+        <!-- High-Contrast Section Header -->
+        <div class="text-center max-w-2xl mx-auto mb-5">
+          <span class="text-secondary-blue font-headline fw-bold text-uppercase tracking-wider small d-block mb-1">SIMPLE PROCESS</span>
+          <h2 class="font-headline display-6 fw-bold text-navy mb-2">From Data to Action in 3 Steps</h2>
+          <p class="text-muted fs-6">A seamless journey connecting patient records to intelligent clinical guidance.</p>
+        </div>
+
+        <div class="row g-4 justify-content-center">
+          <div class="col-md-4">
+            <div class="glass-card-light p-4 rounded-4 text-center h-100">
+              <div class="timeline-number-badge bg-secondary-blue text-white shadow-sm mx-auto mb-3">1</div>
+              <h4 class="font-headline fw-bold text-navy mb-2">Register & Connect</h4>
+              <p class="text-muted small mb-0">Create your account as a Patient or Doctor and set up your medical profile securely.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="glass-card-light p-4 rounded-4 text-center h-100">
+              <div class="timeline-number-badge bg-secondary-blue text-white shadow-sm mx-auto mb-3">2</div>
+              <h4 class="font-headline fw-bold text-navy mb-2">AI Analysis</h4>
+              <p class="text-muted small mb-0">Upload lab reports or enter vitals. Our AI scans for insights and generates personalized care plans.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="glass-card-light p-4 rounded-4 text-center h-100">
+              <div class="timeline-number-badge bg-secondary-blue text-white shadow-sm mx-auto mb-3">3</div>
+              <h4 class="font-headline fw-bold text-navy mb-2">Act with Confidence</h4>
+              <p class="text-muted small mb-0">Track daily milestones, book doctor appointments, and achieve better health outcomes every day.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="py-5 bg-surface-light">
+      <div class="container py-lg-4 max-w-3xl">
+        <h3 class="font-headline display-6 fw-bold text-navy text-center mb-4">Frequently Asked Questions</h3>
+        
+        <div class="accordion accordion-flush glass-card-light rounded-4 p-3 shadow-sm" id="landingFAQ">
+          <div class="accordion-item bg-transparent">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed font-headline fw-bold text-navy bg-transparent" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                Is my medical data secure?
+              </button>
+            </h2>
+            <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#landingFAQ">
+              <div class="accordion-body text-muted">
+                Yes, CarePath AI employs bank-grade AES-256 encryption. Your medical data is strictly protected and accessible only by you and your authorized healthcare providers.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item bg-transparent">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed font-headline fw-bold text-navy bg-transparent" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                How does the AI compare to a human doctor?
+              </button>
+            </h2>
+            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#landingFAQ">
+              <div class="accordion-body text-muted">
+                CarePath AI is designed as a supportive decision tool for patients and clinicians. It provides insights and summaries but does not replace professional medical diagnoses.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item bg-transparent">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed font-headline fw-bold text-navy bg-transparent" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                Who can register on CarePath AI?
+              </button>
+            </h2>
+            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#landingFAQ">
+              <div class="accordion-body text-muted">
+                Both Patients seeking organized health tracking and Doctors/Clinicians managing patient appointments and digital care plans can register on CarePath AI.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <!-- Footer -->
+  <footer class="bg-navy-dark text-white pt-5 pb-4 px-3 px-md-5">
+    <div class="container-fluid">
+      <div class="row g-4 mb-4 border-bottom border-white border-opacity-10 pb-4">
+        <div class="col-lg-4">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="material-symbols-outlined text-cyan-accent fs-3">psychiatry</span>
+            <span class="font-headline fw-bold fs-4">CarePath AI</span>
+          </div>
+          <p class="text-light opacity-75 small max-w-sm">
+            Precision health for the AI era. Empowering patients with clinical intelligence and proactive care.
+          </p>
+        </div>
+
+        <div class="col-6 col-md-3 col-lg-2">
+          <h6 class="font-headline text-cyan-accent fw-bold text-uppercase small mb-3">Product</h6>
+          <ul class="list-unstyled small opacity-75 d-flex flex-column gap-2 mb-0">
+            <li><a (click)="scrollToSection('features')" class="text-white text-decoration-none" style="cursor: pointer;">Features</a></li>
+            <li><a (click)="scrollToSection('capabilities')" class="text-white text-decoration-none" style="cursor: pointer;">AI Tech</a></li>
+            <li><a (click)="scrollToSection('how-it-works')" class="text-white text-decoration-none" style="cursor: pointer;">How it Works</a></li>
+          </ul>
+        </div>
+
+        <div class="col-6 col-md-3 col-lg-2">
+          <h6 class="font-headline text-cyan-accent fw-bold text-uppercase small mb-3">Access</h6>
+          <ul class="list-unstyled small opacity-75 d-flex flex-column gap-2 mb-0">
+            <li><a (click)="navigateWithRole('login', 'patient')" class="text-white text-decoration-none" style="cursor: pointer;">Patient Portal</a></li>
+            <li><a (click)="navigateWithRole('login', 'doctor')" class="text-white text-decoration-none" style="cursor: pointer;">Doctor Portal</a></li>
+            <li><a routerLink="/auth/register" class="text-white text-decoration-none">Sign Up</a></li>
+          </ul>
+        </div>
+
+        <div class="col-lg-4">
+          <h6 class="font-headline text-cyan-accent fw-bold text-uppercase small mb-3">Stay Informed</h6>
+          <div class="input-group">
+            <input type="email" class="form-input bg-white bg-opacity-10 text-white border-0" placeholder="Enter your email">
+            <button class="btn btn-primary bg-secondary-blue border-0 px-3">Subscribe</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex flex-column flex-md-row justify-between align-items-center gap-3 small text-light opacity-75">
+        <p class="mb-0">© 2026 CarePath AI. All rights reserved.</p>
+        <div class="d-flex gap-3">
+          <a class="text-white text-decoration-none" href="#">Privacy Policy</a>
+          <a class="text-white text-decoration-none" href="#">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
 </div>
+

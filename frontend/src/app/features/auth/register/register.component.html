@@ -210,13 +210,13 @@
               class="form-input" 
               [class.is-invalid]="phoneTouched && !isPhoneValid"
               [class.is-valid]="phoneTouched && isPhoneValid && phone.trim().length > 0"
-              placeholder="+1 234 567 890" 
+              placeholder="+91 9876543210" 
               [(ngModel)]="phone" 
               (blur)="phoneTouched = true"
               (input)="phoneTouched = true"
             />
             <span class="field-error-msg" *ngIf="phoneTouched && !isPhoneValid">
-              ⚠️ Please enter a valid phone number
+              ⚠️ Please enter a valid 10-digit Indian phone number
             </span>
           </div>
           <div class="form-group col">

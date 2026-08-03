@@ -78,7 +78,7 @@ export class CompleteProfileComponent implements OnInit {
 
   get isPhoneValid(): boolean {
     if (!this.phone.trim()) return true; // Phone optional unless patient where phone required
-    const phoneRegex = /^\+?[0-9\s\-()]{7,20}$/;
+    const phoneRegex = /^(?:\+?91[\s\-]?)?[6-9]\d{9}$/;
     return phoneRegex.test(this.phone.trim());
   }
 
@@ -140,7 +140,7 @@ export class CompleteProfileComponent implements OnInit {
     }
 
     if (this.phone.trim() && !this.isPhoneValid) {
-      this.errorMessage = 'Please enter a valid phone number (e.g. +1 555-0199 or 9876543210).';
+      this.errorMessage = 'Please enter a valid 10-digit Indian phone number (e.g. 9876543210 or +91 9876543210).';
       return;
     }
 
