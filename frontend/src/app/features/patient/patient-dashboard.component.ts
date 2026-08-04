@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
+import { HttpClient } from '@angular/common/http';
 import {
   AppointmentService,
   DoctorCard,
@@ -66,18 +67,223 @@ export class PatientDashboardComponent implements OnInit {
   cancellingInProgress = false;
   cancelResult: { refundPercentage: number; refundAmount: number; estimatedRefundDate: string | null; policy: string } | null = null;
 
+  // ─── Profile Completion State (Option B: Action-based) ────────────────────
+  showProfileModal = false;
+  savingProfile = false;
+  pendingDoctorToBook: DoctorCard | null = null;
+  profileForm = {
+    phone: '',
+    dateOfBirth: '',
+    gender: 'Prefer not to say',
+    bloodGroup: '',
+    address: {
+      houseName: '',
+      pincode: '',
+      city: '',
+      district: '',
+      state: '',
+      country: 'India'
+    }
+  };
+
+  // Smart Pincode Auto-Lookup State
+  localitiesList: string[] = [];
+  districtsList: string[] = [];
+  postOfficeRecords: Array<{ name: string; district: string; state: string }> = [];
+  loadingPincode = false;
+  pincodeErrorMsg = '';
+
+  // Validation Touch Trackers & Bounds
+  profilePhoneTouched = false;
+  profileDobTouched = false;
+  maxDobDate = new Date().toISOString().split('T')[0];
+  minDobDate = '1900-01-01';
+
+  get isProfilePhoneValid(): boolean {
+    if (!this.profileForm.phone) return false;
+    const cleanPhone = this.profileForm.phone.trim().replace(/[\s-]/g, '');
+    return /^(\+91)?[6-9]\d{9}$/.test(cleanPhone);
+  }
+
+  get isProfileDobValid(): boolean {
+    if (!this.profileForm.dateOfBirth) return false;
+    const selectedDate = new Date(this.profileForm.dateOfBirth);
+    const today = new Date();
+    const minDate = new Date('1900-01-01');
+    return selectedDate <= today && selectedDate >= minDate;
+  }
+
+  get isProfileModalValid(): boolean {
+    return this.isProfilePhoneValid && this.isProfileDobValid;
+  }
+
   constructor(
     private authService: AuthService,
     private appointmentService: AppointmentService,
+    private http: HttpClient,
     private router: Router,
     private ngZone: NgZone
   ) {
+    this.syncPatientInfo();
+  }
+
+  syncPatientInfo() {
     const user = this.authService.currentUser();
     if (user && user.patientProfile) {
-      this.patientName = `${user.patientProfile.firstName} ${user.patientProfile.lastName}`;
+      this.patientName = `${user.patientProfile.firstName} ${user.patientProfile.lastName}`.trim() || 'Patient';
+      this.profileForm.phone = user.patientProfile.phone || '';
+      if (user.patientProfile.dateOfBirth) {
+        this.profileForm.dateOfBirth = new Date(user.patientProfile.dateOfBirth).toISOString().split('T')[0];
+      }
+      this.profileForm.gender = user.patientProfile.gender || 'Prefer not to say';
+      this.profileForm.bloodGroup = user.patientProfile.bloodGroup || '';
+      if (user.patientProfile.address) {
+        this.profileForm.address = {
+          houseName: user.patientProfile.address.houseName || '',
+          pincode: user.patientProfile.address.pincode || '',
+          city: user.patientProfile.address.city || '',
+          district: user.patientProfile.address.district || '',
+          state: user.patientProfile.address.state || '',
+          country: user.patientProfile.address.country || 'India'
+        };
+        if (user.patientProfile.address.pincode) {
+          this.fetchPincodeDetails(user.patientProfile.address.pincode);
+        }
+      }
     } else {
       this.patientName = 'Patient';
     }
+  }
+
+  // ─── Smart Pincode Auto-Lookup (api.postalpincode.in) ─────────────────────
+  onPincodeInput() {
+    const cleanPin = (this.profileForm.address.pincode || '').trim();
+    this.pincodeErrorMsg = '';
+    if (cleanPin.length === 6 && /^\d{6}$/.test(cleanPin)) {
+      this.fetchPincodeDetails(cleanPin);
+    } else {
+      this.localitiesList = [];
+      this.districtsList = [];
+      this.postOfficeRecords = [];
+    }
+  }
+
+  fetchPincodeDetails(pincode: string) {
+    this.loadingPincode = true;
+    this.pincodeErrorMsg = '';
+    this.http.get<any[]>(`http://localhost:5000/api/auth/pincode/${pincode}`).subscribe({
+      next: (response) => {
+        this.loadingPincode = false;
+        if (response && response[0] && response[0].Status === 'Success' && response[0].PostOffice && response[0].PostOffice.length > 0) {
+          const postOffices = response[0].PostOffice;
+          this.postOfficeRecords = postOffices.map((po: any) => ({
+            name: po.Name,
+            district: po.District,
+            state: po.State
+          }));
+
+          // Unique locality names
+          this.localitiesList = Array.from(new Set(this.postOfficeRecords.map(r => r.name)));
+          // Unique districts available for this pincode
+          this.districtsList = Array.from(new Set(this.postOfficeRecords.map(r => r.district)));
+
+          // Default selection to 1st locality and match its district & state
+          let targetCity = this.profileForm.address.city;
+          if (!targetCity || !this.localitiesList.includes(targetCity)) {
+            targetCity = this.localitiesList[0] || '';
+            this.profileForm.address.city = targetCity;
+          }
+          this.onLocalitySelect(targetCity);
+        } else {
+          this.pincodeErrorMsg = 'No details found for this pincode.';
+          this.localitiesList = [];
+          this.districtsList = [];
+          this.postOfficeRecords = [];
+        }
+      },
+      error: () => {
+        this.loadingPincode = false;
+        this.pincodeErrorMsg = 'Failed to fetch pincode details. Enter city manually.';
+      }
+    });
+  }
+
+  onLocalitySelect(selectedCity: string) {
+    this.profileForm.address.city = selectedCity;
+    const match = this.postOfficeRecords.find(r => r.name === selectedCity);
+    if (match) {
+      this.profileForm.address.district = match.district;
+      this.profileForm.address.state = match.state;
+      this.profileForm.address.country = 'India';
+    }
+  }
+
+  isProfileIncomplete(): boolean {
+    const user = this.authService.currentUser();
+    if (!user || !user.patientProfile) return true;
+    return !user.patientProfile.phone || !user.patientProfile.dateOfBirth;
+  }
+
+  openProfileModal(doctorToBook: DoctorCard | null = null) {
+    this.syncPatientInfo();
+    this.profilePhoneTouched = false;
+    this.profileDobTouched = false;
+    this.pendingDoctorToBook = doctorToBook;
+    this.showProfileModal = true;
+  }
+
+  closeProfileModal() {
+    this.showProfileModal = false;
+    this.pendingDoctorToBook = null;
+  }
+
+  saveProfile() {
+    this.profilePhoneTouched = true;
+    this.profileDobTouched = true;
+
+    if (!this.isProfileModalValid) {
+      if (!this.isProfilePhoneValid) {
+        this.showToast('Please enter a valid 10-digit Indian phone number (starts with 6-9).', 'error');
+      } else if (!this.isProfileDobValid) {
+        this.showToast('Please enter a valid Date of Birth (cannot be in the future).', 'error');
+      }
+      return;
+    }
+
+    this.savingProfile = true;
+    const user = this.authService.currentUser();
+    const payload = {
+      role: 'patient',
+      profile: {
+        firstName: user?.patientProfile?.firstName || 'Patient',
+        lastName: user?.patientProfile?.lastName || '',
+        phone: this.profileForm.phone,
+        dateOfBirth: this.profileForm.dateOfBirth,
+        gender: this.profileForm.gender,
+        bloodGroup: this.profileForm.bloodGroup,
+        address: this.profileForm.address
+      }
+    };
+
+    this.authService.completeProfile(payload).subscribe({
+      next: (res) => {
+        this.savingProfile = false;
+        this.syncPatientInfo();
+        this.showToast('✓ Profile completed successfully!', 'success');
+        this.showProfileModal = false;
+
+        // If user was trying to book a doctor, continue to booking modal!
+        if (this.pendingDoctorToBook) {
+          const doc = this.pendingDoctorToBook;
+          this.pendingDoctorToBook = null;
+          this.proceedToBookingModal(doc);
+        }
+      },
+      error: (err) => {
+        this.savingProfile = false;
+        this.showToast(err.error?.message || 'Failed to save profile. Please try again.', 'error');
+      }
+    });
   }
 
   ngOnInit() {
@@ -139,6 +345,15 @@ export class PatientDashboardComponent implements OnInit {
 
   // ─── Booking Modal ─────────────────────────────────────────────────────────
   openBookingModal(doctor: DoctorCard) {
+    if (this.isProfileIncomplete()) {
+      // Action-based completion: Open profile modal first with pending doctor target!
+      this.openProfileModal(doctor);
+      return;
+    }
+    this.proceedToBookingModal(doctor);
+  }
+
+  proceedToBookingModal(doctor: DoctorCard) {
     this.selectedDoctor = doctor;
     this.bookingStep = 1;
     this.selectedDate = '';

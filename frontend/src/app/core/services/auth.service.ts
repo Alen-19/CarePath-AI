@@ -13,6 +13,14 @@ export interface User {
     gender?: string;
     phone?: string;
     bloodGroup?: string;
+    address?: {
+      houseName?: string;
+      city?: string;
+      district?: string;
+      state?: string;
+      pincode?: string;
+      country?: string;
+    };
   };
   doctorProfile?: {
     firstName: string;

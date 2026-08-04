@@ -14,8 +14,8 @@ const PatientSchema = new mongoose.Schema({
   },
   lastName: {
     type: String,
-    required: true,
-    trim: true
+    trim: true,
+    default: ''
   },
   dateOfBirth: {
     type: Date
@@ -38,6 +38,14 @@ const PatientSchema = new mongoose.Schema({
     name: String,
     phone: String,
     relation: String
+  },
+  address: {
+    houseName: { type: String, trim: true, default: '' },
+    city: { type: String, trim: true, default: '' },
+    district: { type: String, trim: true, default: '' },
+    state: { type: String, trim: true, default: '' },
+    pincode: { type: String, trim: true, default: '' },
+    country: { type: String, trim: true, default: 'India' }
   }
 }, { 
   timestamps: true,

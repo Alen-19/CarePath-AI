@@ -1,9 +1,10 @@
 .auth-container {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   min-height: 100vh;
-  padding: 2.5rem 1.5rem;
+  padding: 3rem 1.5rem;
+  overflow-y: auto;
   background: radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.15) 0%, transparent 40%),
               radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.12) 0%, transparent 45%);
 }
@@ -11,6 +12,8 @@
 .auth-card {
   width: 100%;
   max-width: 520px;
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .auth-header {
@@ -123,3 +126,17 @@
     gap: 0;
   }
 }
+
+/* 🎨 Select Dropdown Options Dark Theme Fix */
+select.form-select {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  appearance: auto;
+}
+
+select.form-select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  padding: 10px 14px;
+}
+

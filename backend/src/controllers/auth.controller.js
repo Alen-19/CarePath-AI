@@ -415,14 +415,28 @@ const completeProfile = async (req, res) => {
 
     if (user.role === 'patient') {
       if (!userProfile) {
-        userProfile = new Patient({ userId: user._id });
+        userProfile = new Patient({ 
+          userId: user._id,
+          firstName: profile?.firstName || 'Patient',
+          lastName: profile?.lastName || ''
+        });
       }
-      userProfile.firstName = profile?.firstName || userProfile.firstName || '';
+      userProfile.firstName = profile?.firstName || userProfile.firstName || 'Patient';
       userProfile.lastName = profile?.lastName || userProfile.lastName || '';
       userProfile.dateOfBirth = profile?.dateOfBirth ? new Date(profile.dateOfBirth) : userProfile.dateOfBirth;
       userProfile.gender = profile?.gender || userProfile.gender || 'Prefer not to say';
       userProfile.phone = profile?.phone || userProfile.phone || '';
       userProfile.bloodGroup = profile?.bloodGroup || userProfile.bloodGroup || '';
+      if (profile?.address) {
+        userProfile.address = {
+          houseName: profile.address.houseName || userProfile.address?.houseName || '',
+          city: profile.address.city || userProfile.address?.city || '',
+          district: profile.address.district || userProfile.address?.district || '',
+          state: profile.address.state || userProfile.address?.state || '',
+          pincode: profile.address.pincode || userProfile.address?.pincode || '',
+          country: profile.address.country || userProfile.address?.country || 'India'
+        };
+      }
       await userProfile.save();
     } else if (user.role === 'doctor') {
       if (!userProfile) {
@@ -456,10 +470,30 @@ const completeProfile = async (req, res) => {
   }
 };
 
+// @desc    Backend Proxy for Postal Pincode Lookup (Bypasses Browser CORS)
+// @route   GET /api/auth/pincode/:pincode
+// @access  Public
+const getPincodeDetails = async (req, res) => {
+  try {
+    const { pincode } = req.params;
+    if (!pincode || !/^\d{6}$/.test(pincode)) {
+      return res.status(400).json({ message: 'Please provide a valid 6-digit pincode.' });
+    }
+
+    const apiRes = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+    const data = await apiRes.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching pincode details from Postal API:', error);
+    res.status(500).json({ message: 'Failed to fetch pincode details.', error: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getUserProfile,
   googleLogin,
-  completeProfile
+  completeProfile,
+  getPincodeDetails
 };

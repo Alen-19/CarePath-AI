@@ -92,8 +92,8 @@
               id="dateOfBirth" 
               name="dateOfBirth" 
               class="form-input" 
+              [max]="maxDobDate"
               [(ngModel)]="dateOfBirth" 
-              required
             />
           </div>
           <div class="form-group col">
@@ -114,7 +114,7 @@
 
         <div class="form-row">
           <div class="form-group col">
-            <label class="form-label" for="phone">Phone Number *</label>
+            <label class="form-label" for="phone">Phone Number</label>
             <input 
               type="tel" 
               id="phone" 
@@ -126,7 +126,6 @@
               [(ngModel)]="phone" 
               (blur)="phoneTouched = true"
               (input)="phoneTouched = true"
-              required
             />
             <span class="field-error-msg" *ngIf="phoneTouched && !isPhoneValid">
               ⚠️ Please enter a valid 10-digit Indian phone number (e.g. 9876543210 or +91 9876543210)
@@ -140,6 +139,92 @@
               <option value="Female">Female</option>
               <option value="Other">Other</option>
             </select>
+          </div>
+        </div>
+
+        <!-- 🏠 SMART INDIAN ADDRESS SECTION -->
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: 1rem;">
+          <label class="form-label" style="color: #93c5fd; font-size: 0.9rem; margin-bottom: 0.75rem; display: block;">
+            🏠 Residential Address & Location
+          </label>
+
+          <div class="form-group">
+            <label class="form-label" for="houseName">House Name / Flat / Building</label>
+            <input
+              type="text"
+              id="houseName"
+              name="houseName"
+              class="form-input"
+              placeholder="e.g. Grace Villa, Flat 4B, Sunrise Apartments"
+              [(ngModel)]="address.houseName"
+            />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label class="form-label" for="pincode">Pincode (6 Digits)</label>
+              <input
+                type="text"
+                id="pincode"
+                name="pincode"
+                class="form-input"
+                placeholder="e.g. 686510"
+                maxlength="6"
+                [(ngModel)]="address.pincode"
+                (input)="onPincodeInput()"
+              />
+              <span class="field-error-msg" *ngIf="pincodeErrorMsg">⚠️ {{ pincodeErrorMsg }}</span>
+              <span class="field-valid-msg" *ngIf="localitiesList.length > 0">
+                ✓ Location found! {{ localitiesList.length }} locality option(s) loaded.
+              </span>
+            </div>
+
+            <div class="form-group col" *ngIf="localitiesList.length > 0">
+              <label class="form-label" for="city">Locality / Place Name</label>
+              <select id="city" name="city" class="form-input form-select" [(ngModel)]="address.city" (change)="onLocalitySelect(address.city)">
+                <option *ngFor="let loc of localitiesList" [value]="loc">{{ loc }}</option>
+              </select>
+            </div>
+            <div class="form-group col" *ngIf="localitiesList.length === 0">
+              <label class="form-label" for="cityManual">City / Locality Name</label>
+              <input
+                type="text"
+                id="cityManual"
+                name="cityManual"
+                class="form-input"
+                placeholder="e.g. Mukkoottuthara / Kochi"
+                [(ngModel)]="address.city"
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label class="form-label" for="district">District</label>
+              <select id="districtSelect" name="districtSelect" class="form-input form-select" *ngIf="districtsList.length > 1" [(ngModel)]="address.district">
+                <option *ngFor="let dist of districtsList" [value]="dist">{{ dist }}</option>
+              </select>
+              <input
+                *ngIf="districtsList.length <= 1"
+                type="text"
+                id="district"
+                name="district"
+                class="form-input"
+                placeholder="District (e.g. Kottayam)"
+                [(ngModel)]="address.district"
+              />
+            </div>
+            <div class="form-group col">
+              <label class="form-label" for="state">State</label>
+              <input
+                type="text"
+                id="state"
+                name="state"
+                class="form-input"
+                placeholder="State (e.g. Kerala)"
+                [(ngModel)]="address.state"
+              />
+            </div>
           </div>
         </div>
       </div>

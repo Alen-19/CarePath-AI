@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -10,7 +10,9 @@ import { AuthService } from '../../core/services/auth.service';
   templateUrl: './landing.component.html',
   styleUrls: ['./landing.component.css']
 })
-export class LandingComponent {
+export class LandingComponent implements AfterViewInit {
+
+  @ViewChild('heroVideo') heroVideo!: ElementRef<HTMLVideoElement>;
 
   constructor(
     private authService: AuthService,
@@ -23,6 +25,16 @@ export class LandingComponent {
       } else if (role === 'doctor') {
         this.router.navigate(['/doctor']);
       }
+    }
+  }
+
+  ngAfterViewInit(): void {
+    const video = this.heroVideo?.nativeElement;
+    if (video) {
+      video.muted = true;
+      video.play().catch(() => {
+        // Autoplay was blocked — video will stay paused until user interacts
+      });
     }
   }
 

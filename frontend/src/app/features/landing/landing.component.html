@@ -3,29 +3,12 @@
   <header class="navbar navbar-expand-lg glass-card-light sticky-top px-3 px-md-5 py-2">
     <div class="container-fluid px-0">
       <!-- Brand Logo -->
-      <a class="navbar-brand d-flex align-items-center gap-2" (click)="scrollToSection('hero')" style="cursor: pointer;">
-        <svg class="brand-svg" width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M 20,50 A 35,35 0 1,1 65,85" stroke="url(#tealGrad)" stroke-width="7" stroke-linecap="round" fill="none"/>
-          <rect x="62" y="18" width="22" height="22" rx="6" fill="url(#tealGrad)"/>
-          <path d="M 66,29 H 70 L 72,24 L 75,34 L 77,29 H 80" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="45" cy="27" r="5" fill="#00B4D8"/>
-          <path d="M 38,48 C 38,36 52,36 52,48 Z" fill="#00B4D8"/>
-          <path d="M 40,82 C 45,62 65,70 70,50 C 72,45 68,40 62,40" stroke="url(#emeraldGrad)" stroke-width="8" stroke-linecap="round" fill="none"/>
-          <path d="M 72,36 C 78,32 82,38 78,44 C 74,42 72,36 72,36 Z" fill="#2BB673"/>
-          <path d="M 18,52 C 18,78 42,85 60,82 C 50,72 32,72 28,58 Z" fill="#00183d"/>
-          <defs>
-            <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#0060a8" />
-              <stop offset="100%" stop-color="#45d8ed" />
-            </linearGradient>
-            <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#2BB673" />
-              <stop offset="100%" stop-color="#48BB78" />
-            </linearGradient>
-          </defs>
-        </svg>
-        <span class="font-headline fw-bold fs-4 text-navy ms-1">Care<span class="text-secondary-blue">Path</span></span>
-        <span class="badge bg-secondary-blue text-white font-headline px-2 py-1 rounded-pill" style="font-size: 0.7rem;">AI</span>
+      <a class="navbar-brand d-flex align-items-center gap-2" (click)="scrollToSection('hero')" style="cursor: pointer; text-decoration: none;">
+        <img src="assets/photos/logo_circle.png" alt="CarePath AI Logo" class="brand-logo-img">
+        <span class="brand-logo-text">
+          <span class="brand-care">Care</span><span class="brand-path">Path</span>
+        </span>
+        <span class="brand-ai-badge">AI</span>
       </a>
 
       <!-- Navbar Toggler for Mobile -->
@@ -138,8 +121,8 @@
               <div class="glass-card-light p-3 p-md-4 rounded-4 shadow-lg position-relative z-2">
                 <!-- Video Container -->
                 <div class="hero-video-frame bg-navy-dark position-relative">
-                  <video autoplay loop muted playsinline class="w-100 h-auto d-block rounded-3">
-                    <source src="assets/videos/can_u_create_an_animated_video.mp4" type="video/mp4">
+                  <video #heroVideo autoplay loop muted playsinline class="w-100 h-auto d-block rounded-3">
+                    <source src="assets/videos/animated_logo.mp4" type="video/mp4">
                     Your browser does not support the video tag.
                   </video>
                 </div>

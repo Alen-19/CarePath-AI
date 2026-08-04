@@ -35,7 +35,7 @@ export const routes: Routes = [
   {
     path: 'patient',
     component: PatientDashboardComponent,
-    canActivate: [authGuard, patientGuard, profileCompletionGuard]
+    canActivate: [authGuard, patientGuard]
   },
   {
     path: 'doctor',

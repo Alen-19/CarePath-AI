@@ -30,6 +30,20 @@
 
   <main class="pd-main">
 
+    <!-- Profile Completion Alert Banner (Option B) -->
+    <div *ngIf="isProfileIncomplete()" class="profile-notice-banner glass-card animate-fade-in">
+      <div class="notice-content">
+        <span class="notice-icon">💡</span>
+        <div class="notice-text">
+          <strong>Complete Your Health Profile</strong>
+          <p>Add your Date of Birth, Gender, and Phone Number for faster doctor bookings and personalized clinical AI features.</p>
+        </div>
+      </div>
+      <button class="btn-complete-profile-sm" (click)="openProfileModal()">
+        Complete Profile Now
+      </button>
+    </div>
+
     <!-- ══════════════ TODAY'S CONSULTATION VIP HERO BANNER ══════════════ -->
     <div *ngIf="todayAppointments.length > 0" class="today-vip-banner glass-card-glow">
       <div class="today-vip-header">
@@ -425,3 +439,198 @@
     <button class="btn-confirm-action w-full" (click)="closeConfirmationModal()">View My Appointments →</button>
   </div>
 </div>
+
+<!-- ══════════════ ACTION-BASED COMPLETE PROFILE MODAL (Option B) ══════════════ -->
+<div class="modal-overlay" *ngIf="showProfileModal" (click)="closeProfileModal()">
+  <div class="cancel-modal glass-card" (click)="$event.stopPropagation()" style="max-width: 500px;">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title">Complete Your Health Profile</h2>
+        <p class="modal-sub" *ngIf="pendingDoctorToBook">
+          Dr. {{ pendingDoctorToBook.firstName }} {{ pendingDoctorToBook.lastName }} requires your phone number & DOB for medical records.
+        </p>
+        <p class="modal-sub" *ngIf="!pendingDoctorToBook">
+          Please add your contact & biological details for clinical AI records.
+        </p>
+      </div>
+      <button class="modal-close" (click)="closeProfileModal()">✕</button>
+    </div>
+
+    <form (ngSubmit)="saveProfile()" #profileFormRef="ngForm">
+      <div class="step-content" style="min-height: auto; gap: 1rem;">
+        <div>
+          <label class="field-label">Phone Number *</label>
+          <input
+            type="tel"
+            class="date-picker"
+            [class.is-invalid]="profilePhoneTouched && !isProfilePhoneValid"
+            [class.is-valid]="profilePhoneTouched && isProfilePhoneValid"
+            placeholder="+91 9876543210 or 9876543210"
+            maxlength="13"
+            [(ngModel)]="profileForm.phone"
+            (blur)="profilePhoneTouched = true"
+            (input)="profilePhoneTouched = true"
+            name="phone"
+            required
+          />
+          <span class="field-error-msg" *ngIf="profilePhoneTouched && !isProfilePhoneValid">
+            ⚠️ Please enter a valid 10-digit Indian mobile number (starts with 6, 7, 8, or 9)
+          </span>
+          <span class="field-valid-msg" *ngIf="profilePhoneTouched && isProfilePhoneValid">
+            ✓ Valid 10-digit mobile number
+          </span>
+        </div>
+
+        <div>
+          <label class="field-label">Date of Birth *</label>
+          <input
+            type="date"
+            class="date-picker"
+            [class.is-invalid]="profileDobTouched && !isProfileDobValid"
+            [class.is-valid]="profileDobTouched && isProfileDobValid"
+            [max]="maxDobDate"
+            [min]="minDobDate"
+            [(ngModel)]="profileForm.dateOfBirth"
+            (blur)="profileDobTouched = true"
+            (change)="profileDobTouched = true"
+            (input)="profileDobTouched = true"
+            name="dateOfBirth"
+            required
+          />
+          <span class="field-error-msg" *ngIf="profileDobTouched && !isProfileDobValid">
+            ⚠️ Date of birth must be a valid past date (between 1900 and today)
+          </span>
+          <span class="field-valid-msg" *ngIf="profileDobTouched && isProfileDobValid">
+            ✓ Valid date of birth
+          </span>
+        </div>
+
+        <div class="form-row" style="display: flex; gap: 1rem;">
+          <div style="flex: 1;">
+            <label class="field-label">Gender</label>
+            <select class="date-picker form-select" [(ngModel)]="profileForm.gender" name="gender">
+              <option value="Prefer not to say">Prefer not to say</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div style="flex: 1;">
+            <label class="field-label">Blood Group</label>
+            <select class="date-picker form-select" [(ngModel)]="profileForm.bloodGroup" name="bloodGroup">
+              <option value="">Select</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 🏠 SMART INDIAN ADDRESS SECTION -->
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: 0.5rem;">
+          <label class="field-label" style="color: #93c5fd; font-size: 0.85rem; margin-bottom: 0.75rem;">
+            🏠 Residential Address & Location
+          </label>
+
+          <!-- House / Flat Name -->
+          <div style="margin-bottom: 1rem;">
+            <label class="field-label">House Name / Flat / Building</label>
+            <input
+              type="text"
+              class="date-picker"
+              placeholder="e.g. Grace Villa, Flat 4B, Sunrise Apartments"
+              [(ngModel)]="profileForm.address.houseName"
+              name="houseName"
+            />
+          </div>
+
+          <!-- Pincode (Triggers Auto-Lookup API) -->
+          <div style="margin-bottom: 1rem;">
+            <label class="field-label">Pincode (6 Digits) *</label>
+            <div style="position: relative;">
+              <input
+                type="text"
+                class="date-picker"
+                placeholder="e.g. 686510"
+                maxlength="6"
+                [(ngModel)]="profileForm.address.pincode"
+                (input)="onPincodeInput()"
+                name="pincode"
+              />
+              <span *ngIf="loadingPincode" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.8rem; color: #93c5fd;">
+                🔄 Auto-fetching location…
+              </span>
+            </div>
+            <span class="field-error-msg" *ngIf="pincodeErrorMsg">⚠️ {{ pincodeErrorMsg }}</span>
+            <span class="field-valid-msg" *ngIf="localitiesList.length > 0">
+              ✓ Location found! {{ localitiesList.length }} locality option(s) loaded.
+            </span>
+          </div>
+
+          <!-- Locality / City Dropdown (Auto-populated from Pincode API) -->
+          <div style="margin-bottom: 1rem;" *ngIf="localitiesList.length > 0">
+            <label class="field-label">Locality / Place Name *</label>
+            <select class="date-picker form-select" [(ngModel)]="profileForm.address.city" (change)="onLocalitySelect(profileForm.address.city)" name="city">
+              <option *ngFor="let loc of localitiesList" [value]="loc">{{ loc }}</option>
+            </select>
+          </div>
+          <div style="margin-bottom: 1rem;" *ngIf="localitiesList.length === 0">
+            <label class="field-label">City / Locality Name</label>
+            <input
+              type="text"
+              class="date-picker"
+              placeholder="e.g. Mukkoottuthara / Kochi"
+              [(ngModel)]="profileForm.address.city"
+              name="cityManual"
+            />
+          </div>
+
+          <!-- District & State (Auto-filled / Selectable) -->
+          <div class="form-row" style="display: flex; gap: 1rem;">
+            <div style="flex: 1;">
+              <label class="field-label">District</label>
+              <!-- Selectable District Dropdown if multiple districts exist for pincode -->
+              <select class="date-picker form-select" *ngIf="districtsList.length > 1" [(ngModel)]="profileForm.address.district" name="districtSelect">
+                <option *ngFor="let dist of districtsList" [value]="dist">{{ dist }}</option>
+              </select>
+              <!-- Single District Input -->
+              <input
+                *ngIf="districtsList.length <= 1"
+                type="text"
+                class="date-picker"
+                placeholder="District (e.g. Kottayam)"
+                [(ngModel)]="profileForm.address.district"
+                name="district"
+              />
+            </div>
+            <div style="flex: 1;">
+              <label class="field-label">State</label>
+              <input
+                type="text"
+                class="date-picker"
+                placeholder="State (e.g. Kerala)"
+                [(ngModel)]="profileForm.address.state"
+                name="state"
+              />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer" style="margin-top: 1.5rem;">
+        <button type="button" class="btn-back" (click)="closeProfileModal()">Cancel</button>
+        <button type="submit" class="btn-next" [disabled]="savingProfile || !isProfileModalValid">
+          {{ savingProfile ? 'Saving Profile…' : (pendingDoctorToBook ? 'Save & Continue Booking →' : 'Save Profile') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+

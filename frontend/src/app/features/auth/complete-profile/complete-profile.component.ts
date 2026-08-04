@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
@@ -13,7 +14,6 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class CompleteProfileComponent implements OnInit {
   role: 'patient' | 'doctor' = 'patient';
-  roleSelected = false;
 
   // Profile Fields
   firstName = '';
@@ -68,16 +68,33 @@ export class CompleteProfileComponent implements OnInit {
   licenseNumber = '';
   clinicAddress = '';
 
+  // Address Fields
+  address = {
+    houseName: '',
+    pincode: '',
+    city: '',
+    district: '',
+    state: '',
+    country: 'India'
+  };
+
+  // Pincode Lookup State
+  localitiesList: string[] = [];
+  loadingPincode = false;
+  pincodeErrorMsg = '';
+
   errorMessage = '';
   successMessage = '';
   isLoading = false;
+  isPendingApproval = false;
 
-  // Validation Touch Flags
+  // Validation Touch Flags & Bounds
   phoneTouched = false;
   experienceYearsTouched = false;
+  maxDobDate = new Date().toISOString().split('T')[0];
 
   get isPhoneValid(): boolean {
-    if (!this.phone.trim()) return true; // Phone optional unless patient where phone required
+    if (!this.phone.trim()) return true;
     const phoneRegex = /^(?:\+?91[\s\-]?)?[6-9]\d{9}$/;
     return phoneRegex.test(this.phone.trim());
   }
@@ -89,8 +106,71 @@ export class CompleteProfileComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
+    private http: HttpClient,
     private router: Router
   ) {}
+
+  districtsList: string[] = [];
+  postOfficeRecords: Array<{ name: string; district: string; state: string }> = [];
+
+  onPincodeInput() {
+    const cleanPin = (this.address.pincode || '').trim();
+    this.pincodeErrorMsg = '';
+    if (cleanPin.length === 6 && /^\d{6}$/.test(cleanPin)) {
+      this.fetchPincodeDetails(cleanPin);
+    } else {
+      this.localitiesList = [];
+      this.districtsList = [];
+      this.postOfficeRecords = [];
+    }
+  }
+
+  fetchPincodeDetails(pincode: string) {
+    this.loadingPincode = true;
+    this.pincodeErrorMsg = '';
+    this.http.get<any[]>(`http://localhost:5000/api/auth/pincode/${pincode}`).subscribe({
+      next: (response) => {
+        this.loadingPincode = false;
+        if (response && response[0] && response[0].Status === 'Success' && response[0].PostOffice && response[0].PostOffice.length > 0) {
+          const postOffices = response[0].PostOffice;
+          this.postOfficeRecords = postOffices.map((po: any) => ({
+            name: po.Name,
+            district: po.District,
+            state: po.State
+          }));
+
+          this.localitiesList = Array.from(new Set(this.postOfficeRecords.map(r => r.name)));
+          this.districtsList = Array.from(new Set(this.postOfficeRecords.map(r => r.district)));
+
+          let targetCity = this.address.city;
+          if (!targetCity || !this.localitiesList.includes(targetCity)) {
+            targetCity = this.localitiesList[0] || '';
+            this.address.city = targetCity;
+          }
+          this.onLocalitySelect(targetCity);
+        } else {
+          this.pincodeErrorMsg = 'No details found for this pincode.';
+          this.localitiesList = [];
+          this.districtsList = [];
+          this.postOfficeRecords = [];
+        }
+      },
+      error: () => {
+        this.loadingPincode = false;
+        this.pincodeErrorMsg = 'Failed to fetch pincode details.';
+      }
+    });
+  }
+
+  onLocalitySelect(selectedCity: string) {
+    this.address.city = selectedCity;
+    const match = this.postOfficeRecords.find(r => r.name === selectedCity);
+    if (match) {
+      this.address.district = match.district;
+      this.address.state = match.state;
+      this.address.country = 'India';
+    }
+  }
 
   ngOnInit() {
     const user = this.authService.currentUser();
@@ -107,6 +187,19 @@ export class CompleteProfileComponent implements OnInit {
         this.gender = user.patientProfile.gender || 'Prefer not to say';
         this.phone = user.patientProfile.phone || '';
         this.bloodGroup = user.patientProfile.bloodGroup || '';
+        if (user.patientProfile.address) {
+          this.address = {
+            houseName: user.patientProfile.address.houseName || '',
+            pincode: user.patientProfile.address.pincode || '',
+            city: user.patientProfile.address.city || '',
+            district: user.patientProfile.address.district || '',
+            state: user.patientProfile.address.state || '',
+            country: user.patientProfile.address.country || 'India'
+          };
+          if (user.patientProfile.address.pincode) {
+            this.fetchPincodeDetails(user.patientProfile.address.pincode);
+          }
+        }
       } else if (user.role === 'doctor' && user.doctorProfile) {
         this.specialization = user.doctorProfile.specialization || '';
         this.experienceYears = user.doctorProfile.experienceYears || null;
@@ -116,13 +209,6 @@ export class CompleteProfileComponent implements OnInit {
     }
   }
 
-  selectRole(chosenRole: 'patient' | 'doctor') {
-    this.role = chosenRole;
-    this.roleSelected = true;
-  }
-
-  isPendingApproval = false;
-
   onSubmit() {
     if (!this.firstName || !this.lastName) {
       this.errorMessage = 'First and Last name are required.';
@@ -130,12 +216,7 @@ export class CompleteProfileComponent implements OnInit {
     }
 
     if (this.role === 'doctor' && (!this.specialization || !this.licenseNumber)) {
-      this.errorMessage = 'Specialization and Medical License are required for Doctors.';
-      return;
-    }
-
-    if (this.role === 'patient' && (!this.dateOfBirth || !this.phone)) {
-      this.errorMessage = 'Date of Birth and Phone Number are required for Patients.';
+      this.errorMessage = 'Specialization and Medical License Number are required for Doctors.';
       return;
     }
 
@@ -163,6 +244,7 @@ export class CompleteProfileComponent implements OnInit {
       profilePayload.gender = this.gender;
       profilePayload.phone = this.phone;
       profilePayload.bloodGroup = this.bloodGroup;
+      profilePayload.address = this.address;
     } else {
       profilePayload.specialization = this.specialization;
       profilePayload.experienceYears = this.experienceYears || 0;
