@@ -72,7 +72,7 @@
             required 
           />
           <span class="field-error-msg" *ngIf="firstNameTouched && !isFirstNameValid">
-            ⚠️ Please enter your first name
+            ⚠️ First name must contain only letters (at least 2 characters, no numbers or symbols)
           </span>
         </div>
         <div class="form-group col">
@@ -91,7 +91,7 @@
             required 
           />
           <span class="field-error-msg" *ngIf="lastNameTouched && !isLastNameValid">
-            ⚠️ Please enter your last name
+            ⚠️ Last name must contain only letters (at least 2 characters, no numbers or symbols)
           </span>
         </div>
       </div>
@@ -229,6 +229,95 @@
             </select>
           </div>
         </div>
+
+        <!-- 🏠 Residential Address Section -->
+        <div class="address-section-divider">
+          <span class="address-section-title">🏠 Residential Address</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="houseName">House Name / Flat / Building</label>
+          <input
+            type="text"
+            id="houseName"
+            name="houseName"
+            class="form-input"
+            placeholder="e.g. Grace Villa, Flat 4B, Sunrise Apartments"
+            [(ngModel)]="address.houseName"
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col">
+            <label class="form-label" for="pincode">Pincode (6 Digits)</label>
+            <div class="position-relative">
+              <input
+                type="text"
+                id="pincode"
+                name="pincode"
+                class="form-input"
+                placeholder="e.g. 686510"
+                maxlength="6"
+                [(ngModel)]="address.pincode"
+                (input)="onPincodeInput()"
+              />
+              <span *ngIf="loadingPincode" class="pincode-spinner">
+                🔍 Lookup...
+              </span>
+            </div>
+            <span class="field-error-msg" *ngIf="pincodeErrorMsg">⚠️ {{ pincodeErrorMsg }}</span>
+            <span class="field-valid-msg" *ngIf="localitiesList.length > 0">
+              ✓ Location found! {{ localitiesList.length }} locality option(s) loaded.
+            </span>
+          </div>
+
+          <div class="form-group col" *ngIf="localitiesList.length > 0">
+            <label class="form-label" for="city">Locality / Place Name</label>
+            <select id="city" name="city" class="form-input form-select" [(ngModel)]="address.city" (change)="onLocalitySelect(address.city)">
+              <option *ngFor="let loc of localitiesList" [value]="loc">{{ loc }}</option>
+            </select>
+          </div>
+          <div class="form-group col" *ngIf="localitiesList.length === 0">
+            <label class="form-label" for="cityManual">City / Locality Name</label>
+            <input
+              type="text"
+              id="cityManual"
+              name="cityManual"
+              class="form-input"
+              placeholder="e.g. Mukkoottuthara / Kochi"
+              [(ngModel)]="address.city"
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col">
+            <label class="form-label" for="district">District</label>
+            <select id="districtSelect" name="districtSelect" class="form-input form-select" *ngIf="districtsList.length > 1" [(ngModel)]="address.district">
+              <option *ngFor="let dist of districtsList" [value]="dist">{{ dist }}</option>
+            </select>
+            <input
+              *ngIf="districtsList.length <= 1"
+              type="text"
+              id="district"
+              name="district"
+              class="form-input"
+              placeholder="District (e.g. Kottayam)"
+              [(ngModel)]="address.district"
+            />
+          </div>
+          <div class="form-group col">
+            <label class="form-label" for="state">State</label>
+            <input
+              type="text"
+              id="state"
+              name="state"
+              class="form-input"
+              placeholder="State (e.g. Kerala)"
+              [(ngModel)]="address.state"
+            />
+          </div>
+        </div>
       </div>
 
       <!-- Doctor Specific Profile Form -->
@@ -283,16 +372,16 @@
             id="licenseNumber" 
             name="licenseNumber" 
             class="form-input" 
-            [class.is-invalid]="licenseNumberTouched && licenseNumber.trim().length < 3"
-            [class.is-valid]="licenseNumberTouched && licenseNumber.trim().length >= 3"
-            placeholder="LIC-12345678" 
+            [class.is-invalid]="licenseNumberTouched && !isLicenseNumberValid"
+            [class.is-valid]="licenseNumberTouched && isLicenseNumberValid"
+            placeholder="e.g. KMC-12345 or MCI/67890" 
             [(ngModel)]="licenseNumber" 
             (blur)="licenseNumberTouched = true"
             (input)="licenseNumberTouched = true"
             [required]="role === 'doctor'" 
           />
-          <span class="field-error-msg" *ngIf="licenseNumberTouched && licenseNumber.trim().length < 3">
-            ⚠️ Medical License Number is required for doctors
+          <span class="field-error-msg" *ngIf="licenseNumberTouched && !isLicenseNumberValid">
+            ⚠️ Medical License Number must be 4–35 alphanumeric characters (e.g. KMC-12345). Dummy numbers like 000 are not allowed.
           </span>
         </div>
 
@@ -302,10 +391,17 @@
             id="clinicAddress" 
             name="clinicAddress" 
             class="form-input form-textarea" 
+            [class.is-invalid]="clinicAddressTouched && !isClinicAddressValid"
+            [class.is-valid]="clinicAddressTouched && isClinicAddressValid && clinicAddress.trim().length > 0"
             rows="2" 
-            placeholder="123 Health Ave, Medical District..."
+            placeholder="e.g. Room 402, Sunrise Medical Center, MG Road, Ernakulam"
             [(ngModel)]="clinicAddress"
+            (blur)="clinicAddressTouched = true"
+            (input)="clinicAddressTouched = true"
           ></textarea>
+          <span class="field-error-msg" *ngIf="clinicAddressTouched && !isClinicAddressValid">
+            ⚠️ Clinic address must be at least 8 characters long containing street or clinic name. Dummy entries like 00000000 are not allowed.
+          </span>
         </div>
       </div>
 

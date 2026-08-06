@@ -33,7 +33,7 @@
       </div>
 
       <div style="font-size: 0.82rem; color: #cbd5e1; margin-bottom: 1.5rem;">
-        📧 To appeal this suspension or submit updated documents, contact <a href="mailto:support&#64;carepath.ai" style="color: #38bdf8; text-decoration: underline;">support&#64;carepath.ai</a>.
+        📧 To appeal this suspension or submit updated documents, contact <a href="mailto:carepathaiadmin&#64;gmail.com" style="color: #38bdf8; text-decoration: underline;">carepathaiadmin&#64;gmail.com</a>.
       </div>
 
       <button type="button" class="btn btn-primary w-full" (click)="isSuspendedAccount = false; errorMessage = '';">
@@ -84,7 +84,12 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="password">Password</label>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label class="form-label" for="password">Password</label>
+          <a type="button" class="forgot-link" (click)="openForgotPasswordModal()" style="font-size: 0.8rem; color: #00b4d8; text-decoration: none; cursor: pointer; font-weight: 500;">
+            Forgot Password?
+          </a>
+        </div>
         <input 
           type="password" 
           id="password" 
@@ -119,3 +124,103 @@
     </ng-container>
   </div>
 </div>
+
+<!-- 🔑 FORGOT / RESET PASSWORD MODAL OVERLAY -->
+<div class="modal-overlay animate-fade-in" *ngIf="showForgotPasswordModal" (click)="closeForgotPasswordModal()">
+  <div class="cancel-modal glass-card" (click)="$event.stopPropagation()" style="max-width: 480px; position: relative;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 style="font-size: 1.3rem; font-weight: 700; color: #fff; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        🔐 Reset Password
+      </h3>
+      <button type="button" (click)="closeForgotPasswordModal()" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #94a3b8; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;">✕</button>
+    </div>
+
+    <!-- Alert Messages -->
+    <div class="alert alert-error" *ngIf="forgotError" style="font-size: 0.85rem; padding: 0.75rem; margin-bottom: 1rem;">
+      <span>⚠️</span> {{ forgotError }}
+    </div>
+    <div class="alert alert-success" *ngIf="forgotSuccess" style="font-size: 0.85rem; padding: 0.75rem; margin-bottom: 1rem;">
+      <span>✓</span> {{ forgotSuccess }}
+    </div>
+
+    <!-- STEP 1: Request OTP -->
+    <div *ngIf="forgotPasswordStep === 'request'">
+      <p style="font-size: 0.88rem; color: #94a3b8; line-height: 1.5; margin-bottom: 1.25rem;">
+        Enter your registered email address below. We will generate a 6-digit reset OTP code for your account.
+      </p>
+
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" for="forgotEmail">Registered Email Address</label>
+        <input
+          type="email"
+          id="forgotEmail"
+          class="form-input"
+          placeholder="yourname&#64;domain.com"
+          [(ngModel)]="forgotEmail"
+        />
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button type="button" class="btn btn-secondary" (click)="closeForgotPasswordModal()" style="padding: 0.6rem 1.2rem; font-size: 0.88rem;">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="onRequestOtp()" [disabled]="forgotLoading || !forgotEmail.trim()" style="padding: 0.6rem 1.4rem; font-size: 0.88rem;">
+          {{ forgotLoading ? 'Sending...' : 'Send Reset Code →' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Enter OTP & Reset Password -->
+    <div *ngIf="forgotPasswordStep === 'reset'">
+      <p style="font-size: 0.85rem; color: #94a3b8; line-height: 1.4; margin-bottom: 1rem;">
+        Enter the 6-digit OTP code along with your new password.
+      </p>
+
+      <!-- 6-Digit OTP Code -->
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label" for="forgotOtp">6-Digit OTP Code *</label>
+        <input
+          type="text"
+          id="forgotOtp"
+          class="form-input"
+          placeholder="e.g. 123456"
+          maxlength="6"
+          [(ngModel)]="forgotOtp"
+          style="letter-spacing: 0.2em; font-weight: bold; text-align: center; font-size: 1.1rem;"
+        />
+      </div>
+
+      <!-- New Password -->
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label" for="newPassword">New Password *</label>
+        <input
+          type="password"
+          id="newPassword"
+          class="form-input"
+          placeholder="••••••••"
+          [(ngModel)]="newPassword"
+        />
+      </div>
+
+      <!-- Confirm New Password -->
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" for="confirmNewPassword">Confirm New Password *</label>
+        <input
+          type="password"
+          id="confirmNewPassword"
+          class="form-input"
+          placeholder="••••••••"
+          [(ngModel)]="confirmNewPassword"
+        />
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn btn-secondary" (click)="forgotPasswordStep = 'request'" style="padding: 0.55rem 1rem; font-size: 0.82rem;">← Back</button>
+        <button type="button" class="btn btn-primary" (click)="onResetPassword()" [disabled]="forgotLoading || !forgotOtp || !newPassword || !confirmNewPassword" style="padding: 0.6rem 1.4rem; font-size: 0.88rem;">
+          {{ forgotLoading ? 'Resetting...' : 'Reset Password & Sign In' }}
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+

@@ -99,6 +99,14 @@ export class AuthService {
     );
   }
 
+  forgotPassword(email: string): Observable<{ message: string; otp?: string }> {
+    return this.http.post<{ message: string; otp?: string }>(`${this.apiUrl}/forgot-password`, { email });
+  }
+
+  resetPassword(payload: { email: string; otp: string; newPassword: string }): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/reset-password`, payload);
+  }
+
   isProfileComplete(user: User | null): boolean {
     if (!user) return false;
     if (user.role === 'patient') {

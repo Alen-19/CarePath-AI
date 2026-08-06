@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Patient = require('../models/Patient');
 const Doctor = require('../models/Doctor');
 const Admin = require('../models/Admin');
+const { sendResetOtpEmail } = require('../config/mailer');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -15,6 +16,14 @@ const generateToken = (id) => {
 };
 
 // Validation Helpers
+const isValidName = (name) => {
+  if (!name || typeof name !== 'string') return false;
+  const clean = name.trim();
+  if (clean.length < 2 || clean.length > 50) return false;
+  const nameRegex = /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/;
+  return nameRegex.test(clean);
+};
+
 const isValidEmail = (email) => {
   const strictEmailRegex = /^(?=[a-zA-Z0-9._-]{6,64}@)[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*(?:\.[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*)*\.[a-zA-Z]{2,}$/;
   return strictEmailRegex.test(email);
@@ -35,6 +44,25 @@ const isValidExperience = (exp) => {
   if (exp === undefined || exp === null || exp === '') return true;
   const num = Number(exp);
   return !isNaN(num) && num >= 0 && num <= 60;
+};
+
+const isValidLicenseNumber = (license) => {
+  if (!license || typeof license !== 'string') return false;
+  const clean = license.trim();
+  if (clean.length < 4 || clean.length > 35) return false;
+  if (/^(.)\1+$/.test(clean)) return false; // Reject single repeating chars like "000"
+  const licenseRegex = /^[a-zA-Z0-9]+(?:[\/\-][a-zA-Z0-9]+)*$/;
+  return licenseRegex.test(clean);
+};
+
+const isValidClinicAddress = (addr) => {
+  if (!addr) return true;
+  if (typeof addr !== 'string') return false;
+  const clean = addr.trim();
+  if (clean.length < 8 || clean.length > 250) return false;
+  if ((clean.match(/[a-zA-Z]/g) || []).length < 3) return false; // Must contain at least 3 letters
+  if (/^(.)\1+$/.test(clean)) return false;
+  return true;
 };
 
 // Helper to fetch user profile document
@@ -69,6 +97,14 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Please provide email, password, and role.' });
     }
 
+    if (!profile?.firstName || !isValidName(profile.firstName)) {
+      return res.status(400).json({ message: 'First name must contain only letters and be between 2 and 50 characters long.' });
+    }
+
+    if (!profile?.lastName || !isValidName(profile.lastName)) {
+      return res.status(400).json({ message: 'Last name must contain only letters and be between 2 and 50 characters long.' });
+    }
+
     if (!isValidEmail(email)) {
       return res.status(400).json({ message: 'Please enter a valid email address.' });
     }
@@ -86,6 +122,14 @@ const registerUser = async (req, res) => {
     if (role === 'doctor') {
       if (!profile?.specialization || !profile?.licenseNumber) {
         return res.status(400).json({ message: 'Doctors must provide specialization and medical license number.' });
+      }
+
+      if (!isValidLicenseNumber(profile.licenseNumber)) {
+        return res.status(400).json({ message: 'Please enter a valid Medical License Number (between 4 and 35 alphanumeric characters). Dummy entries like 000 are disallowed.' });
+      }
+
+      if (profile?.clinicAddress && !isValidClinicAddress(profile.clinicAddress)) {
+        return res.status(400).json({ message: 'Please enter a valid Clinic/Hospital Address (at least 8 characters long). Dummy entries like 00000000 are disallowed.' });
       }
 
       if (profile?.experienceYears !== undefined && !isValidExperience(profile.experienceYears)) {
@@ -121,7 +165,15 @@ const registerUser = async (req, res) => {
         dateOfBirth: profile?.dateOfBirth ? new Date(profile.dateOfBirth) : null,
         gender: profile?.gender || 'Prefer not to say',
         phone: profile?.phone || '',
-        bloodGroup: profile?.bloodGroup || ''
+        bloodGroup: profile?.bloodGroup || '',
+        address: {
+          houseName: profile?.address?.houseName || '',
+          city: profile?.address?.city || '',
+          district: profile?.address?.district || '',
+          state: profile?.address?.state || '',
+          pincode: profile?.address?.pincode || '',
+          country: profile?.address?.country || 'India'
+        }
       });
     } else if (role === 'doctor') {
       createdProfile = await Doctor.create({
@@ -407,6 +459,15 @@ const completeProfile = async (req, res) => {
       return res.status(400).json({ message: 'Please enter a valid 10-digit Indian phone number (e.g. 9876543210 or +91 9876543210).' });
     }
 
+    if (user.role === 'doctor') {
+      if (profile?.licenseNumber && !isValidLicenseNumber(profile.licenseNumber)) {
+        return res.status(400).json({ message: 'Please enter a valid Medical License Number (between 4 and 35 alphanumeric characters). Dummy entries like 000 are disallowed.' });
+      }
+      if (profile?.clinicAddress && !isValidClinicAddress(profile.clinicAddress)) {
+        return res.status(400).json({ message: 'Please enter a valid Clinic/Hospital Address (at least 8 characters long). Dummy entries like 00000000 are disallowed.' });
+      }
+    }
+
     if (profile?.experienceYears !== undefined && !isValidExperience(profile.experienceYears)) {
       return res.status(400).json({ message: 'Years of experience must be a number between 0 and 60.' });
     }
@@ -489,11 +550,95 @@ const getPincodeDetails = async (req, res) => {
   }
 };
 
+// @desc    Request Password Reset OTP
+// @route   POST /api/auth/forgot-password
+// @access  Public
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ message: 'Please enter a valid registered email address.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
+
+    if (!user) {
+      // Security standard: do not disclose if email doesn't exist
+      return res.json({ 
+        message: `If an account exists for ${cleanEmail}, a 6-digit password reset OTP has been sent.`
+      });
+    }
+
+    // Generate 6-digit OTP code
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetPasswordToken = otp;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes validity
+    await user.save();
+
+    console.log(`[AUTH] Password reset OTP generated for ${cleanEmail}: ${otp}`);
+
+    // Send real email via mailer module
+    await sendResetOtpEmail(cleanEmail, otp);
+
+    res.json({
+      message: `Password reset OTP has been sent to ${cleanEmail}. (Valid for 15 minutes)`
+    });
+  } catch (error) {
+    console.error('Error requesting password reset:', error);
+    res.status(500).json({ message: 'Server error requesting password reset.', error: error.message });
+  }
+};
+
+// @desc    Reset Password using OTP
+// @route   POST /api/auth/reset-password
+// @access  Public
+const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: 'Please provide email, 6-digit OTP, and your new password.' });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({ 
+        message: 'New password must be at least 8 characters long and contain both letters and numbers.' 
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ 
+      email: cleanEmail,
+      resetPasswordToken: otp.trim(),
+      resetPasswordExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired 6-digit reset OTP code.' });
+    }
+
+    // Set new password (pre-save middleware hashes passwordHash automatically)
+    user.passwordHash = newPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    console.log(`[AUTH] Password successfully reset for ${cleanEmail}`);
+
+    res.json({ message: 'Password reset successful! You can now log in with your new password.' });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({ message: 'Server error resetting password.', error: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getUserProfile,
   googleLogin,
   completeProfile,
-  getPincodeDetails
+  getPincodeDetails,
+  forgotPassword,
+  resetPassword
 };

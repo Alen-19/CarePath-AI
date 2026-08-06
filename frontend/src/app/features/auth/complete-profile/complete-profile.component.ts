@@ -89,9 +89,45 @@ export class CompleteProfileComponent implements OnInit {
   isPendingApproval = false;
 
   // Validation Touch Flags & Bounds
+  firstNameTouched = false;
+  lastNameTouched = false;
   phoneTouched = false;
+  licenseNumberTouched = false;
+  clinicAddressTouched = false;
   experienceYearsTouched = false;
   maxDobDate = new Date().toISOString().split('T')[0];
+
+  get isFirstNameValid(): boolean {
+    const clean = this.firstName.trim();
+    if (clean.length < 2 || clean.length > 50) return false;
+    const nameRegex = /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/;
+    return nameRegex.test(clean);
+  }
+
+  get isLastNameValid(): boolean {
+    const clean = this.lastName.trim();
+    if (clean.length < 2 || clean.length > 50) return false;
+    const nameRegex = /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/;
+    return nameRegex.test(clean);
+  }
+
+  get isLicenseNumberValid(): boolean {
+    if (this.role !== 'doctor') return true;
+    const clean = this.licenseNumber.trim();
+    if (clean.length < 4 || clean.length > 35) return false;
+    if (/^(.)\1+$/.test(clean)) return false;
+    const licenseRegex = /^[a-zA-Z0-9]+(?:[\/\-][a-zA-Z0-9]+)*$/;
+    return licenseRegex.test(clean);
+  }
+
+  get isClinicAddressValid(): boolean {
+    if (!this.clinicAddress.trim()) return true;
+    const clean = this.clinicAddress.trim();
+    if (clean.length < 8 || clean.length > 250) return false;
+    if ((clean.match(/[a-zA-Z]/g) || []).length < 3) return false;
+    if (/^(.)\1+$/.test(clean)) return false;
+    return true;
+  }
 
   get isPhoneValid(): boolean {
     if (!this.phone.trim()) return true;
@@ -210,24 +246,42 @@ export class CompleteProfileComponent implements OnInit {
   }
 
   onSubmit() {
-    if (!this.firstName || !this.lastName) {
-      this.errorMessage = 'First and Last name are required.';
+    this.firstNameTouched = true;
+    this.lastNameTouched = true;
+
+    if (!this.isFirstNameValid) {
+      this.errorMessage = 'First name must contain only letters (at least 2 characters, e.g. John).';
       return;
     }
 
-    if (this.role === 'doctor' && (!this.specialization || !this.licenseNumber)) {
-      this.errorMessage = 'Specialization and Medical License Number are required for Doctors.';
+    if (!this.isLastNameValid) {
+      this.errorMessage = 'Last name must contain only letters (at least 2 characters, e.g. Doe).';
       return;
     }
 
-    if (this.phone.trim() && !this.isPhoneValid) {
-      this.errorMessage = 'Please enter a valid 10-digit Indian phone number (e.g. 9876543210 or +91 9876543210).';
-      return;
-    }
+    if (this.role === 'doctor') {
+      this.licenseNumberTouched = true;
+      this.clinicAddressTouched = true;
 
-    if (this.role === 'doctor' && !this.isExperienceValid) {
-      this.errorMessage = 'Years of experience must be a number between 0 and 60.';
-      return;
+      if (!this.specialization.trim()) {
+        this.errorMessage = 'Please select a Doctor Specialization.';
+        return;
+      }
+
+      if (!this.isLicenseNumberValid) {
+        this.errorMessage = 'Please enter a valid Medical License Number (between 4 and 35 alphanumeric characters, e.g. KMC-12345). Dummy numbers like 000 are not allowed.';
+        return;
+      }
+
+      if (this.clinicAddress.trim() && !this.isClinicAddressValid) {
+        this.errorMessage = 'Please enter a valid Clinic/Hospital Address (at least 8 characters long containing street or clinic name). Dummy entries like 00000000 are not allowed.';
+        return;
+      }
+
+      if (!this.isExperienceValid) {
+        this.errorMessage = 'Years of experience must be a number between 0 and 60.';
+        return;
+      }
     }
 
     this.isLoading = true;

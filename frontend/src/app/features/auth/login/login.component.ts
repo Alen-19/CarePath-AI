@@ -36,6 +36,102 @@ export class LoginComponent implements AfterViewInit {
     return this.password.length >= 6;
   }
 
+  // Forgot Password State
+  showForgotPasswordModal = false;
+  forgotPasswordStep: 'request' | 'reset' = 'request';
+  forgotEmail = '';
+  forgotOtp = '';
+  newPassword = '';
+  confirmNewPassword = '';
+  forgotLoading = false;
+  forgotError = '';
+  forgotSuccess = '';
+  generatedOtp = '';
+
+  openForgotPasswordModal() {
+    this.showForgotPasswordModal = true;
+    this.forgotPasswordStep = 'request';
+    this.forgotEmail = this.email || '';
+    this.forgotOtp = '';
+    this.newPassword = '';
+    this.confirmNewPassword = '';
+    this.forgotError = '';
+    this.forgotSuccess = '';
+    this.generatedOtp = '';
+  }
+
+  closeForgotPasswordModal() {
+    this.showForgotPasswordModal = false;
+  }
+
+  onRequestOtp() {
+    if (!this.forgotEmail || !this.forgotEmail.trim()) {
+      this.forgotError = 'Please enter your registered email address.';
+      return;
+    }
+    this.forgotLoading = true;
+    this.forgotError = '';
+    this.forgotSuccess = '';
+
+    this.authService.forgotPassword(this.forgotEmail.trim()).subscribe({
+      next: (res) => {
+        this.forgotLoading = false;
+        this.forgotSuccess = res.message;
+        if (res.otp) {
+          this.generatedOtp = res.otp;
+        }
+        this.forgotPasswordStep = 'reset';
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.forgotLoading = false;
+        this.forgotError = err.error?.message || 'Failed to generate reset OTP code.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onResetPassword() {
+    if (!this.forgotOtp || this.forgotOtp.trim().length !== 6) {
+      this.forgotError = 'Please enter the 6-digit OTP code.';
+      return;
+    }
+    if (!this.newPassword || this.newPassword.length < 8) {
+      this.forgotError = 'New password must be at least 8 characters long and contain both letters and numbers.';
+      return;
+    }
+    if (this.newPassword !== this.confirmNewPassword) {
+      this.forgotError = 'Passwords do not match.';
+      return;
+    }
+
+    this.forgotLoading = true;
+    this.forgotError = '';
+    this.forgotSuccess = '';
+
+    const payload = {
+      email: this.forgotEmail.trim(),
+      otp: this.forgotOtp.trim(),
+      newPassword: this.newPassword
+    };
+
+    this.authService.resetPassword(payload).subscribe({
+      next: (res) => {
+        this.forgotLoading = false;
+        this.successMessage = '✓ Password reset successful! Please sign in with your new password.';
+        this.email = this.forgotEmail;
+        this.password = '';
+        this.showForgotPasswordModal = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.forgotLoading = false;
+        this.forgotError = err.error?.message || 'Failed to reset password. Please verify your OTP code.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   constructor(
     private authService: AuthService,
     private router: Router,

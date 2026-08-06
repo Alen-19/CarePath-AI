@@ -63,10 +63,17 @@
             id="firstName" 
             name="firstName" 
             class="form-input" 
+            [class.is-invalid]="firstNameTouched && !isFirstNameValid"
+            [class.is-valid]="firstNameTouched && isFirstNameValid"
             placeholder="John" 
             [(ngModel)]="firstName" 
+            (blur)="firstNameTouched = true"
+            (input)="firstNameTouched = true"
             required 
           />
+          <span class="field-error-msg" *ngIf="firstNameTouched && !isFirstNameValid">
+            ⚠️ First name must contain only letters (at least 2 characters, no numbers or symbols)
+          </span>
         </div>
         <div class="form-group col">
           <label class="form-label" for="lastName">Last Name *</label>
@@ -75,10 +82,17 @@
             id="lastName" 
             name="lastName" 
             class="form-input" 
+            [class.is-invalid]="lastNameTouched && !isLastNameValid"
+            [class.is-valid]="lastNameTouched && isLastNameValid"
             placeholder="Doe" 
             [(ngModel)]="lastName" 
+            (blur)="lastNameTouched = true"
+            (input)="lastNameTouched = true"
             required 
           />
+          <span class="field-error-msg" *ngIf="lastNameTouched && !isLastNameValid">
+            ⚠️ Last name must contain only letters (at least 2 characters, no numbers or symbols)
+          </span>
         </div>
       </div>
 
@@ -274,10 +288,17 @@
             id="licenseNumber" 
             name="licenseNumber" 
             class="form-input" 
-            placeholder="LIC-12345678" 
+            [class.is-invalid]="licenseNumberTouched && !isLicenseNumberValid"
+            [class.is-valid]="licenseNumberTouched && isLicenseNumberValid"
+            placeholder="e.g. KMC-12345 or MCI/67890" 
             [(ngModel)]="licenseNumber" 
+            (blur)="licenseNumberTouched = true"
+            (input)="licenseNumberTouched = true"
             required 
           />
+          <span class="field-error-msg" *ngIf="licenseNumberTouched && !isLicenseNumberValid">
+            ⚠️ Medical License Number must be 4–35 alphanumeric characters (e.g. KMC-12345). Dummy numbers like 000 are not allowed.
+          </span>
         </div>
 
         <div class="form-group">
@@ -286,10 +307,17 @@
             id="clinicAddress" 
             name="clinicAddress" 
             class="form-input form-textarea" 
+            [class.is-invalid]="clinicAddressTouched && !isClinicAddressValid"
+            [class.is-valid]="clinicAddressTouched && isClinicAddressValid && clinicAddress.trim().length > 0"
             rows="2" 
-            placeholder="123 Health Ave, Medical District..."
+            placeholder="e.g. Room 402, Sunrise Medical Center, MG Road, Ernakulam"
             [(ngModel)]="clinicAddress"
+            (blur)="clinicAddressTouched = true"
+            (input)="clinicAddressTouched = true"
           ></textarea>
+          <span class="field-error-msg" *ngIf="clinicAddressTouched && !isClinicAddressValid">
+            ⚠️ Clinic address must be at least 8 characters long containing street or clinic name. Dummy entries like 00000000 are not allowed.
+          </span>
         </div>
       </div>
 

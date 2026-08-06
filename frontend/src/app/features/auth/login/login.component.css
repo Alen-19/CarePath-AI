@@ -39,6 +39,35 @@
   text-shadow: 0 0 12px rgba(79, 70, 229, 0.6);
 }
 
+.forgot-link:hover {
+  text-decoration: underline !important;
+  color: #38bdf8 !important;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(8, 19, 31, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.cancel-modal {
+  width: 100%;
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  background: rgba(13, 35, 58, 0.95);
+  border: 1px solid rgba(0, 180, 216, 0.2);
+}
+
 .accent-text {
   background: linear-gradient(135deg, var(--primary) 30%, var(--accent) 100%);
   -webkit-background-clip: text;

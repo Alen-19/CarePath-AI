@@ -2,6 +2,7 @@ import { Component, AfterViewInit, NgZone, ChangeDetectorRef } from '@angular/co
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 
 declare var google: any;
@@ -28,6 +29,23 @@ export class RegisterComponent implements AfterViewInit {
   bloodGroup = '';
   dateOfBirth = '';
   gender = 'Prefer not to say';
+
+  // Address Fields
+  address = {
+    houseName: '',
+    pincode: '',
+    city: '',
+    district: '',
+    state: '',
+    country: 'India'
+  };
+
+  // Pincode Lookup State
+  localitiesList: string[] = [];
+  districtsList: string[] = [];
+  postOfficeRecords: Array<{ name: string; district: string; state: string }> = [];
+  loadingPincode = false;
+  pincodeErrorMsg = '';
 
   // Doctor specific profile
   specialization = '';
@@ -89,11 +107,17 @@ export class RegisterComponent implements AfterViewInit {
 
   // Live Validation Getters
   get isFirstNameValid(): boolean {
-    return this.firstName.trim().length >= 2;
+    const clean = this.firstName.trim();
+    if (clean.length < 2 || clean.length > 50) return false;
+    const nameRegex = /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/;
+    return nameRegex.test(clean);
   }
 
   get isLastNameValid(): boolean {
-    return this.lastName.trim().length >= 2;
+    const clean = this.lastName.trim();
+    if (clean.length < 2 || clean.length > 50) return false;
+    const nameRegex = /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/;
+    return nameRegex.test(clean);
   }
 
   get isEmailValid(): boolean {
@@ -118,6 +142,8 @@ export class RegisterComponent implements AfterViewInit {
     return this.confirmPassword.length > 0 && this.confirmPassword === this.password;
   }
 
+  clinicAddressTouched = false;
+
   get isPhoneValid(): boolean {
     if (!this.phone.trim()) return true; // Phone is optional
     return /^(?:\+?91[\s\-]?)?[6-9]\d{9}$/.test(this.phone.trim());
@@ -128,9 +154,29 @@ export class RegisterComponent implements AfterViewInit {
     return this.experienceYears >= 0 && this.experienceYears <= 60;
   }
 
+  get isLicenseNumberValid(): boolean {
+    if (this.role !== 'doctor') return true;
+    const clean = this.licenseNumber.trim();
+    if (clean.length < 4 || clean.length > 35) return false;
+    if (/^(.)\1+$/.test(clean)) return false; // Block single repeating chars like "000", "1111"
+    const licenseRegex = /^[a-zA-Z0-9]+(?:[\/\-][a-zA-Z0-9]+)*$/;
+    return licenseRegex.test(clean);
+  }
+
+  get isClinicAddressValid(): boolean {
+    if (!this.clinicAddress.trim()) return true;
+    const clean = this.clinicAddress.trim();
+    if (clean.length < 8 || clean.length > 250) return false;
+    if ((clean.match(/[a-zA-Z]/g) || []).length < 3) return false; // Must contain at least 3 letters
+    if (/^(.)\1+$/.test(clean)) return false;
+    return true;
+  }
+
   get isDoctorValid(): boolean {
     if (this.role !== 'doctor') return true;
-    return this.specialization.trim().length >= 2 && this.licenseNumber.trim().length >= 3;
+    return this.specialization.trim().length >= 2 &&
+           this.isLicenseNumberValid &&
+           this.isClinicAddressValid;
   }
 
   get isFormValid(): boolean {
@@ -146,6 +192,7 @@ export class RegisterComponent implements AfterViewInit {
 
   constructor(
     private authService: AuthService,
+    private http: HttpClient,
     private router: Router,
     private route: ActivatedRoute,
     private ngZone: NgZone,
@@ -160,6 +207,67 @@ export class RegisterComponent implements AfterViewInit {
     // Redirect if already logged in
     if (this.authService.isAuthenticated()) {
       this.redirectUser(this.authService.userRole());
+    }
+  }
+
+  onPincodeInput() {
+    const cleanPin = (this.address.pincode || '').trim();
+    this.pincodeErrorMsg = '';
+    if (cleanPin.length === 6 && /^\d{6}$/.test(cleanPin)) {
+      this.fetchPincodeDetails(cleanPin);
+    } else {
+      this.localitiesList = [];
+      this.districtsList = [];
+      this.postOfficeRecords = [];
+    }
+  }
+
+  fetchPincodeDetails(pincode: string) {
+    this.loadingPincode = true;
+    this.pincodeErrorMsg = '';
+    this.http.get<any[]>(`http://localhost:5000/api/auth/pincode/${pincode}`).subscribe({
+      next: (response) => {
+        this.loadingPincode = false;
+        if (response && response[0] && response[0].Status === 'Success' && response[0].PostOffice && response[0].PostOffice.length > 0) {
+          const postOffices = response[0].PostOffice;
+          this.postOfficeRecords = postOffices.map((po: any) => ({
+            name: po.Name,
+            district: po.District,
+            state: po.State
+          }));
+
+          this.localitiesList = Array.from(new Set(this.postOfficeRecords.map(r => r.name)));
+          this.districtsList = Array.from(new Set(this.postOfficeRecords.map(r => r.district)));
+
+          let targetCity = this.address.city;
+          if (!targetCity || !this.localitiesList.includes(targetCity)) {
+            targetCity = this.localitiesList[0] || '';
+            this.address.city = targetCity;
+          }
+          this.onLocalitySelect(targetCity);
+        } else {
+          this.pincodeErrorMsg = 'No details found for this pincode.';
+          this.localitiesList = [];
+          this.districtsList = [];
+          this.postOfficeRecords = [];
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loadingPincode = false;
+        this.pincodeErrorMsg = 'Failed to fetch pincode details.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onLocalitySelect(selectedCity: string) {
+    this.address.city = selectedCity;
+    const match = this.postOfficeRecords.find(r => r.name === selectedCity);
+    if (match) {
+      this.address.district = match.district;
+      this.address.state = match.state;
+      this.address.country = 'India';
     }
   }
 
@@ -235,6 +343,16 @@ export class RegisterComponent implements AfterViewInit {
       return;
     }
 
+    if (!this.isFirstNameValid) {
+      this.errorMessage = 'First name must contain only letters (at least 2 characters, e.g. John).';
+      return;
+    }
+
+    if (!this.isLastNameValid) {
+      this.errorMessage = 'Last name must contain only letters (at least 2 characters, e.g. Doe).';
+      return;
+    }
+
     // 1. Strict Email Format Validation
     const strictEmailRegex = /^(?=[a-zA-Z0-9._-]{6,64}@)[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*(?:\.[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*)*\.[a-zA-Z]{2,}$/;
     if (!strictEmailRegex.test(cleanEmail)) {
@@ -257,8 +375,21 @@ export class RegisterComponent implements AfterViewInit {
 
     // 4. Role-specific validations
     if (this.role === 'doctor') {
-      if (!this.specialization.trim() || !this.licenseNumber.trim()) {
-        this.errorMessage = 'Doctors must provide both Specialization and Medical License Number.';
+      this.licenseNumberTouched = true;
+      this.clinicAddressTouched = true;
+
+      if (!this.specialization.trim()) {
+        this.errorMessage = 'Please select a Doctor Specialization.';
+        return;
+      }
+
+      if (!this.isLicenseNumberValid) {
+        this.errorMessage = 'Please enter a valid Medical License Number (between 4 and 35 alphanumeric characters, e.g. KMC-12345). Dummy numbers like 000 are not allowed.';
+        return;
+      }
+
+      if (this.clinicAddress.trim() && !this.isClinicAddressValid) {
+        this.errorMessage = 'Please enter a valid Clinic/Hospital Address (at least 8 characters long containing street or clinic name). Dummy entries like 00000000 are not allowed.';
         return;
       }
     } else if (this.role === 'patient' && this.phone.trim()) {
@@ -284,6 +415,14 @@ export class RegisterComponent implements AfterViewInit {
       if (this.dateOfBirth) {
         profile.dateOfBirth = this.dateOfBirth;
       }
+      profile.address = {
+        houseName: this.address.houseName.trim(),
+        pincode: this.address.pincode.trim(),
+        city: this.address.city.trim(),
+        district: this.address.district.trim(),
+        state: this.address.state.trim(),
+        country: this.address.country.trim() || 'India'
+      };
     } else {
       profile.specialization = this.specialization.trim();
       profile.licenseNumber = this.licenseNumber.trim();

@@ -6,6 +6,8 @@ const DoctorDateOverride = require('../models/DoctorDateOverride');
 const Appointment = require('../models/Appointment');
 const Payment = require('../models/Payment');
 const Patient = require('../models/Patient');
+const User = require('../models/User');
+const { sendAppointmentReceiptEmail } = require('../config/mailer');
 
 // Lazily initialize Razorpay so it doesn't throw at module load time
 // when env vars haven't been set yet.
@@ -338,7 +340,7 @@ const verifyPayment = async (req, res) => {
         paidAt: new Date()
       },
       { new: true }
-    );
+    ).populate('patientId').populate('doctorId');
 
     if (!appointment) return res.status(404).json({ message: 'Appointment not found.' });
 
@@ -352,6 +354,42 @@ const verifyPayment = async (req, res) => {
         paidAt: new Date()
       }
     );
+
+    // Send Receipt Email to Patient
+    try {
+      const patientDoc = appointment.patientId;
+      const doctorDoc = appointment.doctorId;
+
+      let patientEmail = '';
+      if (patientDoc?.userId) {
+        const userAccount = await User.findById(patientDoc.userId);
+        patientEmail = userAccount?.email || '';
+      }
+
+      if (patientEmail) {
+        const patientFullName = `${patientDoc?.firstName || 'Patient'} ${patientDoc?.lastName || ''}`.trim();
+        const doctorFullName = `Dr. ${doctorDoc?.firstName || 'Doctor'} ${doctorDoc?.lastName || ''}`.trim();
+
+        await sendAppointmentReceiptEmail({
+          patientEmail,
+          patientName: patientFullName,
+          doctorName: doctorFullName,
+          specialization: doctorDoc?.specialization || 'General Physician',
+          appointmentDate: appointment.appointmentDate,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          consultationType: appointment.type || 'General Consultation',
+          clinicAddress: doctorDoc?.clinicAddress || '',
+          paymentId: razorpayPaymentId,
+          bookingRef: `CP-${appointment._id.toString().slice(-6).toUpperCase()}`,
+          amountPaid: appointment.amount || 500,
+          paidAt: appointment.paidAt
+        });
+      }
+    } catch (emailErr) {
+      console.error('[BOOKING] Error sending appointment receipt email:', emailErr);
+      // Non-blocking: continue responding to user even if email dispatch fails
+    }
 
     res.json({ success: true, message: 'Payment verified. Appointment confirmed!', appointment });
   } catch (err) {

@@ -135,6 +135,37 @@
   to { transform: rotate(360deg); }
 }
 
+/* Address Section Divider */
+.address-section-divider {
+  margin: 1.5rem 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.address-section-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.position-relative {
+  position: relative;
+}
+
+.pincode-spinner {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  color: #93c5fd;
+  pointer-events: none;
+}
+
 @media (max-width: 480px) {
   .form-row {
     flex-direction: column;
