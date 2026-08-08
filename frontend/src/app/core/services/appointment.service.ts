@@ -247,4 +247,36 @@ export class AppointmentService {
       `${this.bookingUrl}/doctor-appointments`
     );
   }
+
+  // ─── Video Consultation APIs ──────────────────────────────────────────────
+  getConsultationDetails(appointmentId: string): Observable<{
+    success: boolean;
+    appointment: any;
+    meetingRoomId: string;
+    callStatus: string;
+    iceServers: any[];
+  }> {
+    return this.http.get<{
+      success: boolean;
+      appointment: any;
+      meetingRoomId: string;
+      callStatus: string;
+      iceServers: any[];
+    }>(`${this.apiUrl}/${appointmentId}/consultation`);
+  }
+
+  addPrescription(appointmentId: string, prescription: any[]): Observable<{
+    success: boolean;
+    message: string;
+    prescription: any[];
+    prescribedAt: string;
+  }> {
+    return this.http.post<{
+      success: boolean;
+      message: string;
+      prescription: any[];
+      prescribedAt: string;
+    }>(`${this.bookingUrl}/${appointmentId}/prescription`, { prescription });
+  }
 }
+

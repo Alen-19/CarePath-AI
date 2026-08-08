@@ -2,18 +2,16 @@
   max-width: 1240px;
   margin: 0 auto;
   padding: 1.5rem;
-  color: var(--text-primary, #f8fafc);
+  color: var(--text-primary, #0F172A);
   font-family: inherit;
 }
 
 /* Glassmorphism card utility */
 .glass-card {
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #E2E8F0);
   border-radius: 16px;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
 }
 
 /* Navbar */
@@ -23,6 +21,9 @@
   align-items: center;
   padding: 1rem 1.5rem;
   margin-bottom: 1.5rem;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #E2E8F0);
+  border-radius: 16px;
 }
 
 .brand-group {
@@ -34,19 +35,19 @@
 .brand-logo {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--text-primary, #0F172A);
 }
 
 .accent-text {
-  background: linear-gradient(135deg, #00b4d8 0%, #2bb673 100%);
+  background: linear-gradient(135deg, #2563EB 0%, #14B8A6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .doctor-badge {
-  background: rgba(43, 182, 115, 0.15);
-  color: #48bb78;
-  border: 1px solid rgba(43, 182, 115, 0.3);
+  background: var(--primary-light, #EFF6FF);
+  color: var(--primary, #2563EB);
+  border: 1px solid rgba(37, 99, 235, 0.2);
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 0.78rem;
@@ -68,11 +69,12 @@
 .user-name {
   font-weight: 600;
   font-size: 0.95rem;
+  color: var(--text-primary, #0F172A);
 }
 
 .user-spec {
   font-size: 0.78rem;
-  color: #94a3b8;
+  color: var(--text-secondary, #64748B);
 }
 
 /* Hero Welcome Banner */
@@ -82,8 +84,11 @@
   align-items: center;
   padding: 1.75rem 2rem;
   margin-bottom: 1.5rem;
-  background: linear-gradient(135deg, rgba(13, 35, 58, 0.8) 0%, rgba(15, 23, 42, 0.85) 100%);
-  border-left: 4px solid #2bb673;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #E2E8F0);
+  border-left: 5px solid var(--primary, #2563EB);
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05);
 }
 
 .doctor-badge-status {
@@ -94,14 +99,16 @@
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 12px;
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  background: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
   margin-bottom: 0.5rem;
 }
 
 .doctor-badge-status.verified {
-  background: rgba(43, 182, 115, 0.15);
-  color: #48bb78;
+  background: #F0FDF4;
+  color: #15803D;
+  border: 1px solid #BBF7D0;
 }
 
 .status-dot {
@@ -114,11 +121,18 @@
 .welcome-banner h1 {
   font-size: 1.6rem;
   margin: 0 0 0.25rem 0;
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--text-primary, #0F172A);
+}
+
+.welcome-banner h1 .accent-text {
+  color: var(--primary, #2563EB) !important;
+  background: none !important;
+  -webkit-text-fill-color: initial !important;
 }
 
 .welcome-banner .subtitle {
-  color: #94a3b8;
+  color: var(--text-secondary, #64748B);
   margin: 0;
   font-size: 0.9rem;
 }
@@ -131,15 +145,16 @@
 
 .date-label {
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--text-secondary, #64748B);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: 600;
 }
 
 .date-value {
   font-size: 1rem;
-  font-weight: 600;
-  color: #38bdf8;
+  font-weight: 700;
+  color: var(--primary, #2563EB);
 }
 
 /* Stats Grid */
@@ -181,12 +196,12 @@
 .stat-value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--text-primary, #0F172A);
 }
 
 .stat-label {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-secondary, #64748B);
 }
 
 /* Main Layout Grid */
@@ -204,6 +219,10 @@
 
 .grid-card {
   padding: 1.5rem;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #E2E8F0);
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05);
 }
 
 .card-header {
@@ -212,18 +231,19 @@
   align-items: center;
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border-color, #E2E8F0);
 }
 
 .card-header h2 {
   font-size: 1.15rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
   margin: 0;
 }
 
 .badge-pill {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
+  background: var(--primary-light, #EFF6FF);
+  color: var(--primary, #2563EB);
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 0.8rem;
@@ -243,15 +263,15 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #E2E8F0);
   border-radius: 12px;
   transition: all 0.2s ease;
 }
 
 .appointment-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(0, 180, 216, 0.3);
+  background: var(--bg-primary, #F8FAFC);
+  border-color: #CBD5E1;
 }
 
 .apt-time {
@@ -263,38 +283,39 @@
 .time-text {
   font-weight: 700;
   font-size: 0.9rem;
-  color: #38bdf8;
+  color: var(--primary, #2563EB);
 }
 
 .apt-status {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
   text-align: center;
   text-transform: uppercase;
 }
 
-.apt-status.confirmed { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-.apt-status.completed { background: rgba(43, 182, 115, 0.2); color: #48bb78; }
-.apt-status.pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.apt-status.confirmed { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+.apt-status.completed { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+.apt-status.pending { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
 
 .apt-details h4 {
   margin: 0 0 4px 0;
   font-size: 0.98rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
 }
 
 .patient-age {
   font-weight: 400;
-  color: #94a3b8;
+  color: var(--text-secondary, #64748B);
   font-size: 0.85rem;
 }
 
 .apt-reason {
   margin: 0;
   font-size: 0.82rem;
-  color: #cbd5e1;
+  color: var(--text-secondary, #64748B);
 }
 
 /* Care Plan List */
@@ -306,21 +327,21 @@
 
 .careplan-item {
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #E2E8F0);
   border-radius: 12px;
 }
 
 .careplan-item h4 {
   margin: 0 0 4px 0;
   font-size: 0.95rem;
-  font-weight: 600;
-  color: #38bdf8;
+  font-weight: 700;
+  color: var(--primary, #2563EB);
 }
 
 .plan-patient {
   font-size: 0.82rem;
-  color: #94a3b8;
+  color: var(--text-secondary, #64748B);
 }
 
 .plan-meta {
@@ -328,7 +349,7 @@
   justify-content: space-between;
   margin-top: 8px;
   font-size: 0.78rem;
-  color: #cbd5e1;
+  color: var(--text-secondary, #64748B);
 }
 
 /* Buttons */
@@ -342,9 +363,9 @@
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-tertiary, #F1F5F9);
+  color: var(--text-primary, #0F172A);
+  border: 1px solid var(--border-color, #E2E8F0);
 }
 
 .btn-secondary:hover {
@@ -813,6 +834,9 @@
   margin: 0 2rem 1.5rem;
   padding: 1.5rem 1.75rem;
   border-radius: 16px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #E2E8F0);
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05);
 }
 .panel-header {
   display: flex;
@@ -820,14 +844,14 @@
   align-items: center;
   margin-bottom: 1.25rem;
 }
-.panel-header h2 { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
+.panel-header h2 { font-size: 1.1rem; font-weight: 800; color: var(--text-primary, #0F172A); margin: 0; }
 .appt-tabs { display: flex; gap: 0.4rem; }
 .appt-tab-btn {
   padding: 0.4rem 1rem;
   border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-secondary);
+  border: 1px solid var(--border-color, #E2E8F0);
+  background: #FFFFFF;
+  color: var(--text-secondary, #64748B);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
@@ -836,7 +860,7 @@
   align-items: center;
   gap: 0.4rem;
 }
-.appt-tab-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.appt-tab-btn.active { background: var(--primary, #2563EB); border-color: var(--primary, #2563EB); color: #FFFFFF; }
 .appt-count {
   background: rgba(255,255,255,0.2);
   border-radius: 10px;

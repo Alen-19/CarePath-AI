@@ -121,7 +121,12 @@
             <h4>{{ a.patientId ? a.patientId.firstName + ' ' + a.patientId.lastName : 'Patient' }}</h4>
             <p>{{ a.type }}<span *ngIf="a.symptoms"> · {{ a.symptoms }}</span></p>
           </div>
-          <span class="live-appt-status confirmed">{{ a.status }}</span>
+          <div class="d-flex align-items-center gap-2">
+            <a [routerLink]="['/consultation', a._id]" class="btn btn-sm btn-success pill-btn shadow-sm" *ngIf="a.status === 'Confirmed'">
+              📹 Join Call
+            </a>
+            <span class="live-appt-status confirmed">{{ a.status }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -141,7 +146,12 @@
             <h4>{{ a.patientId ? a.patientId.firstName + ' ' + a.patientId.lastName : 'Patient' }}</h4>
             <p>{{ a.type }}</p>
           </div>
-          <span class="live-appt-status confirmed">{{ a.status }}</span>
+          <div class="d-flex align-items-center gap-2">
+            <a [routerLink]="['/consultation', a._id]" class="btn btn-sm btn-success pill-btn shadow-sm" *ngIf="a.status === 'Confirmed'">
+              📹 Join Call
+            </a>
+            <span class="live-appt-status confirmed">{{ a.status }}</span>
+          </div>
         </div>
       </div>
     </div>

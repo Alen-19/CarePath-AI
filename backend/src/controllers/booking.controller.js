@@ -7,7 +7,7 @@ const Appointment = require('../models/Appointment');
 const Payment = require('../models/Payment');
 const Patient = require('../models/Patient');
 const User = require('../models/User');
-const { sendAppointmentReceiptEmail } = require('../config/mailer');
+const { sendAppointmentReceiptEmail, sendPrescriptionEmail } = require('../config/mailer');
 
 // Lazily initialize Razorpay so it doesn't throw at module load time
 // when env vars haven't been set yet.
@@ -597,6 +597,70 @@ const retryPayment = async (req, res) => {
   }
 };
 
+// POST /api/booking/:id/prescription
+const addPrescription = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { prescription } = req.body; // Array of { medicineName, composition, dosage, duration, instructions }
+
+    if (!prescription || !Array.isArray(prescription) || prescription.length === 0) {
+      return res.status(400).json({ message: 'Prescription array cannot be empty.' });
+    }
+
+    const appointment = await Appointment.findById(id)
+      .populate({ path: 'patientId', populate: { path: 'userId' } })
+      .populate({ path: 'doctorId', populate: { path: 'userId' } });
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found.' });
+    }
+
+    appointment.prescription = prescription;
+    appointment.prescribedAt = new Date();
+    await appointment.save();
+
+    // Trigger email to patient
+    let patientEmail = '';
+    let patientName = 'Patient';
+
+    if (appointment.patientId) {
+      patientName = `${appointment.patientId.firstName || ''} ${appointment.patientId.lastName || ''}`.trim() || 'Patient';
+      if (appointment.patientId.userId && appointment.patientId.userId.email) {
+        patientEmail = appointment.patientId.userId.email;
+      } else if (appointment.patientId.userId) {
+        const userDoc = await User.findById(appointment.patientId.userId);
+        if (userDoc) patientEmail = userDoc.email;
+      }
+    }
+
+    let doctorName = 'Doctor';
+    let specialty = 'General Practice';
+    if (appointment.doctorId) {
+      const docFirst = appointment.doctorId.firstName || appointment.doctorId.userId?.firstName || '';
+      const docLast = appointment.doctorId.lastName || appointment.doctorId.userId?.lastName || '';
+      doctorName = `Dr. ${docFirst} ${docLast}`.trim();
+      specialty = appointment.doctorId.specialization || 'General Practice';
+    }
+
+    if (patientEmail) {
+      console.log(`[E-PRESCRIPTION] Sending email to patient: ${patientEmail}...`);
+      sendPrescriptionEmail(patientEmail, patientName, doctorName, specialty, prescription, appointment.appointmentDate);
+    } else {
+      console.warn('[E-PRESCRIPTION] Could not find patient email to send prescription.');
+    }
+
+    res.json({
+      success: true,
+      message: 'Prescription saved and emailed to patient successfully.',
+      prescription: appointment.prescription,
+      prescribedAt: appointment.prescribedAt
+    });
+  } catch (err) {
+    console.error('Add prescription error:', err);
+    res.status(500).json({ message: 'Failed to save prescription.', error: err.message });
+  }
+};
+
 module.exports = {
   getDoctors,
   getAvailableSlots,
@@ -605,5 +669,6 @@ module.exports = {
   getPatientAppointments,
   getDoctorAppointments,
   cancelAppointment,
-  retryPayment
+  retryPayment,
+  addPrescription
 };

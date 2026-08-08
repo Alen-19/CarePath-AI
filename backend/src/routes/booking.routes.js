@@ -9,7 +9,8 @@ const {
   getPatientAppointments,
   getDoctorAppointments,
   cancelAppointment,
-  retryPayment
+  retryPayment,
+  addPrescription
 } = require('../controllers/booking.controller');
 
 // Public: doctor listing and slot availability
@@ -25,5 +26,6 @@ router.post('/:id/retry-payment', authenticateJWT, authorizeRoles('patient'), re
 
 // Doctor only
 router.get('/doctor-appointments', authenticateJWT, authorizeRoles('doctor'), getDoctorAppointments);
+router.post('/:id/prescription', authenticateJWT, authorizeRoles('doctor'), addPrescription);
 
 module.exports = router;

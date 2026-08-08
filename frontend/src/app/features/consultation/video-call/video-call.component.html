@@ -1,0 +1,328 @@
+<div class="consultation-wrapper">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="center-state">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="mt-3 text-light fw-medium">Loading consultation room details...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="errorMessage && !loading" class="center-state">
+    <div class="glass-card error-card p-4 text-center text-light">
+      <i class="bi bi-exclamation-triangle-fill text-warning display-4"></i>
+      <h4 class="mt-3">Consultation Error</h4>
+      <p class="text-secondary">{{ errorMessage }}</p>
+      <button class="btn btn-primary mt-2" (click)="leaveRoom()">Return to Dashboard</button>
+    </div>
+  </div>
+
+  <!-- Main Consultation Interface -->
+  <div *ngIf="!loading && !errorMessage" class="consultation-container">
+    
+    <!-- Header Bar -->
+    <header class="consultation-header">
+      <div class="header-left">
+        <div class="brand-badge">
+          <i class="bi bi-shield-lock-fill text-success me-2"></i>
+          <span class="brand-title">CarePath AI Telehealth</span>
+        </div>
+        <div class="consultation-info" *ngIf="appointmentDetails">
+          <span class="badge bg-primary me-2">{{ appointmentDetails.type || 'General Consultation' }}</span>
+          <span class="participant-name">
+            {{ userRole === 'patient' ? doctorName : patientName }}
+          </span>
+        </div>
+      </div>
+
+      <div class="header-center" *ngIf="isInCall">
+        <div class="timer-badge">
+          <span class="live-dot"></span>
+          <span>{{ callTimer }}</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button class="btn btn-outline-light btn-sm" (click)="leaveRoom()">
+          <i class="bi bi-box-arrow-right me-1"></i> Exit
+        </button>
+      </div>
+    </header>
+
+    <!-- PRE-CALL DEVICE CHECK SCREEN -->
+    <div *ngIf="isPreCall && !isCallEnded" class="pre-call-container">
+      <div class="glass-card pre-call-card p-4">
+        <h3 class="text-light mb-2 text-center">Ready to Join Consultation?</h3>
+        <p class="text-secondary text-center mb-4">Check your camera and microphone preview below</p>
+        
+        <div class="video-preview-box mb-4">
+          <video #localVideo autoplay playsinline [muted]="true" class="preview-video"></video>
+          <div class="preview-overlay">
+            <span class="badge bg-dark text-light">
+              <i class="bi bi-person-circle me-1"></i>
+              {{ currentUser?.name || 'Your Preview' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="device-controls d-flex justify-content-center gap-3 mb-4">
+          <button [class]="isAudioMuted ? 'btn btn-danger btn-circle' : 'btn btn-secondary btn-circle'" (click)="toggleMic()" [title]="isAudioMuted ? 'Unmute Mic' : 'Mute Mic'">
+            <i [class]="isAudioMuted ? 'bi bi-mic-mute-fill' : 'bi bi-mic-fill'"></i>
+          </button>
+          <button [class]="isVideoOff ? 'btn btn-danger btn-circle' : 'btn btn-secondary btn-circle'" (click)="toggleCamera()" [title]="isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'">
+            <i [class]="isVideoOff ? 'bi bi-camera-video-off-fill' : 'bi bi-camera-video-fill'"></i>
+          </button>
+        </div>
+
+        <div class="text-center">
+          <button class="btn btn-success btn-lg px-5 pill-btn" (click)="joinCall()">
+            <i class="bi bi-camera-video-fill me-2"></i> Join Consultation Room
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IN-CALL STAGE LAYOUT -->
+    <div *ngIf="isInCall && !isCallEnded" class="in-call-stage">
+      
+      <!-- Video Streams Area -->
+      <div class="video-grid" [class.with-sidebar]="activeSidebarTab !== null">
+        
+        <!-- Remote Video (Primary View) -->
+        <div class="remote-video-container">
+          <video #remoteVideo autoplay playsinline class="remote-video" [class.d-none]="!remoteStream"></video>
+          
+          <!-- Remote Video Off / Waiting Placeholder -->
+          <div *ngIf="!remoteStream" class="remote-placeholder">
+            <div class="avatar-ring pulse">
+              <i class="bi bi-person-fill display-3 text-light"></i>
+            </div>
+            <h4 class="text-light mt-3">
+              Waiting for {{ userRole === 'patient' ? doctorName : patientName }} to join...
+            </h4>
+            <p class="text-secondary small">Your call is end-to-end encrypted</p>
+          </div>
+
+          <!-- Remote Peer Audio Muted Indicator -->
+          <div *ngIf="remoteStream && !peerMediaStatus.audioEnabled" class="peer-status-badge">
+            <i class="bi bi-mic-mute-fill text-danger me-1"></i> Peer Muted
+          </div>
+
+          <!-- PIP Local Video (Self View) -->
+          <div class="local-pip-container">
+            <video #localVideo autoplay playsinline [muted]="true" class="local-pip-video"></video>
+            <span class="pip-label">You</span>
+          </div>
+        </div>
+
+        <!-- Right Side Panel (Chat / Notes) -->
+        <div class="sidebar-panel" *ngIf="activeSidebarTab">
+          
+          <!-- Chat Panel -->
+          <div *ngIf="activeSidebarTab === 'chat'" class="sidebar-content chat-content">
+            <div class="panel-header">
+              <h6 class="m-0 text-light"><i class="bi bi-chat-left-text-fill me-2 text-info"></i> Consultation Chat</h6>
+              <button class="btn-close btn-close-white btn-sm" (click)="activeSidebarTab = null"></button>
+            </div>
+            
+            <div class="chat-messages-box">
+              <div *ngIf="chatMessages.length === 0" class="text-center text-secondary py-5">
+                <i class="bi bi-chat-dots display-6"></i>
+                <p class="mt-2 small">No messages yet. Send a message to get started.</p>
+              </div>
+
+              <div *ngFor="let msg of chatMessages" class="chat-bubble-wrapper" [class.my-message]="msg.senderName === currentUser?.name">
+                <div class="chat-bubble">
+                  <div class="chat-author">{{ msg.senderName }} <span class="role-tag">({{ msg.senderRole }})</span></div>
+                  <div class="chat-text">{{ msg.message }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input-box">
+              <input type="text" class="form-control glass-input text-light" placeholder="Type a message..." [(ngModel)]="newMessageText" (keyup.enter)="sendChatMessage()">
+              <button class="btn btn-primary" (click)="sendChatMessage()"><i class="bi bi-send-fill"></i></button>
+            </div>
+          </div>
+
+          <!-- 💊 Medicine Search & E-Prescription Panel (Doctor & Patient View) -->
+          <div *ngIf="activeSidebarTab === 'rx'" class="sidebar-content rx-content">
+            <div class="panel-header">
+              <h6 class="m-0 text-light"><i class="bi bi-capsule-pill me-2 text-success"></i> {{ userRole === 'doctor' ? 'E-Prescription Builder' : 'Prescribed Medications' }}</h6>
+              <button class="btn-close btn-close-white btn-sm" (click)="activeSidebarTab = null"></button>
+            </div>
+
+            <div class="p-3 text-light">
+              <!-- Success Alert -->
+              <div *ngIf="prescriptionSuccessMsg" class="alert alert-success py-2 px-3 mb-3 small">
+                <i class="bi bi-check-circle-fill me-1"></i> {{ prescriptionSuccessMsg }}
+              </div>
+
+              <!-- DOCTOR MODE: Medicine Dataset Autocomplete Search -->
+              <div *ngIf="userRole === 'doctor'">
+                <label class="form-label small text-secondary fw-semibold">Search Medicine Dataset (126k+ Medicines)</label>
+                <div class="position-relative mb-3">
+                  <input type="text" class="form-control glass-input text-light" placeholder="Type medicine name or composition (e.g. Augmentin, Paracetamol)..." [(ngModel)]="searchQuery" (input)="onSearchMedicine()">
+                  
+                  <!-- Autocomplete Results Dropdown -->
+                  <div *ngIf="searchResults.length > 0" class="medicine-search-dropdown shadow-lg">
+                    <div *ngFor="let med of searchResults" class="search-result-item" (click)="addMedicineToPrescription(med)">
+                      <div class="med-name">{{ med.medicineName }}</div>
+                      <div class="med-sub text-secondary small">{{ med.manufacturer }} • <span class="text-info">{{ med.packSize }}</span></div>
+                      <div *ngIf="med.composition && med.composition.length > 0" class="med-comp">
+                        <span *ngFor="let comp of med.composition" class="badge bg-secondary me-1">{{ comp }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Active Prescriptions Queue -->
+                <h6 class="small text-secondary fw-bold text-uppercase mb-2">Prescription Items ({{ prescriptionList.length }})</h6>
+                <div *ngIf="prescriptionList.length === 0" class="text-center py-4 text-secondary glass-card p-3">
+                  <i class="bi bi-prescription2 display-6 text-muted"></i>
+                  <p class="small mt-2 mb-0">Search and select medicines from the dataset above.</p>
+                </div>
+
+                <div *ngFor="let item of prescriptionList; let i = index" class="glass-card p-3 mb-2 prescription-item-card">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <strong class="text-light text-truncate" style="max-width: 80%;">{{ i + 1 }}. {{ item.medicineName }}</strong>
+                    <button class="btn btn-sm btn-outline-danger border-0 p-0" (click)="removeMedicineFromPrescription(i)"><i class="bi bi-trash-fill"></i></button>
+                  </div>
+                  
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="small text-secondary">Dosage</label>
+                      <select class="form-select form-select-sm glass-input text-light" [(ngModel)]="item.dosage">
+                        <option value="1-0-1">1-0-1 (Morning & Night)</option>
+                        <option value="1-1-1">1-1-1 (Thrice daily)</option>
+                        <option value="1-0-0">1-0-0 (Morning only)</option>
+                        <option value="0-0-1">0-0-1 (Night only)</option>
+                        <option value="1 Tablet">1 Tablet as needed</option>
+                      </select>
+                    </div>
+                    <div class="col-6">
+                      <label class="small text-secondary">Duration</label>
+                      <select class="form-select form-select-sm glass-input text-light" [(ngModel)]="item.duration">
+                        <option value="3 Days">3 Days</option>
+                        <option value="5 Days">5 Days</option>
+                        <option value="7 Days">7 Days</option>
+                        <option value="10 Days">10 Days</option>
+                        <option value="14 Days">14 Days</option>
+                        <option value="1 Month">1 Month</option>
+                      </select>
+                    </div>
+                    <div class="col-12 mt-2">
+                      <input type="text" class="form-control form-control-sm glass-input text-light" [(ngModel)]="item.instructions" placeholder="Instructions (e.g. After food with water)...">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Auto-Send on End Call Notification Box -->
+                <div *ngIf="prescriptionList.length > 0" class="sticky-rx-footer mt-3 pt-2">
+                  <div class="alert alert-success border-0 py-2.5 px-3 m-0 d-flex align-items-center gap-2 text-white shadow-sm" style="background: linear-gradient(135deg, #059669, #10B981);">
+                    <i class="bi bi-magic fs-5"></i>
+                    <div class="small lh-sm">
+                      <strong>Auto-Send Enabled:</strong> This E-Prescription will be automatically sealed & emailed to the patient when you click <strong>"End Call"</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PATIENT MODE: View Prescribed Medicines -->
+              <div *ngIf="userRole === 'patient'">
+                <div *ngIf="!appointmentDetails?.prescription || appointmentDetails?.prescription.length === 0" class="text-center py-5 text-secondary">
+                  <i class="bi bi-hourglass-split display-6 text-muted"></i>
+                  <p class="mt-2 small">Your doctor has not issued an E-Prescription yet during this call.</p>
+                </div>
+
+                <div *ngIf="appointmentDetails?.prescription && appointmentDetails?.prescription.length > 0">
+                  <div *ngFor="let item of appointmentDetails.prescription; let i = index" class="glass-card p-3 mb-2">
+                    <strong class="text-success d-block mb-1">{{ i + 1 }}. {{ item.medicineName }}</strong>
+                    <div class="small text-light"><strong>Dosage:</strong> {{ item.dosage }} • <strong>Duration:</strong> {{ item.duration }}</div>
+                    <div class="small text-secondary mt-1"><em>{{ item.instructions }}</em></div>
+                  </div>
+                  <div class="alert alert-info py-2 px-3 small mt-3">
+                    <i class="bi bi-envelope-check-fill me-1"></i> A copy of this prescription has been emailed to your registered address.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Consultation Info Panel -->
+          <div *ngIf="activeSidebarTab === 'info'" class="sidebar-content info-content">
+            <div class="panel-header">
+              <h6 class="m-0 text-light"><i class="bi bi-info-circle-fill me-2 text-primary"></i> Consultation Details</h6>
+              <button class="btn-close btn-close-white btn-sm" (click)="activeSidebarTab = null"></button>
+            </div>
+
+            <div class="p-3 text-light small" *ngIf="appointmentDetails">
+              <div class="info-row"><strong>Doctor:</strong> {{ doctorName }}</div>
+              <div class="info-row"><strong>Patient:</strong> {{ patientName }}</div>
+              <div class="info-row"><strong>Date:</strong> {{ appointmentDetails.appointmentDate }}</div>
+              <div class="info-row"><strong>Time Slot:</strong> {{ appointmentDetails.startTime }} - {{ appointmentDetails.endTime }}</div>
+              <div class="info-row"><strong>Type:</strong> {{ appointmentDetails.type }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM CONTROL TOOLBAR -->
+      <footer class="toolbar-footer">
+        <div class="controls-group">
+          <!-- Mic Control -->
+          <button [class]="isAudioMuted ? 'btn btn-danger toolbar-btn' : 'btn btn-dark toolbar-btn'" (click)="toggleMic()" [title]="isAudioMuted ? 'Unmute' : 'Mute'">
+            <i [class]="isAudioMuted ? 'bi bi-mic-mute-fill' : 'bi bi-mic-fill'"></i>
+            <span class="btn-label">{{ isAudioMuted ? 'Unmute' : 'Mute' }}</span>
+          </button>
+
+          <!-- Camera Control -->
+          <button [class]="isVideoOff ? 'btn btn-danger toolbar-btn' : 'btn btn-dark toolbar-btn'" (click)="toggleCamera()" [title]="isVideoOff ? 'Start Video' : 'Stop Video'">
+            <i [class]="isVideoOff ? 'bi bi-camera-video-off-fill' : 'bi bi-camera-video-fill'"></i>
+            <span class="btn-label">{{ isVideoOff ? 'Start Video' : 'Stop Video' }}</span>
+          </button>
+
+          <!-- Screen Share Control -->
+          <button [class]="isScreenSharing ? 'btn btn-warning toolbar-btn' : 'btn btn-dark toolbar-btn'" (click)="toggleScreenShare()" title="Share Screen">
+            <i class="bi bi-display-fill"></i>
+            <span class="btn-label">{{ isScreenSharing ? 'Sharing' : 'Share Screen' }}</span>
+          </button>
+
+          <!-- Chat Toggle -->
+          <button [class]="activeSidebarTab === 'chat' ? 'btn btn-primary toolbar-btn' : 'btn btn-dark toolbar-btn'" (click)="toggleSidebar('chat')" title="In-Call Chat">
+            <i class="bi bi-chat-dots-fill"></i>
+            <span class="btn-label">Chat</span>
+          </button>
+
+          <!-- E-Prescription Toggle -->
+          <button [class]="activeSidebarTab === 'rx' ? 'btn btn-success toolbar-btn' : 'btn btn-dark toolbar-btn'" (click)="toggleSidebar('rx')" title="E-Prescription">
+            <i class="bi bi-capsule-pill"></i>
+            <span class="btn-label">E-Prescription</span>
+          </button>
+
+          <!-- End Call Button -->
+          <button class="btn btn-danger end-call-btn" (click)="endCall()" title="End Consultation">
+            <i class="bi bi-telephone-x-fill"></i>
+            <span class="btn-label">End Call</span>
+          </button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- POST-CALL SUMMARY MODAL -->
+    <div *ngIf="isCallEnded" class="center-state">
+      <div class="glass-card post-call-card p-4 text-center text-light">
+        <div class="success-icon mb-3">
+          <i class="bi bi-check-circle-fill text-success display-3"></i>
+        </div>
+        <h3>Consultation Session Completed</h3>
+        <p class="text-secondary">Total Duration: <strong>{{ callTimer }}</strong></p>
+
+        <div class="d-flex justify-content-center gap-3 mt-4">
+          <button class="btn btn-primary pill-btn px-4" (click)="leaveRoom()">
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

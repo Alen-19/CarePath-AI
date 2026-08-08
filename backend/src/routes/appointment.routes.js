@@ -35,4 +35,11 @@ router.delete(
   appointmentController.deleteDateOverride
 );
 
+// Get consultation & WebRTC details for an appointment
+router.get(
+  '/:id/consultation',
+  authenticateJWT,
+  appointmentController.getConsultationDetails
+);
+
 module.exports = router;

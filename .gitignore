@@ -24,3 +24,7 @@ uploads/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Large Datasets (>100MB)
+frontend/public/assets/data/medicines.json
+*.json.bak

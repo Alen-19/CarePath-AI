@@ -212,7 +212,7 @@ const registerUser = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in registration:', error);
-    res.status(500).json({ message: 'Server error during registration.', error: error.message });
+    res.status(500).json({ message: 'Server error during registration.' });
   }
 };
 
@@ -277,7 +277,7 @@ const loginUser = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in login:', error);
-    res.status(500).json({ message: 'Server error during login.', error: error.message });
+    res.status(500).json({ message: 'Server error during login.' });
   }
 };
 
@@ -300,7 +300,7 @@ const getUserProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching user profile:', error);
-    res.status(500).json({ message: 'Server error fetching profile.', error: error.message });
+    res.status(500).json({ message: 'Server error fetching profile.' });
   }
 };
 
@@ -315,44 +315,17 @@ const googleLogin = async (req, res) => {
 
     let googlePayload;
 
-    if (idToken === 'dummy_google_patient_token') {
-      googlePayload = {
-        sub: 'dummy_google_patient_sub',
-        email: 'patient@carepath.com',
-        given_name: 'Demo',
-        family_name: 'Patient'
-      };
-    } else if (idToken === 'dummy_google_doctor_token') {
-      googlePayload = {
-        sub: 'dummy_google_doctor_sub',
-        email: 'doctor@carepath.com',
-        given_name: 'Sarah',
-        family_name: 'Jenkins'
-      };
-    } else {
-      try {
-        const ticket = await googleClient.verifyIdToken({
-          idToken,
-          audience: process.env.GOOGLE_CLIENT_ID
-        });
-        googlePayload = ticket.getPayload();
-      } catch (verifyError) {
-        if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'placeholder_key_replace_with_actual') {
-          console.warn('Google Client ID is not configured. Falling back to dummy token parser.');
-          const sections = idToken.split('.');
-          if (sections.length === 3) {
-            const payloadBuf = Buffer.from(sections[1], 'base64');
-            googlePayload = JSON.parse(payloadBuf.toString('utf-8'));
-          }
-        }
-        
-        if (!googlePayload) {
-          return res.status(400).json({ 
-            message: 'Invalid Google ID token. Signature verification failed.', 
-            error: verifyError.message 
-          });
-        }
-      }
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID
+      });
+      googlePayload = ticket.getPayload();
+    } catch (verifyError) {
+      console.error('Google token verification failed:', verifyError);
+      return res.status(400).json({ 
+        message: 'Invalid Google ID token. Signature verification failed.' 
+      });
     }
 
     const { sub: googleId, email, given_name: firstName, family_name: lastName } = googlePayload;
@@ -431,7 +404,7 @@ const googleLogin = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in Google Login:', error);
-    res.status(500).json({ message: 'Server error during Google auth.', error: error.message });
+    res.status(500).json({ message: 'Server error during Google auth.' });
   }
 };
 
@@ -527,7 +500,7 @@ const completeProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Error completing profile:', error);
-    res.status(500).json({ message: 'Server error completing profile.', error: error.message });
+    res.status(500).json({ message: 'Server error completing profile.' });
   }
 };
 
@@ -546,7 +519,7 @@ const getPincodeDetails = async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Error fetching pincode details from Postal API:', error);
-    res.status(500).json({ message: 'Failed to fetch pincode details.', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch pincode details.' });
   }
 };
 
@@ -576,7 +549,7 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes validity
     await user.save();
 
-    console.log(`[AUTH] Password reset OTP generated for ${cleanEmail}: ${otp}`);
+    console.log(`[AUTH] Password reset OTP generated for ${cleanEmail}`);
 
     // Send real email via mailer module
     await sendResetOtpEmail(cleanEmail, otp);
@@ -586,7 +559,7 @@ const forgotPassword = async (req, res) => {
     });
   } catch (error) {
     console.error('Error requesting password reset:', error);
-    res.status(500).json({ message: 'Server error requesting password reset.', error: error.message });
+    res.status(500).json({ message: 'Server error requesting password reset.' });
   }
 };
 
@@ -628,7 +601,7 @@ const resetPassword = async (req, res) => {
     res.json({ message: 'Password reset successful! You can now log in with your new password.' });
   } catch (error) {
     console.error('Error resetting password:', error);
-    res.status(500).json({ message: 'Server error resetting password.', error: error.message });
+    res.status(500).json({ message: 'Server error resetting password.' });
   }
 };
 

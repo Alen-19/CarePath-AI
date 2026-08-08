@@ -74,11 +74,11 @@
             class="btn-pay-now-vip"
             (click)="onRetryPayment(appt._id)"
           >💳 Complete Payment (₹{{ appt.amount | number }})</button>
-          <button
+          <a
             *ngIf="appt.status === 'Confirmed'"
-            class="btn-join-vip"
-            (click)="showToast('Ready for consultation! Doctor will connect with you at ' + appt.startTime, 'success')"
-          >💬 Join Consultation</button>
+            [routerLink]="['/consultation', appt._id]"
+            class="btn-join-vip text-decoration-none"
+          >💬 Join Consultation</a>
         </div>
       </div>
     </div>
@@ -185,6 +185,12 @@
           <div class="appt-right">
             <span class="appt-badge" [ngClass]="getStatusClass(appt.status)">{{ appt.status }}</span>
             <span class="appt-fee">₹{{ appt.amount | number }}</span>
+            <a
+              *ngIf="appt.status === 'Confirmed'"
+              [routerLink]="['/consultation', appt._id]"
+              class="btn-pay-now text-decoration-none"
+              style="background: #10b981; border-color: #10b981;"
+            >📹 Join Call</a>
             <button
               *ngIf="appt.status === 'Pending Payment'"
               class="btn-pay-now"
@@ -288,14 +294,6 @@
           (click)="appointmentType = t"
         >{{ t }}</button>
       </div>
-      <label class="field-label mt-1">Describe your symptoms <span class="optional-tag">(optional)</span></label>
-      <textarea
-        class="symptoms-input"
-        [(ngModel)]="symptoms"
-        placeholder="E.g. Chest pain, shortness of breath, recurring headaches…"
-        rows="4"
-        id="symptoms-input"
-      ></textarea>
     </div>
 
     <!-- Step 4: Policy + Pay -->

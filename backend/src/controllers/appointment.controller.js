@@ -451,3 +451,51 @@ exports.getAvailableSlots = async (req, res) => {
     res.status(500).json({ message: 'Failed to calculate available slots.', error: error.message });
   }
 };
+
+/**
+ * GET /api/appointments/:id/consultation
+ * Get video consultation session details for an appointment
+ */
+exports.getConsultationDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id)
+      .populate({
+        path: 'patientId',
+        populate: { path: 'userId', select: 'name email profileImage' }
+      })
+      .populate({
+        path: 'doctorId',
+        populate: { path: 'userId', select: 'name email profileImage' }
+      });
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found.' });
+    }
+
+    // Assign meetingRoomId if not set
+    if (!appointment.meetingRoomId) {
+      appointment.meetingRoomId = `room_${appointment._id}`;
+      await appointment.save();
+    }
+
+    // Default public STUN servers for WebRTC
+    const iceServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ];
+
+    res.json({
+      success: true,
+      appointment,
+      meetingRoomId: appointment.meetingRoomId,
+      callStatus: appointment.callStatus,
+      iceServers
+    });
+  } catch (error) {
+    console.error('Error fetching consultation details:', error);
+    res.status(500).json({ message: 'Failed to fetch consultation details.', error: error.message });
+  }
+};
+

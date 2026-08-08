@@ -38,12 +38,14 @@ const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
 const appointmentRoutes = require('./routes/appointment.routes');
 const bookingRoutes = require('./routes/booking.routes');
+const medicineRoutes = require('./routes/medicine.routes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/booking', bookingRoutes);
+app.use('/api/medicines', medicineRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -54,9 +56,19 @@ app.get('/health', (req, res) => {
   });
 });
 
+const http = require('http');
+const { initSocket } = require('./config/socket');
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize Socket.io
+initSocket(server);
+
 // Define server port
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
+

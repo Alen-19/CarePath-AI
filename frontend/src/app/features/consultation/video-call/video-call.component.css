@@ -1,0 +1,450 @@
+:host {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background-color: #0b0f19;
+  color: #f8fafc;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+
+.consultation-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: radial-gradient(circle at 50% 20%, #1e293b 0%, #0b0f19 100%);
+}
+
+/* Center state containers */
+.center-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+
+.glass-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.pre-call-card, .post-call-card, .error-card {
+  max-width: 540px;
+  width: 90%;
+}
+
+/* Header bar */
+.consultation-header {
+  height: 64px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.5px;
+}
+
+.timer-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 6px 16px;
+  border-radius: 30px;
+  color: #f87171;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #ef4444;
+  animation: pulse-ring 1.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.5; }
+  100% { transform: scale(0.95); opacity: 1; }
+}
+
+/* Pre-call Preview */
+.video-preview-box {
+  width: 100%;
+  height: 280px;
+  background: #020617;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-overlay {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+}
+
+/* In-call Stage Layout */
+.in-call-stage {
+  height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+}
+
+.video-grid {
+  flex: 1;
+  display: flex;
+  position: relative;
+  padding: 16px;
+  gap: 16px;
+  height: calc(100% - 80px);
+}
+
+.remote-video-container {
+  flex: 1;
+  height: 100%;
+  background: #020617;
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remote-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.avatar-ring {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+}
+
+/* PIP Local Video */
+.local-pip-container {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 220px;
+  height: 140px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: #000;
+  z-index: 10;
+}
+
+.local-pip-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pip-label {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.peer-status-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(15, 23, 42, 0.8);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #f8fafc;
+}
+
+/* Sidebar Panels */
+.sidebar-panel {
+  width: 360px;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-messages-box {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-bubble-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.chat-bubble-wrapper.my-message {
+  align-items: flex-end;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  background: rgba(30, 41, 59, 0.8);
+  padding: 10px 14px;
+  border-radius: 14px;
+  border-top-left-radius: 2px;
+  font-size: 0.9rem;
+}
+
+.my-message .chat-bubble {
+  background: #2563eb;
+  border-radius: 14px;
+  border-top-right-radius: 2px;
+}
+
+.chat-author {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-bottom: 2px;
+}
+
+.my-message .chat-author {
+  color: #bfdbfe;
+}
+
+.role-tag {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.chat-input-box {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 8px;
+}
+
+.glass-input, .glass-textarea {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+
+.glass-input:focus, .glass-textarea:focus {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+/* Footer Control Toolbar */
+.toolbar-footer {
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 16px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.controls-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.toolbar-btn, .end-call-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 76px;
+  height: 64px;
+  padding: 8px 10px !important;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  text-decoration: none;
+  line-height: 1 !important;
+}
+
+.toolbar-btn i, .end-call-btn i {
+  font-size: 1.3rem !important;
+  line-height: 1 !important;
+  margin-bottom: 5px !important;
+  display: block !important;
+}
+
+.btn-label {
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+  display: block !important;
+  margin-top: 0 !important;
+}
+
+.end-call-btn {
+  min-width: 88px;
+  background: #ef4444 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+}
+
+.toolbar-btn:hover, .end-call-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.btn-circle {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+}
+
+.pill-btn {
+  border-radius: 30px;
+  font-weight: 600;
+}
+
+/* 💊 Medicine Search Dropdown & E-Prescription Styling */
+.medicine-search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #0F172A;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  margin-top: 4px;
+}
+
+.search-result-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid #1E293B;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: #1E293B;
+}
+
+.search-result-item .med-name {
+  font-weight: 700;
+  color: #F8FAFC;
+  font-size: 0.88rem;
+}
+
+.search-result-item .med-sub {
+  font-size: 0.76rem;
+}
+
+.search-result-item .med-comp {
+  margin-top: 4px;
+}
+
+.search-result-item .med-comp .badge {
+  font-size: 0.68rem;
+  font-weight: 500;
+  background: #334155 !important;
+}
+
+.prescription-item-card {
+  border-left: 4px solid #10B981 !important;
+}
+
+.sticky-rx-footer {
+  position: sticky;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid #334155;
+  padding: 8px 0;
+  z-index: 10;
+}

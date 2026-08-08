@@ -74,6 +74,40 @@ const AppointmentSchema = new mongoose.Schema({
   refundId: {
     type: String,
     default: null // Razorpay refund ID after cancellation
+  },
+  // Video Call / Consultation fields
+  meetingRoomId: {
+    type: String,
+    default: null
+  },
+  callStatus: {
+    type: String,
+    enum: ['Not Started', 'In Progress', 'Completed'],
+    default: 'Not Started'
+  },
+  callStartedAt: {
+    type: Date,
+    default: null
+  },
+  callEndedAt: {
+    type: Date,
+    default: null
+  },
+  callDurationSeconds: {
+    type: Number,
+    default: 0
+  },
+  // Digital E-Prescription
+  prescription: [{
+    medicineName: { type: String, required: true },
+    composition: [{ type: String }],
+    dosage: { type: String, default: '1-0-1' }, // Morning-Afternoon-Night
+    duration: { type: String, default: '5 Days' },
+    instructions: { type: String, default: 'Take after food with water' }
+  }],
+  prescribedAt: {
+    type: Date,
+    default: null
   }
 }, { 
   timestamps: true,

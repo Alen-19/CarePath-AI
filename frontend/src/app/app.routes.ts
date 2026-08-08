@@ -13,6 +13,7 @@ import { AdminDashboardComponent } from './features/admin/admin-dashboard.compon
 import { LandingComponent } from './features/landing/landing.component';
 
 import { DoctorDashboardComponent } from './features/doctor/doctor-dashboard.component';
+import { VideoCallComponent } from './features/consultation/video-call/video-call.component';
 
 export const routes: Routes = [
   {
@@ -46,6 +47,11 @@ export const routes: Routes = [
     path: 'admin',
     component: AdminDashboardComponent,
     canActivate: [authGuard, adminGuard]
+  },
+  {
+    path: 'consultation/:appointmentId',
+    component: VideoCallComponent,
+    canActivate: [authGuard]
   },
   {
     path: '**',

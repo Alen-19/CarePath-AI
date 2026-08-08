@@ -305,7 +305,89 @@ const sendAppointmentReceiptEmail = async (details) => {
   }
 };
 
+const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, specialty, prescriptionList, dateStr) => {
+  try {
+    const transporter = await createTransporter();
+    if (!transporter) return false;
+
+    const logoHtml = hasLogoCircle 
+      ? `<img src="cid:carepath_logo_circle" alt="CarePath AI Logo" style="width: 52px; height: 52px; border-radius: 50%; vertical-align: middle; object-fit: cover;" />`
+      : `<span style="font-size: 24px; color: #2563EB;">✦</span>`;
+
+    const medsTableRows = prescriptionList.map((m, idx) => `
+      <tr style="border-bottom: 1px solid #E2E8F0;">
+        <td style="padding: 12px; font-weight: 700; color: #0F172A;">${idx + 1}. ${m.medicineName}</td>
+        <td style="padding: 12px; color: #2563EB; font-weight: 700; text-align: center;">${m.dosage}</td>
+        <td style="padding: 12px; color: #64748B; text-align: center;">${m.duration}</td>
+        <td style="padding: 12px; color: #475569; font-size: 0.85rem;">${m.instructions || 'After food'}</td>
+      </tr>
+    `).join('');
+
+    const htmlContent = `
+      <div style="font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; background-color: #F8FAFC; color: #0F172A; padding: 40px 20px; max-width: 600px; margin: 0 auto; border: 1px solid #E2E8F0; border-radius: 16px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          ${logoHtml}
+          <h2 style="color: #2563EB; margin: 10px 0 2px;">CarePath AI E-Prescription</h2>
+          <p style="color: #64748B; font-size: 0.85rem; margin: 0;">Official Digital Clinical Prescription</p>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+          <table width="100%" style="font-size: 0.9rem;">
+            <tr>
+              <td><strong>Patient:</strong> ${patientName}</td>
+              <td align="right"><strong>Date:</strong> ${dateStr}</td>
+            </tr>
+            <tr>
+              <td><strong>Prescribing Doctor:</strong> ${doctorName} (${specialty})</td>
+              <td align="right"><strong>Rx Code:</strong> <span style="color: #2563EB; font-family: monospace;">CP-RX-${Date.now().toString().slice(-6)}</span></td>
+            </tr>
+          </table>
+        </div>
+
+        <h3 style="color: #0F172A; font-size: 1rem; margin-bottom: 10px;">💊 Prescribed Medications</h3>
+        <table width="100%" style="border-collapse: collapse; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; overflow: hidden; margin-bottom: 25px;">
+          <thead>
+            <tr style="background: #EFF6FF; color: #2563EB; font-size: 0.82rem; text-transform: uppercase;">
+              <th style="padding: 10px; text-align: left;">Medicine</th>
+              <th style="padding: 10px; text-align: center;">Frequency</th>
+              <th style="padding: 10px; text-align: center;">Duration</th>
+              <th style="padding: 10px; text-align: left;">Instructions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${medsTableRows}
+          </tbody>
+        </table>
+
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 15px; font-size: 0.82rem; color: #15803D; margin-bottom: 20px;">
+          ✔ Verified by <strong>${doctorName}</strong>. Please follow all dosage timings specified above. Contact carepathaiadmin@gmail.com for support.
+        </div>
+      </div>
+    `;
+
+    const attachments = [];
+    if (hasLogoCircle) {
+      attachments.push({ filename: 'logo_circle.png', path: logoCirclePath, cid: 'carepath_logo_circle' });
+    }
+
+    await transporter.sendMail({
+      from: '"CarePath AI Clinical Team" <carepathaiadmin@gmail.com>',
+      to: patientEmail,
+      subject: `💊 Digital E-Prescription Issued by ${doctorName}`,
+      html: htmlContent,
+      attachments
+    });
+
+    console.log(`[MAILER] Prescription email successfully sent to ${patientEmail}`);
+    return true;
+  } catch (err) {
+    console.error('[MAILER] Failed to send prescription email:', err);
+    return false;
+  }
+};
+
 module.exports = {
   sendResetOtpEmail,
-  sendAppointmentReceiptEmail
+  sendAppointmentReceiptEmail,
+  sendPrescriptionEmail
 };
