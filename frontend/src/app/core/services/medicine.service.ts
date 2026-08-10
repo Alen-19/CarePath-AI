@@ -6,11 +6,11 @@ import { catchError } from 'rxjs/operators';
 export interface MedicineItem {
   medicineId: number;
   medicineName: string;
-  manufacturer: string;
-  packSize: string;
   composition: string[];
-  uses: string[];
-  sideEffects: string[];
+  manufacturer?: string;
+  packSize?: string;
+  uses?: string[];
+  sideEffects?: string[];
 }
 
 export interface SearchMedicineResponse {

@@ -41,7 +41,7 @@ export const routes: Routes = [
   {
     path: 'doctor',
     component: DoctorDashboardComponent,
-    canActivate: [authGuard, doctorGuard, profileCompletionGuard]
+    canActivate: [authGuard, profileCompletionGuard, doctorGuard]
   },
   {
     path: 'admin',

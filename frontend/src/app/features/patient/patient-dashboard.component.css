@@ -151,8 +151,14 @@
 .section-title { font-size: 1.75rem; font-weight: 800; color: var(--text-primary, #0F172A); margin: 0 0 0.25rem; }
 .section-sub { color: var(--text-secondary, #64748B); font-size: 0.9rem; margin: 0; }
 
-/* ─── Search Bar ─────────────────────────────────────────────────────────── */
-.search-bar-wrap { position: relative; width: 320px; }
+/* ─── Search Bar & Proximity Filters ─────────────────────────────────────── */
+.search-filter-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+.search-bar-wrap { position: relative; width: 340px; }
 .search-input {
   width: 100%;
   padding: 0.65rem 1rem 0.65rem 2.5rem;
@@ -168,6 +174,60 @@
 .search-input:focus { border-color: var(--primary, #2563EB); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
 .search-input::placeholder { color: var(--text-muted, #94A3B8); }
 .search-icon { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); font-size: 0.9rem; color: var(--primary, #2563EB); }
+
+.filter-controls-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+.filter-control-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.control-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+.filter-select {
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  background: #F8FAFC;
+  color: #0F172A;
+  font-size: 0.82rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.filter-select:hover {
+  border-color: #94A3B8;
+  background: #FFFFFF;
+}
+
+.doc-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+.distance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1E40AF;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
 
 /* ─── Doctor Cards Grid ──────────────────────────────────────────────────── */
 .doctors-grid {

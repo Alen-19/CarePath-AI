@@ -27,7 +27,7 @@ export class AdminDashboardComponent implements OnInit {
   doctors: DoctorVerificationItem[] = [];
   filteredDoctors: DoctorVerificationItem[] = [];
 
-  activeTab: 'pending' | 'approved' | 'suspended' | 'all' = 'pending';
+  activeTab: 'pending' | 'approved' | 'suspended' | 'rejected' | 'all' = 'pending';
   searchQuery: string = '';
   
   isLoadingStats = true;
@@ -101,7 +101,7 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  setTab(tab: 'pending' | 'approved' | 'suspended' | 'all'): void {
+  setTab(tab: 'pending' | 'approved' | 'suspended' | 'rejected' | 'all'): void {
     this.activeTab = tab;
     this.loadDoctors();
   }
@@ -224,7 +224,7 @@ export class AdminDashboardComponent implements OnInit {
       next: (res) => {
         this.actionInProgressId = null;
         if (res.success) {
-          this.showToast(`Doctor Dr. ${doctor.firstName} ${doctor.lastName}'s verification set to pending.`, 'error');
+          this.showToast(`Application for Dr. ${doctor.firstName} ${doctor.lastName} was declined.`, 'error');
           this.loadStats();
           this.loadDoctors();
           if (this.selectedDoctorForModal?._id === doctor._id) {
@@ -234,8 +234,8 @@ export class AdminDashboardComponent implements OnInit {
       },
       error: (err) => {
         this.actionInProgressId = null;
-        console.error('Error rejecting doctor:', err);
-        this.showToast(err.error?.message || 'Failed to set pending status.', 'error');
+        console.error('Error declining doctor application:', err);
+        this.showToast(err.error?.message || 'Failed to decline application.', 'error');
       }
     });
   }

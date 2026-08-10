@@ -4,7 +4,7 @@
       <div class="logo">
         <span class="logo-icon">✦</span> CarePath <span class="accent-text">AI</span>
       </div>
-      <p class="subtitle">Join our connected digital health ecosystem</p>
+      <p class="subtitle">{{ isPendingApproval ? 'Your doctor account is pending administrator verification' : 'Join our connected digital health ecosystem' }}</p>
     </div>
 
     <!-- Alert Messages -->
@@ -18,13 +18,13 @@
     <!-- Pending Doctor Approval Card -->
     <div *ngIf="isPendingApproval" class="pending-approval-card text-center p-3 animate-fade-in">
       <div style="font-size: 3.5rem; margin-bottom: 1rem;">🩺 ⏳</div>
-      <h2 style="font-size: 1.4rem; font-weight: 600; margin-bottom: 0.75rem; color: #f8fafc;">
-        Verification Required
+      <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 0.75rem; color: #0f172a;">
+        Verification Pending
       </h2>
-      <p style="color: #94a3b8; line-height: 1.5; margin-bottom: 1.25rem; font-size: 0.95rem;">
+      <p style="color: #475569; line-height: 1.5; margin-bottom: 1.25rem; font-size: 0.95rem;">
         {{ successMessage }}
       </p>
-      <div style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 14px; margin-bottom: 1.5rem; text-align: left; font-size: 0.88rem; color: #93c5fd; line-height: 1.5;">
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px; margin-bottom: 1.5rem; text-align: left; font-size: 0.88rem; color: #1e40af; line-height: 1.5;">
         ℹ️ <strong>Admin Review in Progress:</strong> Our system administrators review all registered medical licenses. You will receive access once your account is verified.
       </div>
       <a routerLink="/auth/login" [queryParams]="{ role: 'doctor' }" class="btn btn-primary w-full" style="text-decoration: none; display: inline-block; text-align: center;">
@@ -366,6 +366,18 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label" for="docClinicName">Clinic / Hospital Name *</label>
+          <input 
+            type="text" 
+            id="docClinicName" 
+            name="docClinicName" 
+            class="form-input" 
+            placeholder="e.g. Sunrise Health Center / Apollo Specialty Clinic" 
+            [(ngModel)]="clinicName" 
+          />
+        </div>
+
+        <div class="form-group">
           <label class="form-label" for="licenseNumber">Medical License Number *</label>
           <input 
             type="text" 
@@ -385,23 +397,78 @@
           </span>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="clinicAddress">Clinic/Hospital Address</label>
-          <textarea 
-            id="clinicAddress" 
-            name="clinicAddress" 
-            class="form-input form-textarea" 
-            [class.is-invalid]="clinicAddressTouched && !isClinicAddressValid"
-            [class.is-valid]="clinicAddressTouched && isClinicAddressValid && clinicAddress.trim().length > 0"
-            rows="2" 
-            placeholder="e.g. Room 402, Sunrise Medical Center, MG Road, Ernakulam"
-            [(ngModel)]="clinicAddress"
-            (blur)="clinicAddressTouched = true"
-            (input)="clinicAddressTouched = true"
-          ></textarea>
-          <span class="field-error-msg" *ngIf="clinicAddressTouched && !isClinicAddressValid">
-            ⚠️ Clinic address must be at least 8 characters long containing street or clinic name. Dummy entries like 00000000 are not allowed.
-          </span>
+        <!-- 🏥 SMART CLINIC LOCATION SECTION FOR DOCTOR -->
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: 1rem;">
+          <label class="form-label" style="color: #93c5fd; font-size: 0.9rem; margin-bottom: 0.75rem; display: block;">
+            🏥 Clinic Location & Postal Pincode
+          </label>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label class="form-label" for="regDocPincode">Clinic Pincode (6 Digits)</label>
+              <input
+                type="text"
+                id="regDocPincode"
+                name="regDocPincode"
+                class="form-input"
+                placeholder="e.g. 686510"
+                maxlength="6"
+                [(ngModel)]="address.pincode"
+                (input)="onPincodeInput()"
+              />
+              <span class="field-error-msg" *ngIf="pincodeErrorMsg">⚠️ {{ pincodeErrorMsg }}</span>
+              <span class="field-valid-msg" *ngIf="localitiesList.length > 0">
+                ✓ Location loaded! {{ localitiesList.length }} locality option(s) found.
+              </span>
+            </div>
+
+            <div class="form-group col" *ngIf="localitiesList.length > 0">
+              <label class="form-label" for="regDocCity">Locality / City</label>
+              <select id="regDocCity" name="regDocCity" class="form-input form-select" [(ngModel)]="address.city" (change)="onLocalitySelect(address.city)">
+                <option *ngFor="let loc of localitiesList" [value]="loc">{{ loc }}</option>
+              </select>
+            </div>
+            <div class="form-group col" *ngIf="localitiesList.length === 0">
+              <label class="form-label" for="regDocCityManual">City / Locality Name</label>
+              <input
+                type="text"
+                id="regDocCityManual"
+                name="regDocCityManual"
+                class="form-input"
+                placeholder="e.g. Ernakulam / Kottayam"
+                [(ngModel)]="address.city"
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label class="form-label" for="regDocDistrict">District</label>
+              <select id="regDocDistrictSelect" name="regDocDistrictSelect" class="form-input form-select" *ngIf="districtsList.length > 1" [(ngModel)]="address.district">
+                <option *ngFor="let dist of districtsList" [value]="dist">{{ dist }}</option>
+              </select>
+              <input
+                *ngIf="districtsList.length <= 1"
+                type="text"
+                id="regDocDistrict"
+                name="regDocDistrict"
+                class="form-input"
+                placeholder="District (e.g. Kottayam)"
+                [(ngModel)]="address.district"
+              />
+            </div>
+            <div class="form-group col">
+              <label class="form-label" for="regDocState">State</label>
+              <input
+                type="text"
+                id="regDocState"
+                name="regDocState"
+                class="form-input"
+                placeholder="State (e.g. Kerala)"
+                [(ngModel)]="address.state"
+              />
+            </div>
+          </div>
         </div>
       </div>
 

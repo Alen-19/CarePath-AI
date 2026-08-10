@@ -65,7 +65,12 @@ export interface DoctorCard {
   specialization: string;
   licenseNumber: string;
   experienceYears: number;
+  clinicName?: string;
   clinicAddress: string;
+  clinicAddressDisplay?: string;
+  distanceKm?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
   rating: number;
   consultationFee: number;
   email?: string;

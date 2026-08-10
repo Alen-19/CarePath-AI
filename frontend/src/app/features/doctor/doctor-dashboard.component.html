@@ -36,6 +36,20 @@
     </div>
   </section>
 
+  <!-- 📍 Location Incomplete Alert Banner -->
+  <section class="location-alert-card glass-card animate-fade-in" *ngIf="isLocationIncomplete && !isSuspended">
+    <div class="alert-content-group">
+      <div class="alert-badge">📍 Action Required</div>
+      <div class="alert-text">
+        <h3>Complete Your Clinic Location & Postal Pincode</h3>
+        <p>Your clinic location is currently missing structured pincode and city data. Complete your practice location so nearby patients can find your clinic in search!</p>
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary shadow-glow" (click)="openLocationModal()">
+      📍 Set Clinic Location
+    </button>
+  </section>
+
   <!-- Hero Welcome Banner -->
   <section class="welcome-banner glass-card" [class.suspended-border]="isSuspended">
     <div class="banner-content">
@@ -393,6 +407,71 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- 📍 Location Completion Modal -->
+  <div class="modal-backdrop" *ngIf="showLocationModal">
+    <div class="modal-card glass-card animate-fade-in" style="max-width: 580px;">
+      <div class="modal-header">
+        <h2>📍 Complete Clinic Practice Location</h2>
+        <button class="btn-close" (click)="closeLocationModal()">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 1.25rem;">
+        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">
+          Enter your clinic name and 6-digit Indian postal pincode to calculate distance for nearby patient searches.
+        </p>
+
+        <div class="alert alert-danger" *ngIf="locationErrMsg" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem;">
+          ⚠️ {{ locationErrMsg }}
+        </div>
+        <div class="alert alert-success" *ngIf="locationSuccessMsg" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem;">
+          ✅ {{ locationSuccessMsg }}
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="form-label" style="display: block; color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem;">Clinic / Hospital Name *</label>
+          <input type="text" class="form-input" [(ngModel)]="editClinicName" placeholder="e.g. Sunrise Health Center / Apollo Clinic" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff;" />
+        </div>
+
+        <div class="form-row" style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group col" style="flex: 1;">
+            <label class="form-label" style="display: block; color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem;">Clinic Pincode (6 Digits) *</label>
+            <input type="text" class="form-input" [(ngModel)]="editPincode" (input)="onLocationPincodeInput()" placeholder="e.g. 686510" maxlength="6" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff;" />
+            <span style="color: #f87171; font-size: 0.8rem; display: block; margin-top: 0.25rem;" *ngIf="pincodeErrorMsg">⚠️ {{ pincodeErrorMsg }}</span>
+          </div>
+
+          <div class="form-group col" style="flex: 1;" *ngIf="localitiesList.length > 0">
+            <label class="form-label" style="display: block; color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem;">Locality / City *</label>
+            <select class="form-input form-select" [(ngModel)]="editCity" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff;">
+              <option *ngFor="let loc of localitiesList" [value]="loc">{{ loc }}</option>
+            </select>
+          </div>
+          <div class="form-group col" style="flex: 1;" *ngIf="localitiesList.length === 0">
+            <label class="form-label" style="display: block; color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem;">Locality / City *</label>
+            <input type="text" class="form-input" [(ngModel)]="editCity" placeholder="e.g. Ernakulam / Kottayam" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff;" />
+          </div>
+        </div>
+
+        <div class="form-row" style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group col" style="flex: 1;">
+            <label class="form-label" style="display: block; color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem;">District</label>
+            <input type="text" class="form-input" [(ngModel)]="editDistrict" placeholder="e.g. Kottayam" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff;" />
+          </div>
+          <div class="form-group col" style="flex: 1;">
+            <label class="form-label" style="display: block; color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem;">State</label>
+            <input type="text" class="form-input" [(ngModel)]="editState" placeholder="e.g. Kerala" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: #fff;" />
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding: 1rem 1.25rem; display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+        <button type="button" class="btn btn-secondary" (click)="closeLocationModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" [disabled]="isSavingLocation" (click)="saveClinicLocation()">
+          {{ isSavingLocation ? 'Saving Location...' : 'Save Clinic Location' }}
+        </button>
+      </div>
     </div>
   </div>
 </div>

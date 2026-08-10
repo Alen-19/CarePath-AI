@@ -87,6 +87,7 @@ export class RegisterComponent implements AfterViewInit {
     'Other / Specialized'
   ];
   licenseNumber = '';
+  clinicName = '';
   experienceYears: number | null = null;
   clinicAddress = '';
 
@@ -163,20 +164,15 @@ export class RegisterComponent implements AfterViewInit {
     return licenseRegex.test(clean);
   }
 
-  get isClinicAddressValid(): boolean {
-    if (!this.clinicAddress.trim()) return true;
-    const clean = this.clinicAddress.trim();
-    if (clean.length < 8 || clean.length > 250) return false;
-    if ((clean.match(/[a-zA-Z]/g) || []).length < 3) return false; // Must contain at least 3 letters
-    if (/^(.)\1+$/.test(clean)) return false;
-    return true;
+  get isClinicNameValid(): boolean {
+    if (!this.clinicName.trim()) return true;
+    return this.clinicName.trim().length >= 2;
   }
 
   get isDoctorValid(): boolean {
     if (this.role !== 'doctor') return true;
     return this.specialization.trim().length >= 2 &&
-           this.isLicenseNumberValid &&
-           this.isClinicAddressValid;
+           this.isLicenseNumberValid;
   }
 
   get isFormValid(): boolean {
@@ -387,11 +383,6 @@ export class RegisterComponent implements AfterViewInit {
         this.errorMessage = 'Please enter a valid Medical License Number (between 4 and 35 alphanumeric characters, e.g. KMC-12345). Dummy numbers like 000 are not allowed.';
         return;
       }
-
-      if (this.clinicAddress.trim() && !this.isClinicAddressValid) {
-        this.errorMessage = 'Please enter a valid Clinic/Hospital Address (at least 8 characters long containing street or clinic name). Dummy entries like 00000000 are not allowed.';
-        return;
-      }
     } else if (this.role === 'patient' && this.phone.trim()) {
       const phoneRegex = /^(?:\+?91[\s\-]?)?[6-9]\d{9}$/;
       if (!phoneRegex.test(this.phone.trim())) {
@@ -427,7 +418,14 @@ export class RegisterComponent implements AfterViewInit {
       profile.specialization = this.specialization.trim();
       profile.licenseNumber = this.licenseNumber.trim();
       profile.experienceYears = this.experienceYears || 0;
-      profile.clinicAddress = this.clinicAddress.trim();
+      profile.clinicName = this.clinicName.trim();
+      profile.clinicAddress = {
+        city: this.address.city.trim(),
+        district: this.address.district.trim(),
+        state: this.address.state.trim(),
+        pincode: this.address.pincode.trim(),
+        country: this.address.country.trim() || 'India'
+      };
     }
 
     this.authService.register({
@@ -455,7 +453,15 @@ export class RegisterComponent implements AfterViewInit {
     });
   }
 
-  private redirectUser(role: 'patient' | 'doctor' | 'admin' | null) {
+  private redirectUser(userOrRole: any) {
+    const user = typeof userOrRole === 'object' && userOrRole !== null ? userOrRole : this.authService.currentUser();
+    const role = typeof userOrRole === 'string' ? userOrRole : user?.role;
+
+    if (user && !this.authService.isProfileComplete(user)) {
+      this.router.navigate(['/auth/complete-profile']);
+      return;
+    }
+
     if (role === 'patient') {
       this.router.navigate(['/patient']);
     } else if (role === 'doctor') {

@@ -29,11 +29,13 @@ export class PatientDashboardComponent implements OnInit {
   toastMessage = '';
   toastType: 'success' | 'error' = 'success';
 
-  // ─── Doctor Search ─────────────────────────────────────────────────────────
+  // ─── Doctor Search & Proximity ─────────────────────────────────────────────
   doctors: DoctorCard[] = [];
   filteredDoctors: DoctorCard[] = [];
   searchQuery = '';
   loadingDoctors = false;
+  selectedMaxDistance: number = 0; // 0 = All distances
+  sortBy: 'nearest' | 'experience' | 'fee' = 'nearest';
 
   // ─── Booking Modal ─────────────────────────────────────────────────────────
   showBookingModal = false;
@@ -221,7 +223,9 @@ export class PatientDashboardComponent implements OnInit {
   isProfileIncomplete(): boolean {
     const user = this.authService.currentUser();
     if (!user || !user.patientProfile) return true;
-    return !user.patientProfile.phone || !user.patientProfile.dateOfBirth;
+    const p = user.patientProfile;
+    const hasAddr = !!(p.address && (p.address.pincode || p.address.city));
+    return !p.phone || !p.dateOfBirth || !hasAddr;
   }
 
   openProfileModal(doctorToBook: DoctorCard | null = null) {
@@ -293,6 +297,12 @@ export class PatientDashboardComponent implements OnInit {
     this.minDate = today.toISOString().split('T')[0];
     this.maxDate = max.toISOString().split('T')[0];
     this.loadDoctors();
+
+    if (this.isProfileIncomplete()) {
+      setTimeout(() => {
+        this.openProfileModal();
+      }, 600);
+    }
   }
 
   // ─── Toast ─────────────────────────────────────────────────────────────────
@@ -320,7 +330,7 @@ export class PatientDashboardComponent implements OnInit {
     this.appointmentService.getDoctors().subscribe({
       next: (res) => {
         this.doctors = res.doctors;
-        this.filteredDoctors = res.doctors;
+        this.filterAndSortDoctors();
         this.loadingDoctors = false;
       },
       error: () => {
@@ -330,17 +340,41 @@ export class PatientDashboardComponent implements OnInit {
     });
   }
 
-  onSearch() {
+  filterAndSortDoctors() {
+    let result = [...this.doctors];
+
     const q = this.searchQuery.toLowerCase().trim();
-    if (!q) {
-      this.filteredDoctors = this.doctors;
-      return;
+    if (q) {
+      result = result.filter(d =>
+        `${d.firstName} ${d.lastName}`.toLowerCase().includes(q) ||
+        (d.specialization || '').toLowerCase().includes(q) ||
+        (d.clinicAddressDisplay || d.clinicAddress || '').toLowerCase().includes(q)
+      );
     }
-    this.filteredDoctors = this.doctors.filter(d =>
-      `${d.firstName} ${d.lastName}`.toLowerCase().includes(q) ||
-      (d.specialization || '').toLowerCase().includes(q) ||
-      (d.clinicAddress || '').toLowerCase().includes(q)
-    );
+
+    if (this.selectedMaxDistance > 0) {
+      result = result.filter(d => d.distanceKm != null && d.distanceKm <= this.selectedMaxDistance);
+    }
+
+    result.sort((a, b) => {
+      if (this.sortBy === 'nearest') {
+        if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm;
+        if (a.distanceKm != null) return -1;
+        if (b.distanceKm != null) return 1;
+        return 0;
+      } else if (this.sortBy === 'experience') {
+        return (b.experienceYears || 0) - (a.experienceYears || 0);
+      } else if (this.sortBy === 'fee') {
+        return (a.consultationFee || 0) - (b.consultationFee || 0);
+      }
+      return 0;
+    });
+
+    this.filteredDoctors = result;
+  }
+
+  onSearch() {
+    this.filterAndSortDoctors();
   }
 
   // ─── Booking Modal ─────────────────────────────────────────────────────────

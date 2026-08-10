@@ -66,7 +66,7 @@ export class CompleteProfileComponent implements OnInit {
   ];
   experienceYears: number | null = null;
   licenseNumber = '';
-  clinicAddress = '';
+  clinicName = '';
 
   // Address Fields
   address = {
@@ -75,7 +75,9 @@ export class CompleteProfileComponent implements OnInit {
     city: '',
     district: '',
     state: '',
-    country: 'India'
+    country: 'India',
+    latitude: null as number | null,
+    longitude: null as number | null
   };
 
   // Pincode Lookup State
@@ -93,7 +95,6 @@ export class CompleteProfileComponent implements OnInit {
   lastNameTouched = false;
   phoneTouched = false;
   licenseNumberTouched = false;
-  clinicAddressTouched = false;
   experienceYearsTouched = false;
   maxDobDate = new Date().toISOString().split('T')[0];
 
@@ -120,13 +121,9 @@ export class CompleteProfileComponent implements OnInit {
     return licenseRegex.test(clean);
   }
 
-  get isClinicAddressValid(): boolean {
-    if (!this.clinicAddress.trim()) return true;
-    const clean = this.clinicAddress.trim();
-    if (clean.length < 8 || clean.length > 250) return false;
-    if ((clean.match(/[a-zA-Z]/g) || []).length < 3) return false;
-    if (/^(.)\1+$/.test(clean)) return false;
-    return true;
+  get isClinicNameValid(): boolean {
+    if (!this.clinicName.trim()) return true;
+    return this.clinicName.trim().length >= 2;
   }
 
   get isPhoneValid(): boolean {
@@ -206,6 +203,21 @@ export class CompleteProfileComponent implements OnInit {
       this.address.state = match.state;
       this.address.country = 'India';
     }
+    const queryParts = [selectedCity, this.address.district, this.address.state, this.address.pincode, 'India'].filter(Boolean);
+    const query = queryParts.join(', ');
+    this.geocodeCoordinates(query);
+  }
+
+  geocodeCoordinates(queryStr: string) {
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryStr)}&format=json&limit=1`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          this.address.latitude = parseFloat(data[0].lat);
+          this.address.longitude = parseFloat(data[0].lon);
+        }
+      })
+      .catch(() => {});
   }
 
   ngOnInit() {
@@ -230,7 +242,9 @@ export class CompleteProfileComponent implements OnInit {
             city: user.patientProfile.address.city || '',
             district: user.patientProfile.address.district || '',
             state: user.patientProfile.address.state || '',
-            country: user.patientProfile.address.country || 'India'
+            country: user.patientProfile.address.country || 'India',
+            latitude: (user.patientProfile.address as any).latitude || null,
+            longitude: (user.patientProfile.address as any).longitude || null
           };
           if (user.patientProfile.address.pincode) {
             this.fetchPincodeDetails(user.patientProfile.address.pincode);
@@ -240,7 +254,24 @@ export class CompleteProfileComponent implements OnInit {
         this.specialization = user.doctorProfile.specialization || '';
         this.experienceYears = user.doctorProfile.experienceYears || null;
         this.licenseNumber = user.doctorProfile.licenseNumber || '';
-        this.clinicAddress = user.doctorProfile.clinicAddress || '';
+        this.clinicName = user.doctorProfile.clinicName || '';
+
+        const cAddr = user.doctorProfile.clinicAddress as any;
+        if (typeof cAddr === 'object' && cAddr !== null) {
+          this.address = {
+            houseName: '',
+            pincode: cAddr.pincode || '',
+            city: cAddr.city || '',
+            district: cAddr.district || '',
+            state: cAddr.state || '',
+            country: cAddr.country || 'India',
+            latitude: cAddr.latitude || null,
+            longitude: cAddr.longitude || null
+          };
+          if (cAddr.pincode) {
+            this.fetchPincodeDetails(cAddr.pincode);
+          }
+        }
       }
     }
   }
@@ -261,7 +292,6 @@ export class CompleteProfileComponent implements OnInit {
 
     if (this.role === 'doctor') {
       this.licenseNumberTouched = true;
-      this.clinicAddressTouched = true;
 
       if (!this.specialization.trim()) {
         this.errorMessage = 'Please select a Doctor Specialization.';
@@ -270,11 +300,6 @@ export class CompleteProfileComponent implements OnInit {
 
       if (!this.isLicenseNumberValid) {
         this.errorMessage = 'Please enter a valid Medical License Number (between 4 and 35 alphanumeric characters, e.g. KMC-12345). Dummy numbers like 000 are not allowed.';
-        return;
-      }
-
-      if (this.clinicAddress.trim() && !this.isClinicAddressValid) {
-        this.errorMessage = 'Please enter a valid Clinic/Hospital Address (at least 8 characters long containing street or clinic name). Dummy entries like 00000000 are not allowed.';
         return;
       }
 
@@ -303,7 +328,16 @@ export class CompleteProfileComponent implements OnInit {
       profilePayload.specialization = this.specialization;
       profilePayload.experienceYears = this.experienceYears || 0;
       profilePayload.licenseNumber = this.licenseNumber;
-      profilePayload.clinicAddress = this.clinicAddress;
+      profilePayload.clinicName = this.clinicName.trim();
+      profilePayload.clinicAddress = {
+        city: this.address.city.trim(),
+        district: this.address.district.trim(),
+        state: this.address.state.trim(),
+        pincode: this.address.pincode.trim(),
+        country: this.address.country.trim() || 'India',
+        latitude: this.address.latitude,
+        longitude: this.address.longitude
+      };
     }
 
     this.authService.completeProfile({

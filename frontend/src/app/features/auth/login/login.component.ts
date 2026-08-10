@@ -150,7 +150,7 @@ export class LoginComponent implements AfterViewInit {
     
     // Redirect if already logged in
     if (this.authService.isAuthenticated()) {
-      this.redirectUser(this.authService.userRole());
+      this.redirectUser(this.authService.currentUser());
     }
   }
 
@@ -200,7 +200,7 @@ export class LoginComponent implements AfterViewInit {
           this.successMessage = 'Google login successful!';
           this.cdr.detectChanges();
           setTimeout(() => {
-            this.redirectUser(res.user.role);
+            this.redirectUser(res.user);
           }, 1000);
         },
         error: (err) => {
@@ -254,7 +254,7 @@ export class LoginComponent implements AfterViewInit {
         this.isLoading = false;
         this.successMessage = 'Login successful! Redirecting...';
         setTimeout(() => {
-          this.redirectUser(res.user.role);
+          this.redirectUser(res.user);
         }, 1000);
       },
       error: (err) => {
@@ -278,7 +278,15 @@ export class LoginComponent implements AfterViewInit {
     });
   }
 
-  private redirectUser(role: 'patient' | 'doctor' | 'admin' | null) {
+  private redirectUser(userOrRole: any) {
+    const user = typeof userOrRole === 'object' && userOrRole !== null ? userOrRole : this.authService.currentUser();
+    const role = typeof userOrRole === 'string' ? userOrRole : user?.role;
+
+    if (user && !this.authService.isProfileComplete(user)) {
+      this.router.navigate(['/auth/complete-profile']);
+      return;
+    }
+
     if (role === 'patient') {
       this.router.navigate(['/patient']);
     } else if (role === 'doctor') {

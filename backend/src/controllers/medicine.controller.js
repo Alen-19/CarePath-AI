@@ -7,14 +7,17 @@ let medicinesData = null;
 const loadMedicinesData = () => {
   if (!medicinesData) {
     try {
-      const jsonPath = path.join(__dirname, '../../../frontend/public/assets/data/medicines.json');
+      let jsonPath = path.join(__dirname, '../data/medicines.json');
+      if (!fs.existsSync(jsonPath)) {
+        jsonPath = path.join(__dirname, '../../../frontend/public/assets/data/medicines.json');
+      }
       if (fs.existsSync(jsonPath)) {
-        console.log('[MEDICINE CONTROLLER] Loading medicines.json dataset into memory...');
+        console.log('[MEDICINE CONTROLLER] Loading medicines.json dataset into memory from:', jsonPath);
         const rawData = fs.readFileSync(jsonPath, 'utf8');
         medicinesData = JSON.parse(rawData);
         console.log(`[MEDICINE CONTROLLER] Loaded ${medicinesData.length} medicines into index.`);
       } else {
-        console.warn('[MEDICINE CONTROLLER] medicines.json file not found at:', jsonPath);
+        console.warn('[MEDICINE CONTROLLER] medicines.json file not found.');
         medicinesData = [];
       }
     } catch (err) {
@@ -25,25 +28,61 @@ const loadMedicinesData = () => {
   return medicinesData;
 };
 
+// Normalize common phonetic typos (e.g., parasetamol -> paracetamol)
+const normalizeQuery = (q) => {
+  let clean = q.trim().toLowerCase();
+  clean = clean.replace(/setamol|cetemol|citamol|sitamol/g, 'cetamol');
+  clean = clean.replace(/paracet|paraset|paracit|parasit/g, 'paracet');
+  return clean;
+};
+
+// Top recognized fever brands & pure formulations
+const topFeverBrands = ['dolo 650', 'dolo 500', 'calpol 500', 'crocin 650', 'paracip 650', 'paracetamol 500', 'paracetamol 650'];
+
 // GET /api/medicines/search?q=query
 const searchMedicines = async (req, res) => {
   try {
-    const query = req.query.q || req.query.query || '';
-    if (!query || query.trim().length < 2) {
+    const rawQuery = req.query.q || req.query.query || '';
+    if (!rawQuery || rawQuery.trim().length < 2) {
       return res.json({ success: true, count: 0, medicines: [] });
     }
 
     const data = loadMedicinesData();
-    const cleanQuery = query.trim().toLowerCase();
+    const cleanQuery = normalizeQuery(rawQuery);
 
-    // Fast search top 15 matches by medicineName or composition
     const matches = [];
     for (let i = 0; i < data.length; i++) {
       const med = data[i];
-      const nameMatch = med.medicineName && med.medicineName.toLowerCase().includes(cleanQuery);
-      const compMatch = med.composition && Array.isArray(med.composition) && med.composition.some(c => c.toLowerCase().includes(cleanQuery));
+      const name = (med.medicineName || '').toLowerCase();
+      const comps = Array.isArray(med.composition) ? med.composition.map(c => c.toLowerCase()) : [];
+
+      const nameMatch = name.includes(cleanQuery);
+      const compMatch = comps.some(c => c.includes(cleanQuery));
 
       if (nameMatch || compMatch) {
+        let score = 0;
+
+        // Highest weight: medicine name starts with search query
+        if (name.startsWith(cleanQuery)) {
+          score += 100;
+        } else if (nameMatch) {
+          score += 60;
+        }
+
+        if (compMatch) {
+          score += 40;
+        }
+
+        // Single active ingredient bonus (e.g. pure Paracetamol for fever vs combo NSAIDs/antispasmodics)
+        if (comps.length === 1 && comps[0].includes(cleanQuery)) {
+          score += 50;
+        }
+
+        // Top fever brands & standard dosages boost
+        if (topFeverBrands.some(b => name.includes(b))) {
+          score += 35;
+        }
+
         matches.push({
           medicineId: med.medicineId,
           medicineName: med.medicineName,
@@ -51,17 +90,22 @@ const searchMedicines = async (req, res) => {
           packSize: med.packSize || '10 Tablets',
           composition: med.composition || [],
           uses: med.uses || [],
-          sideEffects: med.sideEffects || []
+          sideEffects: med.sideEffects || [],
+          _score: score
         });
-
-        if (matches.length >= 15) break; // Limit to top 15 results for instant UI response
       }
     }
 
+    // Sort by relevance score descending
+    matches.sort((a, b) => b._score - a._score);
+
+    // Pick top 15 results
+    const topResults = matches.slice(0, 15).map(({ _score, ...med }) => med);
+
     res.json({
       success: true,
-      count: matches.length,
-      medicines: matches
+      count: topResults.length,
+      medicines: topResults
     });
   } catch (err) {
     console.error('[MEDICINE SEARCH ERROR]:', err.message);

@@ -57,6 +57,10 @@ const isValidLicenseNumber = (license) => {
 
 const isValidClinicAddress = (addr) => {
   if (!addr) return true;
+  if (typeof addr === 'object' && addr !== null) {
+    if (addr.pincode && !/^\d{6}$/.test(String(addr.pincode).trim())) return false;
+    return true;
+  }
   if (typeof addr !== 'string') return false;
   const clean = addr.trim();
   if (clean.length < 8 || clean.length > 250) return false;
@@ -183,7 +187,18 @@ const registerUser = async (req, res) => {
         specialization: profile?.specialization || '',
         licenseNumber: profile?.licenseNumber?.trim() || '',
         experienceYears: profile?.experienceYears || 0,
-        clinicAddress: profile?.clinicAddress || '',
+        clinicName: profile?.clinicName?.trim() || '',
+        clinicAddress: {
+          city: profile?.clinicAddress?.city || profile?.address?.city || '',
+          district: profile?.clinicAddress?.district || profile?.address?.district || '',
+          state: profile?.clinicAddress?.state || profile?.address?.state || '',
+          pincode: profile?.clinicAddress?.pincode || profile?.address?.pincode || '',
+          country: profile?.clinicAddress?.country || profile?.address?.country || 'India',
+          latitude: profile?.clinicAddress?.latitude || profile?.address?.latitude || null,
+          longitude: profile?.clinicAddress?.longitude || profile?.address?.longitude || null
+        },
+        latitude: profile?.clinicAddress?.latitude || profile?.address?.latitude || null,
+        longitude: profile?.clinicAddress?.longitude || profile?.address?.longitude || null,
         isVerified: false
       });
     } else if (role === 'admin') {
@@ -254,6 +269,12 @@ const loginUser = async (req, res) => {
         return res.status(403).json({ 
           isSuspended: true,
           message: userProfile.suspensionReason || 'Your doctor account has been suspended by system administration.' 
+        });
+      } else if (userProfile && userProfile.status === 'rejected') {
+        return res.status(403).json({ 
+          isSuspended: false,
+          isRejected: true,
+          message: userProfile.suspensionReason || 'Your medical license application was declined by system administration.' 
         });
       } else if (!userProfile || (!userProfile.isVerified && userProfile.status !== 'approved')) {
         return res.status(403).json({ 
@@ -462,13 +483,39 @@ const completeProfile = async (req, res) => {
       userProfile.phone = profile?.phone || userProfile.phone || '';
       userProfile.bloodGroup = profile?.bloodGroup || userProfile.bloodGroup || '';
       if (profile?.address) {
+        let lat = profile.address.latitude || userProfile.address?.latitude || null;
+        let lng = profile.address.longitude || userProfile.address?.longitude || null;
+
+        if (!lat || !lng) {
+          const query = [profile.address.city, profile.address.district, profile.address.state || 'Kerala', profile.address.pincode, 'India'].filter(Boolean).join(', ');
+          try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
+              headers: { 'User-Agent': 'CarePathAI-App/1.0' }
+            });
+            const geoData = await geoRes.json();
+            if (geoData && geoData.length > 0) {
+              lat = parseFloat(geoData[0].lat);
+              lng = parseFloat(geoData[0].lon);
+            }
+          } catch (e) {
+            console.error('Server-side geocoding fallback error:', e.message);
+          }
+        }
+
+        if (!lat || !lng) {
+          lat = 9.9312;
+          lng = 76.2673;
+        }
+
         userProfile.address = {
           houseName: profile.address.houseName || userProfile.address?.houseName || '',
           city: profile.address.city || userProfile.address?.city || '',
           district: profile.address.district || userProfile.address?.district || '',
           state: profile.address.state || userProfile.address?.state || '',
           pincode: profile.address.pincode || userProfile.address?.pincode || '',
-          country: profile.address.country || userProfile.address?.country || 'India'
+          country: profile.address.country || userProfile.address?.country || 'India',
+          latitude: lat,
+          longitude: lng
         };
       }
       await userProfile.save();
@@ -483,7 +530,46 @@ const completeProfile = async (req, res) => {
       if (profile?.experienceYears !== undefined && profile?.experienceYears !== null) {
         userProfile.experienceYears = profile.experienceYears;
       }
-      if (profile?.clinicAddress) userProfile.clinicAddress = profile.clinicAddress.trim();
+      if (profile?.clinicName) userProfile.clinicName = profile.clinicName.trim();
+      
+      const addrObj = profile?.clinicAddress || profile?.address;
+      if (addrObj) {
+        let lat = addrObj.latitude || userProfile.clinicAddress?.latitude || null;
+        let lng = addrObj.longitude || userProfile.clinicAddress?.longitude || null;
+
+        if (!lat || !lng) {
+          const query = [addrObj.city, addrObj.district, addrObj.state || 'Kerala', addrObj.pincode, 'India'].filter(Boolean).join(', ');
+          try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
+              headers: { 'User-Agent': 'CarePathAI-App/1.0' }
+            });
+            const geoData = await geoRes.json();
+            if (geoData && geoData.length > 0) {
+              lat = parseFloat(geoData[0].lat);
+              lng = parseFloat(geoData[0].lon);
+            }
+          } catch (e) {
+            console.error('Server-side geocoding fallback error:', e.message);
+          }
+        }
+
+        if (!lat || !lng) {
+          lat = 9.9312;
+          lng = 76.2673;
+        }
+
+        userProfile.clinicAddress = {
+          city: addrObj.city || userProfile.clinicAddress?.city || '',
+          district: addrObj.district || userProfile.clinicAddress?.district || '',
+          state: addrObj.state || userProfile.clinicAddress?.state || '',
+          pincode: addrObj.pincode || userProfile.clinicAddress?.pincode || '',
+          country: addrObj.country || userProfile.clinicAddress?.country || 'India',
+          latitude: lat,
+          longitude: lng
+        };
+        userProfile.latitude = lat;
+        userProfile.longitude = lng;
+      }
       await userProfile.save();
     }
 

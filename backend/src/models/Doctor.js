@@ -33,9 +33,27 @@ const DoctorSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  clinicAddress: {
+  clinicName: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
+  },
+  clinicAddress: {
+    city: { type: String, trim: true, default: '' },
+    district: { type: String, trim: true, default: '' },
+    state: { type: String, trim: true, default: '' },
+    pincode: { type: String, trim: true, default: '' },
+    country: { type: String, trim: true, default: 'India' },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null }
+  },
+  latitude: {
+    type: Number,
+    default: null
+  },
+  longitude: {
+    type: Number,
+    default: null
   },
   consultationFee: {
     type: Number,
@@ -49,7 +67,7 @@ const DoctorSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'suspended'],
+    enum: ['pending', 'approved', 'suspended', 'rejected'],
     default: 'pending'
   },
   suspensionReason: {

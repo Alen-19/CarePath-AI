@@ -147,6 +147,13 @@
             </button>
             <button 
               class="tab-btn" 
+              [class.active]="activeTab === 'rejected'" 
+              (click)="setTab('rejected')">
+              Declined Applications
+              <span class="tab-count rose-count" *ngIf="stats.rejectedDoctors">{{ stats.rejectedDoctors }}</span>
+            </button>
+            <button 
+              class="tab-btn" 
               [class.active]="activeTab === 'all'" 
               (click)="setTab('all')">
               All Records
@@ -239,22 +246,24 @@
                 <td>
                   <span class="status-badge" [ngClass]="{
                     'status-suspended': doc.status === 'suspended',
-                    'status-verified': doc.status !== 'suspended' && (doc.status === 'approved' || doc.isVerified),
-                    'status-pending': doc.status !== 'suspended' && doc.status !== 'approved' && !doc.isVerified
+                    'status-rejected': doc.status === 'rejected',
+                    'status-verified': doc.status === 'approved' || doc.isVerified,
+                    'status-pending': doc.status === 'pending' && !doc.isVerified
                   }">
                     <span class="dot"></span>
                     <ng-container *ngIf="doc.status === 'suspended'">🔴 Suspended</ng-container>
-                    <ng-container *ngIf="doc.status !== 'suspended' && (doc.status === 'approved' || doc.isVerified)">Verified & Active</ng-container>
-                    <ng-container *ngIf="doc.status !== 'suspended' && doc.status !== 'approved' && !doc.isVerified">Pending Approval</ng-container>
+                    <ng-container *ngIf="doc.status === 'rejected'">❌ Declined</ng-container>
+                    <ng-container *ngIf="doc.status === 'approved' || doc.isVerified">Verified & Active</ng-container>
+                    <ng-container *ngIf="doc.status === 'pending' && !doc.isVerified">Pending Approval</ng-container>
                   </span>
                 </td>
 
                 <!-- Actions -->
                 <td>
                   <div class="action-buttons" (click)="$event.stopPropagation()">
-                    <!-- Accept / Approve Button (only for unverified pending doctors) -->
+                    <!-- Accept / Approve Button (for pending or rejected doctors) -->
                     <button 
-                      *ngIf="!doc.isVerified && doc.status !== 'approved' && doc.status !== 'suspended'" 
+                      *ngIf="doc.status === 'pending' || doc.status === 'rejected'" 
                       class="btn-approve" 
                       [disabled]="actionInProgressId === doc._id"
                       (click)="approveDoctor(doc, $event)">
@@ -262,14 +271,24 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                           <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
-                        Accept
+                        {{ doc.status === 'rejected' ? 'Re-evaluate' : 'Accept' }}
                       </span>
                       <span *ngIf="actionInProgressId === doc._id" class="mini-spinner"></span>
                     </button>
 
-                    <!-- Block / Suspend Button -->
+                    <!-- Decline Application Button (ONLY for pending doctors) -->
                     <button 
-                      *ngIf="doc.status !== 'suspended'" 
+                      *ngIf="doc.status === 'pending'" 
+                      class="btn-decline" 
+                      [disabled]="actionInProgressId === doc._id"
+                      (click)="rejectDoctor(doc, $event)"
+                      title="Decline Doctor Application">
+                      <span>Decline</span>
+                    </button>
+
+                    <!-- Block / Suspend Button (ONLY for approved & active doctors) -->
+                    <button 
+                      *ngIf="doc.status === 'approved' || (doc.isVerified && doc.status !== 'suspended' && doc.status !== 'rejected')" 
                       class="btn-suspend" 
                       [disabled]="actionInProgressId === doc._id"
                       (click)="openSuspendModal(doc, $event)"
@@ -277,7 +296,7 @@
                       🚫 Block / Suspend
                     </button>
 
-                    <!-- Reinstate / Unsuspend Button -->
+                    <!-- Reinstate / Unsuspend Button (ONLY for suspended doctors) -->
                     <button 
                       *ngIf="doc.status === 'suspended'" 
                       class="btn-unsuspend" 
@@ -364,10 +383,11 @@
           <h3>Doctor Account & Verification File</h3>
           <span class="status-badge" [ngClass]="{
             'status-suspended': selectedDoctorForModal.status === 'suspended',
+            'status-rejected': selectedDoctorForModal.status === 'rejected',
             'status-verified': selectedDoctorForModal.status === 'approved' || selectedDoctorForModal.isVerified,
-            'status-pending': selectedDoctorForModal.status === 'pending'
+            'status-pending': selectedDoctorForModal.status === 'pending' && !selectedDoctorForModal.isVerified
           }">
-            {{ selectedDoctorForModal.status === 'suspended' ? '🔴 Suspended' : (selectedDoctorForModal.isVerified ? 'Verified & Active' : 'Pending Verification') }}
+            {{ selectedDoctorForModal.status === 'suspended' ? '🔴 Suspended' : (selectedDoctorForModal.status === 'rejected' ? '❌ Application Declined' : (selectedDoctorForModal.isVerified ? 'Verified & Active' : 'Pending Verification')) }}
           </span>
         </div>
         <button class="modal-close-btn" (click)="closeModal()">×</button>
@@ -386,6 +406,11 @@
           <h5>🔴 Suspension Record Details</h5>
           <p><strong>Reason Note:</strong> {{ selectedDoctorForModal.suspensionReason }}</p>
           <span class="date-tag">Date of Action: {{ selectedDoctorForModal.suspendedAt | date:'medium' }}</span>
+        </div>
+
+        <div class="suspension-note-banner" *ngIf="selectedDoctorForModal.status === 'rejected'" style="border-color: rgba(225, 29, 72, 0.3); background: rgba(225, 29, 72, 0.08);">
+          <h5 style="color: #fda4af;">❌ Application Declined Note</h5>
+          <p style="color: #fecdd3;"><strong>Status:</strong> The initial verification request for this doctor was declined.</p>
         </div>
 
         <div class="detail-grid mt-3">
@@ -426,21 +451,33 @@
       <div class="modal-footer">
         <button class="modal-cancel-btn" (click)="closeModal()">Close</button>
         
+        <!-- Accept / Approve (For Pending or Rejected Doctors) -->
         <button 
-          *ngIf="!selectedDoctorForModal.isVerified && selectedDoctorForModal.status !== 'approved' && selectedDoctorForModal.status !== 'suspended'" 
+          *ngIf="selectedDoctorForModal.status === 'pending' || selectedDoctorForModal.status === 'rejected'" 
           class="modal-approve-btn" 
           [disabled]="actionInProgressId === selectedDoctorForModal._id"
           (click)="approveDoctor(selectedDoctorForModal)">
-          <span>Accept & Approve Account</span>
+          <span>{{ selectedDoctorForModal.status === 'rejected' ? 'Re-evaluate & Approve Account' : 'Accept & Approve Account' }}</span>
         </button>
 
+        <!-- Decline Application (ONLY for Pending Doctors) -->
         <button 
-          *ngIf="selectedDoctorForModal.status !== 'suspended'" 
+          *ngIf="selectedDoctorForModal.status === 'pending'" 
+          class="modal-decline-btn" 
+          [disabled]="actionInProgressId === selectedDoctorForModal._id"
+          (click)="rejectDoctor(selectedDoctorForModal); closeModal();">
+          <span>Decline Application</span>
+        </button>
+
+        <!-- Block / Suspend Account (ONLY for Approved & Active Doctors) -->
+        <button 
+          *ngIf="selectedDoctorForModal.status === 'approved' || (selectedDoctorForModal.isVerified && selectedDoctorForModal.status !== 'suspended' && selectedDoctorForModal.status !== 'rejected')" 
           class="modal-suspend-btn" 
-          (click)="openSuspendModal(selectedDoctorForModal)">
+          (click)="openSuspendModal(selectedDoctorForModal); closeModal();">
           <span>🚫 Block / Suspend Account</span>
         </button>
 
+        <!-- Reinstate Account (ONLY for Suspended Doctors) -->
         <button 
           *ngIf="selectedDoctorForModal.status === 'suspended'" 
           class="modal-approve-btn" 

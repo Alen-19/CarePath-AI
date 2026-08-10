@@ -582,6 +582,11 @@
   color: #b45309;
 }
 
+.status-badge.status-rejected {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
 .status-badge .dot {
   width: 7px;
   height: 7px;
@@ -618,6 +623,7 @@
   transform: translateY(-1px);
 }
 
+.btn-decline,
 .btn-reject {
   padding: 8px 14px;
   background: #ffffff;
@@ -630,9 +636,27 @@
   transition: all 0.2s ease;
 }
 
+.btn-decline:hover:not(:disabled),
 .btn-reject:hover:not(:disabled) {
   background: #fef2f2;
   border-color: #ef4444;
+}
+
+.modal-decline-btn {
+  padding: 10px 20px;
+  background: #fff1f2;
+  color: #e11d48;
+  border: 1px solid #fecdd3;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-decline-btn:hover:not(:disabled) {
+  background: #ffe4e6;
+  border-color: #fda4af;
 }
 
 .btn-details {

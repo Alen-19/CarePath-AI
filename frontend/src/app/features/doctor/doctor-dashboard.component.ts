@@ -94,6 +94,27 @@ export class DoctorDashboardComponent implements OnInit {
   suspensionReason = '';
   suspendedAt = '';
 
+  // Location Completion State
+  isLocationIncomplete = false;
+  showLocationModal = false;
+  isSavingLocation = false;
+  locationSuccessMsg = '';
+  locationErrMsg = '';
+
+  editClinicName = '';
+  editStreetAddress = '';
+  editPincode = '';
+  editCity = '';
+  editDistrict = '';
+  editState = '';
+  editCountry = 'India';
+  editLat: number | null = null;
+  editLng: number | null = null;
+
+  localitiesList: string[] = [];
+  loadingPincode = false;
+  pincodeErrorMsg = '';
+
   // Appointments
   todayApptsList: DoctorAppointmentItem[] = [];
   upcomingApptsList: DoctorAppointmentItem[] = [];
@@ -114,9 +135,35 @@ export class DoctorDashboardComponent implements OnInit {
       if (user.doctorProfile.experienceYears) {
         this.experienceYears = user.doctorProfile.experienceYears;
       }
-      if (user.doctorProfile.clinicAddress) {
-        this.clinicAddress = user.doctorProfile.clinicAddress;
+      
+      const doc = user.doctorProfile;
+      if (doc.clinicName) {
+        this.editClinicName = doc.clinicName;
       }
+
+      if (typeof doc.clinicAddress === 'object' && doc.clinicAddress !== null) {
+        this.editStreetAddress = doc.clinicAddress.streetAddress || '';
+        this.editPincode = doc.clinicAddress.pincode || '';
+        this.editCity = doc.clinicAddress.city || '';
+        this.editDistrict = doc.clinicAddress.district || '';
+        this.editState = doc.clinicAddress.state || '';
+        this.editCountry = doc.clinicAddress.country || 'India';
+        this.editLat = doc.clinicAddress.latitude || null;
+        this.editLng = doc.clinicAddress.longitude || null;
+
+        this.clinicAddress = [doc.clinicName, this.editStreetAddress, this.editCity, this.editState].filter(Boolean).join(', ');
+
+        if (!this.editPincode || !this.editCity) {
+          this.isLocationIncomplete = true;
+        }
+      } else if (typeof doc.clinicAddress === 'string' && doc.clinicAddress) {
+        this.clinicAddress = doc.clinicAddress;
+        this.editStreetAddress = doc.clinicAddress;
+        this.isLocationIncomplete = true;
+      } else {
+        this.isLocationIncomplete = true;
+      }
+
       if (user.doctorProfile.consultationFee) {
         this.consultationFee = user.doctorProfile.consultationFee;
       }
@@ -131,6 +178,108 @@ export class DoctorDashboardComponent implements OnInit {
   ngOnInit(): void {
     this.loadDoctorSchedule();
     this.loadDoctorAppointments();
+    if (this.editPincode) {
+      this.onLocationPincodeInput();
+    }
+  }
+
+  openLocationModal(): void {
+    this.showLocationModal = true;
+    this.locationErrMsg = '';
+    this.locationSuccessMsg = '';
+  }
+
+  closeLocationModal(): void {
+    this.showLocationModal = false;
+  }
+
+  onLocationPincodeInput(): void {
+    const cleanPin = this.editPincode ? this.editPincode.trim() : '';
+    if (cleanPin.length === 6 && /^\d{6}$/.test(cleanPin)) {
+      this.loadingPincode = true;
+      this.pincodeErrorMsg = '';
+      fetch(`https://api.postalpincode.in/pincode/${cleanPin}`)
+        .then(res => res.json())
+        .then(data => {
+          this.loadingPincode = false;
+          if (data && data[0] && data[0].Status === 'Success' && data[0].PostOffice) {
+            const postOffices = data[0].PostOffice;
+            this.localitiesList = Array.from(new Set(postOffices.map((po: any) => po.Name)));
+            if (postOffices.length > 0) {
+              if (!this.editCity || !this.localitiesList.includes(this.editCity)) {
+                this.editCity = this.localitiesList[0];
+              }
+              this.editDistrict = postOffices[0].District || this.editDistrict;
+              this.editState = postOffices[0].State || this.editState;
+            }
+            this.geocodeLocationQuery(`${cleanPin}, India`);
+          } else {
+            this.pincodeErrorMsg = 'Invalid Indian Pincode. Please check your 6-digit postal code.';
+          }
+        })
+        .catch(() => {
+          this.loadingPincode = false;
+          this.pincodeErrorMsg = 'Could not fetch location data for this pincode.';
+        });
+    } else {
+      this.localitiesList = [];
+    }
+  }
+
+  geocodeLocationQuery(queryStr: string): void {
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryStr)}&format=json&limit=1`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          this.editLat = parseFloat(data[0].lat);
+          this.editLng = parseFloat(data[0].lon);
+        }
+      })
+      .catch(() => {});
+  }
+
+  saveClinicLocation(): void {
+    if (!this.editPincode || !/^\d{6}$/.test(this.editPincode.trim())) {
+      this.locationErrMsg = 'Please enter a valid 6-digit Indian Pincode.';
+      return;
+    }
+    if (!this.editCity || !this.editCity.trim()) {
+      this.locationErrMsg = 'Please enter or select your Locality / City.';
+      return;
+    }
+
+    this.isSavingLocation = true;
+    this.locationErrMsg = '';
+    this.locationSuccessMsg = '';
+
+    const payload = {
+      clinicName: this.editClinicName.trim() || 'Clinician Clinic',
+      clinicAddress: {
+        city: this.editCity.trim(),
+        district: this.editDistrict.trim(),
+        state: this.editState.trim(),
+        pincode: this.editPincode.trim(),
+        country: this.editCountry || 'India',
+        latitude: this.editLat,
+        longitude: this.editLng
+      }
+    };
+
+    this.authService.completeProfile({ role: 'doctor', profile: payload }).subscribe({
+      next: (res) => {
+        this.isSavingLocation = false;
+        this.locationSuccessMsg = 'Clinic location saved successfully!';
+        this.isLocationIncomplete = false;
+        this.clinicAddress = [this.editClinicName, this.editCity, this.editState].filter(Boolean).join(', ');
+        setTimeout(() => {
+          this.closeLocationModal();
+        }, 1200);
+      },
+      error: (err) => {
+        this.isSavingLocation = false;
+        this.locationErrMsg = err.error?.message || 'Failed to save clinic location.';
+      }
+    });
   }
 
   loadDoctorAppointments(): void {

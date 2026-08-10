@@ -45,7 +45,9 @@ const PatientSchema = new mongoose.Schema({
     district: { type: String, trim: true, default: '' },
     state: { type: String, trim: true, default: '' },
     pincode: { type: String, trim: true, default: '' },
-    country: { type: String, trim: true, default: 'India' }
+    country: { type: String, trim: true, default: 'India' },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null }
   }
 }, { 
   timestamps: true,

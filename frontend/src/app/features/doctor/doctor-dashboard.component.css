@@ -77,6 +77,54 @@
   color: var(--text-secondary, #64748B);
 }
 
+/* Location Incomplete Alert Banner */
+.location-alert-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.75rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.12) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-left: 5px solid #f59e0b;
+  border-radius: 14px;
+  gap: 1.5rem;
+}
+
+.location-alert-card .alert-content-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.location-alert-card .alert-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(245, 158, 11, 0.2);
+  color: #b45309;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 12px;
+  width: fit-content;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.location-alert-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.location-alert-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #b45309;
+}
+
 /* Hero Welcome Banner */
 .welcome-banner {
   display: flex;

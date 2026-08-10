@@ -88,18 +88,43 @@
       <div class="section-header">
         <div>
           <h1 class="section-title">Find a Doctor</h1>
-          <p class="section-sub">Book a consultation with our verified specialists</p>
+          <p class="section-sub">Book a consultation with our verified specialists sorted by proximity</p>
         </div>
-        <div class="search-bar-wrap">
-          <input
-            type="text"
-            class="search-input"
-            placeholder="Search by name or specialization…"
-            [(ngModel)]="searchQuery"
-            (input)="onSearch()"
-            id="doctor-search-input"
-          />
-          <span class="search-icon">🔍</span>
+        
+        <div class="search-filter-container">
+          <div class="search-bar-wrap">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Search by name, specialization, or clinic location…"
+              [(ngModel)]="searchQuery"
+              (input)="onSearch()"
+              id="doctor-search-input"
+            />
+            <span class="search-icon">🔍</span>
+          </div>
+
+          <div class="filter-controls-row">
+            <div class="filter-control-item">
+              <label for="maxDistanceSelect" class="control-label">Max Distance:</label>
+              <select id="maxDistanceSelect" class="filter-select" [(ngModel)]="selectedMaxDistance" (change)="filterAndSortDoctors()">
+                <option [ngValue]="0">🌐 All Distances</option>
+                <option [ngValue]="5">📍 Within 5 km</option>
+                <option [ngValue]="10">📍 Within 10 km</option>
+                <option [ngValue]="25">📍 Within 25 km</option>
+                <option [ngValue]="50">📍 Within 50 km</option>
+              </select>
+            </div>
+
+            <div class="filter-control-item">
+              <label for="sortBySelect" class="control-label">Sort By:</label>
+              <select id="sortBySelect" class="filter-select" [(ngModel)]="sortBy" (change)="filterAndSortDoctors()">
+                <option value="nearest">⚡ Nearest First</option>
+                <option value="experience">🩺 Most Experienced</option>
+                <option value="fee">💰 Consultation Fee (Low to High)</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -112,7 +137,7 @@
       <!-- No results -->
       <div *ngIf="!loadingDoctors && filteredDoctors.length === 0" class="empty-state">
         <span class="empty-icon">🏥</span>
-        <p>No doctors found. Try a different search.</p>
+        <p>No doctors found matching your location or search criteria. Try adjusting the distance filter.</p>
       </div>
 
       <!-- Doctor Cards Grid -->
@@ -123,9 +148,14 @@
             <span class="doc-verified-badge">✓ Verified</span>
           </div>
           <div class="doc-info">
-            <h3 class="doc-name">Dr. {{ doc.firstName }} {{ doc.lastName }}</h3>
+            <div class="doc-title-row">
+              <h3 class="doc-name">Dr. {{ doc.firstName }} {{ doc.lastName }}</h3>
+              <span class="distance-pill" *ngIf="doc.distanceKm != null">
+                🚗 {{ doc.distanceKm }} km away
+              </span>
+            </div>
             <p class="doc-specialty">{{ doc.specialization || 'General Physician' }}</p>
-            <p class="doc-clinic">📍 {{ doc.clinicAddress || 'Location not specified' }}</p>
+            <p class="doc-clinic">📍 {{ doc.clinicAddressDisplay || doc.clinicAddress || 'Location not specified' }}</p>
             <p class="doc-exp" *ngIf="doc.experienceYears">🩺 {{ doc.experienceYears }} yrs experience</p>
             <div class="doc-meta-row">
               <span class="doc-fee">₹{{ doc.consultationFee | number }}</span>

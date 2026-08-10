@@ -9,10 +9,11 @@ const getAdminStats = async (req, res) => {
   try {
     const totalDoctors = await Doctor.countDocuments();
     const pendingVerifications = await Doctor.countDocuments({ 
-      $or: [{ status: 'pending' }, { isVerified: false, status: { $ne: 'suspended' } }]
+      $or: [{ status: 'pending' }, { status: { $exists: false }, isVerified: false }]
     });
     const approvedDoctors = await Doctor.countDocuments({ isVerified: true, status: 'approved' });
     const suspendedDoctors = await Doctor.countDocuments({ status: 'suspended' });
+    const rejectedDoctors = await Doctor.countDocuments({ status: 'rejected' });
     const totalPatients = await Patient.countDocuments();
 
     res.json({
@@ -22,6 +23,7 @@ const getAdminStats = async (req, res) => {
         pendingVerifications,
         approvedDoctors,
         suspendedDoctors,
+        rejectedDoctors,
         totalPatients
       }
     });
@@ -32,7 +34,7 @@ const getAdminStats = async (req, res) => {
 };
 
 // @desc    Get doctor verification/management requests with filter option
-// @route   GET /api/admin/doctors?status=pending|approved|suspended|all
+// @route   GET /api/admin/doctors?status=pending|approved|suspended|rejected|all
 // @access  Private/Admin
 const getDoctorVerificationRequests = async (req, res) => {
   try {
@@ -45,6 +47,8 @@ const getDoctorVerificationRequests = async (req, res) => {
       queryFilter.$or = [{ status: 'approved' }, { status: { $exists: false }, isVerified: true }];
     } else if (status === 'suspended') {
       queryFilter.status = 'suspended';
+    } else if (status === 'rejected') {
+      queryFilter.status = 'rejected';
     }
 
     const doctors = await Doctor.find(queryFilter)
@@ -55,6 +59,14 @@ const getDoctorVerificationRequests = async (req, res) => {
       const docObj = doc.toObject();
       if (!docObj.status) {
         docObj.status = docObj.isVerified ? 'approved' : 'pending';
+      }
+      if (typeof docObj.clinicAddress === 'object' && docObj.clinicAddress !== null) {
+        const parts = [docObj.clinicName, docObj.clinicAddress.city, docObj.clinicAddress.district, docObj.clinicAddress.state, docObj.clinicAddress.pincode].filter(Boolean);
+        const displayAddr = parts.join(', ');
+        docObj.clinicAddressDisplay = displayAddr;
+        if (typeof docObj.clinicAddress !== 'string') {
+          docObj.clinicAddress = displayAddr || 'Location not specified';
+        }
       }
       return docObj;
     });
@@ -105,12 +117,13 @@ const approveDoctor = async (req, res) => {
   }
 };
 
-// @desc    Reject / Revoke a Doctor Verification
+// @desc    Decline / Reject a Doctor Verification Request
 // @route   PUT /api/admin/doctors/:id/reject
 // @access  Private/Admin
 const rejectDoctor = async (req, res) => {
   try {
     const doctorId = req.params.id;
+    const { reason } = req.body;
 
     let doctor = await Doctor.findById(doctorId);
     if (!doctor) {
@@ -122,14 +135,17 @@ const rejectDoctor = async (req, res) => {
     }
 
     doctor.isVerified = false;
-    doctor.status = 'pending';
+    doctor.status = 'rejected';
+    if (reason) {
+      doctor.suspensionReason = reason;
+    }
     await doctor.save();
 
     const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'email isActive createdAt');
 
     res.json({
       success: true,
-      message: `Doctor Dr. ${doctor.firstName} ${doctor.lastName}'s verification status has been set to pending/rejected.`,
+      message: `Application for Dr. ${doctor.firstName} ${doctor.lastName} has been declined.`,
       doctor: populatedDoctor
     });
   } catch (error) {

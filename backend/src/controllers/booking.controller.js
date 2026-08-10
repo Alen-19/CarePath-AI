@@ -1,11 +1,12 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const Doctor = require('../models/Doctor');
+const Patient = require('../models/Patient');
 const DoctorSchedule = require('../models/DoctorSchedule');
 const DoctorDateOverride = require('../models/DoctorDateOverride');
 const Appointment = require('../models/Appointment');
 const Payment = require('../models/Payment');
-const Patient = require('../models/Patient');
 const User = require('../models/User');
 const { sendAppointmentReceiptEmail, sendPrescriptionEmail } = require('../config/mailer');
 
@@ -86,11 +87,45 @@ function getNowIST() {
   return { todayStr, nowMinutes };
 }
 
+function getHaversineDistanceKm(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
 // ─── GET /api/booking/doctors ───────────────────────────────────────────────
-// List all approved, active doctors for patient search
+// List all approved, active doctors for patient search with proximity calculation
 const getDoctors = async (req, res) => {
   try {
     const { search, specialization } = req.query;
+
+    // Extract patient coordinates from query or JWT token if available
+    let patientLat = req.query.patientLat ? parseFloat(req.query.patientLat) : null;
+    let patientLng = req.query.patientLng ? parseFloat(req.query.patientLng) : null;
+
+    if ((patientLat == null || patientLng == null) && req.headers.authorization) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        if (token) {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'carepath_ai_super_secret_jwt_key_2026');
+          if (decoded && decoded.id) {
+            const patient = await Patient.findOne({ userId: decoded.id });
+            if (patient && patient.address) {
+              patientLat = patient.address.latitude ?? null;
+              patientLng = patient.address.longitude ?? null;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     const filter = { status: 'approved', isVerified: true };
     const doctors = await Doctor.find(filter).populate('userId', 'email');
 
@@ -98,24 +133,55 @@ const getDoctors = async (req, res) => {
     const schedules = await DoctorSchedule.find({});
     const scheduleMap = new Map(schedules.map(s => [s.doctorId.toString(), s.consultationFee]));
 
-    let result = doctors.map(d => ({
-      _id: d._id,
-      firstName: d.firstName,
-      lastName: d.lastName,
-      specialization: d.specialization,
-      licenseNumber: d.licenseNumber,
-      experienceYears: d.experienceYears,
-      clinicAddress: d.clinicAddress,
-      rating: d.rating,
-      consultationFee: scheduleMap.get(d._id.toString()) ?? d.consultationFee ?? 500,
-      email: d.userId?.email
-    }));
+    let result = doctors.map(d => {
+      const docLat = d.latitude ?? (typeof d.clinicAddress === 'object' ? d.clinicAddress?.latitude : null);
+      const docLng = d.longitude ?? (typeof d.clinicAddress === 'object' ? d.clinicAddress?.longitude : null);
+
+      let distanceKm = null;
+      if (patientLat != null && patientLng != null && docLat != null && docLng != null) {
+        distanceKm = getHaversineDistanceKm(patientLat, patientLng, docLat, docLng);
+      }
+
+      // Format clean display address string (fixes [object Object] bug)
+      let clinicAddressDisplay = 'Location not specified';
+      if (typeof d.clinicAddress === 'object' && d.clinicAddress !== null) {
+        const parts = [
+          d.clinicName,
+          d.clinicAddress.city,
+          d.clinicAddress.district,
+          d.clinicAddress.state,
+          d.clinicAddress.pincode
+        ].filter(Boolean);
+        clinicAddressDisplay = parts.join(', ');
+      } else if (typeof d.clinicAddress === 'string' && d.clinicAddress) {
+        clinicAddressDisplay = d.clinicAddress;
+      }
+
+      return {
+        _id: d._id,
+        firstName: d.firstName,
+        lastName: d.lastName,
+        specialization: d.specialization,
+        licenseNumber: d.licenseNumber,
+        experienceYears: d.experienceYears,
+        clinicName: d.clinicName || '',
+        clinicAddress: clinicAddressDisplay,
+        clinicAddressDisplay: clinicAddressDisplay,
+        distanceKm: distanceKm,
+        latitude: docLat,
+        longitude: docLng,
+        rating: d.rating,
+        consultationFee: scheduleMap.get(d._id.toString()) ?? d.consultationFee ?? 500,
+        email: d.userId?.email
+      };
+    });
 
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(d =>
         `${d.firstName} ${d.lastName}`.toLowerCase().includes(q) ||
-        (d.specialization || '').toLowerCase().includes(q)
+        (d.specialization || '').toLowerCase().includes(q) ||
+        (d.clinicAddressDisplay || '').toLowerCase().includes(q)
       );
     }
 
@@ -124,6 +190,16 @@ const getDoctors = async (req, res) => {
         (d.specialization || '').toLowerCase().includes(specialization.toLowerCase())
       );
     }
+
+    // Sort doctors: Closest doctors first if distance exists
+    result.sort((a, b) => {
+      if (a.distanceKm != null && b.distanceKm != null) {
+        return a.distanceKm - b.distanceKm;
+      }
+      if (a.distanceKm != null) return -1;
+      if (b.distanceKm != null) return 1;
+      return 0;
+    });
 
     res.json({ success: true, count: result.length, doctors: result });
   } catch (err) {

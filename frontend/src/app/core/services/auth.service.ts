@@ -29,9 +29,21 @@ export interface User {
     licenseNumber?: string;
     isVerified: boolean;
     experienceYears?: number;
-    clinicAddress?: string;
+    clinicName?: string;
+    clinicAddress?: {
+      streetAddress?: string;
+      city?: string;
+      district?: string;
+      state?: string;
+      pincode?: string;
+      country?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+    } | any;
+    latitude?: number | null;
+    longitude?: number | null;
     consultationFee?: number;
-    status?: 'pending' | 'approved' | 'suspended';
+    status?: 'pending' | 'approved' | 'suspended' | 'rejected';
     suspensionReason?: string;
     suspendedAt?: string;
   };
@@ -110,10 +122,16 @@ export class AuthService {
   isProfileComplete(user: User | null): boolean {
     if (!user) return false;
     if (user.role === 'patient') {
-      return !!(user.patientProfile && user.patientProfile.phone && user.patientProfile.dateOfBirth);
+      const p = user.patientProfile;
+      const hasAddr = !!(p && p.address && (p.address.pincode || p.address.city));
+      return !!(p && p.phone && p.dateOfBirth && hasAddr);
     }
     if (user.role === 'doctor') {
-      return !!(user.doctorProfile && user.doctorProfile.specialization && user.doctorProfile.licenseNumber);
+      const doc = user.doctorProfile;
+      const hasAddr = typeof doc?.clinicAddress === 'object' && doc?.clinicAddress !== null
+        ? !!(doc.clinicAddress.pincode || doc.clinicAddress.city)
+        : !!doc?.clinicAddress;
+      return !!(doc && doc.specialization && doc.licenseNumber && hasAddr);
     }
     return true; // admin or other
   }

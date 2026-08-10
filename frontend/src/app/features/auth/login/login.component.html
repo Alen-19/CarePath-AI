@@ -4,7 +4,7 @@
       <div class="logo">
         <span class="logo-icon">✦</span> CarePath <span class="accent-text">AI</span>
       </div>
-      <p class="subtitle">Continuous medical insights and personalized care plans</p>
+      <p class="subtitle">{{ isPendingApproval ? 'Your doctor account is pending administrator verification' : 'Continuous medical insights and personalized care plans' }}</p>
     </div>
 
     <!-- Alert Messages -->
@@ -44,13 +44,13 @@
     <!-- Pending Doctor Approval Card -->
     <div *ngIf="isPendingApproval && !isSuspendedAccount" class="pending-approval-card text-center p-3 animate-fade-in">
       <div style="font-size: 3.5rem; margin-bottom: 1rem;">🩺 ⏳</div>
-      <h2 style="font-size: 1.4rem; font-weight: 600; margin-bottom: 0.75rem; color: #f8fafc;">
+      <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 0.75rem; color: #0f172a;">
         Verification Pending
       </h2>
-      <p style="color: #94a3b8; line-height: 1.5; margin-bottom: 1.25rem; font-size: 0.95rem;">
+      <p style="color: #475569; line-height: 1.5; margin-bottom: 1.25rem; font-size: 0.95rem;">
         {{ pendingApprovalMessage }}
       </p>
-      <div style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 14px; margin-bottom: 1.5rem; text-align: left; font-size: 0.88rem; color: #93c5fd; line-height: 1.5;">
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px; margin-bottom: 1.5rem; text-align: left; font-size: 0.88rem; color: #1e40af; line-height: 1.5;">
         ℹ️ <strong>Admin Review in Progress:</strong> Your profile and medical license are currently being reviewed by system administrators. You will be granted access once an administrator approves your request.
       </div>
       <button type="button" class="btn btn-primary w-full" style="text-decoration: none; display: inline-block; text-align: center;" (click)="isPendingApproval = false; errorMessage = '';">
