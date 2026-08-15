@@ -61,6 +61,12 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   isSavingPrescription: boolean = false;
   prescriptionSuccessMsg: string = '';
 
+  // Emergency Sync & Pause State
+  activeEmergencyAlert: { appointmentId: string; patientName: string; symptomSummary: string } | null = null;
+  isCallPaused: boolean = false;
+  pauseReason: string = '';
+  isEmergencyTriageMode: boolean = false;
+
   // Timer
   callTimer: string = '00:00';
   private timerInterval: any = null;
@@ -148,10 +154,14 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       })
     );
 
-    // Remote Stream Sub
+    // Remote Stream Sub (Auto-unpause when remote stream returns)
     this.subs.push(
       this.webRtcService.remoteStream$.subscribe(stream => {
         this.remoteStream = stream;
+        if (stream && this.isCallPaused && this.userRole === 'patient') {
+          this.isCallPaused = false;
+          this.pauseReason = '';
+        }
         this.cdr.detectChanges();
         if (this.remoteVideoRef && this.remoteVideoRef.nativeElement) {
           this.remoteVideoRef.nativeElement.srcObject = stream;
@@ -159,10 +169,17 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       })
     );
 
-    // Peer Users Sub
+    // Peer Users Sub (Auto-unpause when doctor peer joins)
     this.subs.push(
       this.webRtcService.peerUsers$.subscribe(users => {
         this.peerUsers = users;
+        if (this.userRole === 'patient' && this.isCallPaused) {
+          const hasDoctor = users.some(u => u.userRole === 'doctor');
+          if (hasDoctor) {
+            this.isCallPaused = false;
+            this.pauseReason = '';
+          }
+        }
       })
     );
 
@@ -197,6 +214,70 @@ export class VideoCallComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       })
     );
+
+    // Emergency Alert Sub (Doctor Mode)
+    this.subs.push(
+      this.webRtcService.emergencyAlert$.subscribe(alertData => {
+        if (this.userRole === 'doctor' && alertData) {
+          this.activeEmergencyAlert = alertData;
+          this.cdr.detectChanges();
+        }
+      })
+    );
+
+    // Consultation Paused Sub (Patient Mode)
+    this.subs.push(
+      this.webRtcService.consultationPaused$.subscribe(data => {
+        this.isCallPaused = true;
+        this.pauseReason = data.reason || 'Doctor is currently attending a brief emergency case.';
+        this.cdr.detectChanges();
+      })
+    );
+
+    // Consultation Resumed Sub (Patient Mode)
+    this.subs.push(
+      this.webRtcService.consultationResumed$.subscribe(() => {
+        this.isCallPaused = false;
+        this.pauseReason = '';
+        this.cdr.detectChanges();
+      })
+    );
+  }
+
+  // Doctor Action: Accept Emergency Triage & Pause Current Call
+  acceptEmergencyTriage(): void {
+    if (!this.activeEmergencyAlert) return;
+    const targetEmergencyId = this.activeEmergencyAlert.appointmentId;
+    this.activeEmergencyAlert = null;
+    
+    // Pause current active consultation for patient
+    this.webRtcService.pauseConsultation(this.appointmentId, 'Doctor is attending a 5-minute urgent emergency triage.');
+    this.isEmergencyTriageMode = true;
+    
+    // Open target emergency room in new tab or navigate
+    window.open(`/consultation/${targetEmergencyId}`, '_blank');
+  }
+
+  dismissEmergencyAlert(): void {
+    this.activeEmergencyAlert = null;
+  }
+
+  pauseCurrentConsultation(): void {
+    this.isCallPaused = true;
+    this.webRtcService.pauseConsultation(this.appointmentId, 'Doctor has paused the consultation temporarily.');
+  }
+
+  resumeCurrentConsultation(): void {
+    this.isCallPaused = false;
+    this.webRtcService.resumeConsultation(this.appointmentId);
+  }
+
+  resumeCallManually(): void {
+    this.isCallPaused = false;
+    this.pauseReason = '';
+    if (this.userRole === 'doctor') {
+      this.webRtcService.resumeConsultation(this.appointmentId);
+    }
   }
 
   joinCall(): void {
@@ -209,6 +290,11 @@ export class VideoCallComponent implements OnInit, OnDestroy {
 
     this.webRtcService.connect();
     this.webRtcService.joinRoom(this.appointmentId, userId, this.userRole, userName);
+
+    // If Doctor joins/re-joins this call room, auto-emit resume signal to unpause patient!
+    if (this.userRole === 'doctor') {
+      this.webRtcService.resumeConsultation(this.appointmentId);
+    }
 
     // Attach local video after view render
     setTimeout(() => {
@@ -342,6 +428,9 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     }
   }
 
+  // 10-Min Emergency Cap Warning
+  showEmergency8MinWarning: boolean = false;
+
   private startTimer(): void {
     this.secondsElapsed = 0;
     this.timerInterval = setInterval(() => {
@@ -349,6 +438,10 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       const mins = Math.floor(this.secondsElapsed / 60);
       const secs = this.secondsElapsed % 60;
       this.callTimer = `${mins < 10 ? '0' + mins : mins}:${secs < 10 ? '0' + secs : secs}`;
+
+      if ((this.isEmergencyTriageMode || this.appointmentDetails?.isEmergency) && this.secondsElapsed >= 480) {
+        this.showEmergency8MinWarning = true;
+      }
       this.cdr.detectChanges();
     }, 1000);
   }
@@ -364,13 +457,15 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     if (!this.appointmentDetails) return 'Doctor';
     const doc = this.appointmentDetails.doctorId;
     if (!doc) return 'Doctor';
-    return `Dr. ${doc.firstName || doc.userId?.name || ''} ${doc.lastName || ''}`.trim();
+    const name = `Dr. ${doc.firstName || doc.userId?.name || doc.name || ''} ${doc.lastName || ''}`.trim();
+    return name.length > 4 ? name : 'Dr. Consultant';
   }
 
   get patientName(): string {
     if (!this.appointmentDetails) return 'Patient';
     const pat = this.appointmentDetails.patientId;
     if (!pat) return 'Patient';
-    return `${pat.firstName || pat.userId?.name || ''} ${pat.lastName || ''}`.trim();
+    const name = `${pat.firstName || pat.userId?.name || pat.name || ''} ${pat.lastName || ''}`.trim();
+    return name || 'Patient';
   }
 }

@@ -1,4 +1,4 @@
-import { Component, OnInit, NgZone } from '@angular/core';
+import { Component, OnInit, NgZone, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -23,7 +23,9 @@ declare var Razorpay: any;
 export class PatientDashboardComponent implements OnInit {
   patientName = '';
   patientId = '';
-  activeTab: 'find-doctors' | 'my-appointments' = 'find-doctors';
+  patientEmail = '';
+  activeTab: 'find-doctors' | 'my-appointments' | 'profile' = 'find-doctors';
+  showUserDropdown = false;
 
   // ─── Toast ─────────────────────────────────────────────────────────────────
   toastMessage = '';
@@ -69,15 +71,25 @@ export class PatientDashboardComponent implements OnInit {
   cancellingInProgress = false;
   cancelResult: { refundPercentage: number; refundAmount: number; estimatedRefundDate: string | null; policy: string } | null = null;
 
-  // ─── Profile Completion State (Option B: Action-based) ────────────────────
+  // ─── Profile Management State ─────────────────────────────────────────────
   showProfileModal = false;
   savingProfile = false;
+  uploadingImage = false;
   pendingDoctorToBook: DoctorCard | null = null;
+
   profileForm = {
+    firstName: '',
+    lastName: '',
     phone: '',
     dateOfBirth: '',
     gender: 'Prefer not to say',
     bloodGroup: '',
+    profileImage: '',
+    emergencyContact: {
+      name: '',
+      phone: '',
+      relation: 'Parent'
+    },
     address: {
       houseName: '',
       pincode: '',
@@ -88,6 +100,16 @@ export class PatientDashboardComponent implements OnInit {
     }
   };
 
+  // ─── Password Change State ────────────────────────────────────────────────
+  passwordForm = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+  changingPassword = false;
+  passwordError = '';
+  passwordSuccess = '';
+
   // Smart Pincode Auto-Lookup State
   localitiesList: string[] = [];
   districtsList: string[] = [];
@@ -96,10 +118,36 @@ export class PatientDashboardComponent implements OnInit {
   pincodeErrorMsg = '';
 
   // Validation Touch Trackers & Bounds
+  profileFirstNameTouched = false;
+  profileLastNameTouched = false;
   profilePhoneTouched = false;
   profileDobTouched = false;
-  maxDobDate = new Date().toISOString().split('T')[0];
+  profileHouseNameTouched = false;
+  profilePincodeTouched = false;
+  profileEmergencyNameTouched = false;
+  profileEmergencyPhoneTouched = false;
+
+  maxDobDate = this.getLocalDateString();
   minDobDate = '1900-01-01';
+
+  get patientInitials(): string {
+    const f = this.profileForm.firstName?.charAt(0) || 'P';
+    const l = this.profileForm.lastName?.charAt(0) || '';
+    return (f + l).toUpperCase();
+  }
+
+  get isFirstNameValid(): boolean {
+    const clean = (this.profileForm.firstName || '').trim();
+    if (clean.length < 2 || clean.length > 50) return false;
+    return /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/.test(clean);
+  }
+
+  get isLastNameValid(): boolean {
+    const clean = (this.profileForm.lastName || '').trim();
+    if (!clean) return true; // Optional
+    if (clean.length < 1 || clean.length > 50) return false;
+    return /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/.test(clean);
+  }
 
   get isProfilePhoneValid(): boolean {
     if (!this.profileForm.phone) return false;
@@ -113,6 +161,49 @@ export class PatientDashboardComponent implements OnInit {
     const today = new Date();
     const minDate = new Date('1900-01-01');
     return selectedDate <= today && selectedDate >= minDate;
+  }
+
+  get isEmergencyNameValid(): boolean {
+    const clean = (this.profileForm.emergencyContact?.name || '').trim();
+    if (!clean) return true;
+    if (clean.length < 2 || clean.length > 50) return false;
+    return /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/.test(clean);
+  }
+
+  get isEmergencyPhoneSelf(): boolean {
+    const clean = (this.profileForm.emergencyContact?.phone || '').trim().replace(/[\s-]/g, '');
+    const patientClean = (this.profileForm.phone || '').trim().replace(/[\s-]/g, '');
+    return !!clean && clean === patientClean;
+  }
+
+  get isEmergencyPhoneValid(): boolean {
+    const clean = (this.profileForm.emergencyContact?.phone || '').trim().replace(/[\s-]/g, '');
+    if (!clean) return true;
+    if (this.isEmergencyPhoneSelf) return false;
+    return /^(\+91)?[6-9]\d{9}$/.test(clean);
+  }
+
+  get isPincodeValid(): boolean {
+    const clean = (this.profileForm.address?.pincode || '').trim();
+    if (!clean) return true;
+    return /^\d{6}$/.test(clean);
+  }
+
+  get isHouseNameValid(): boolean {
+    const clean = (this.profileForm.address?.houseName || '').trim();
+    if (!clean) return true;
+    return clean.length >= 2;
+  }
+
+  get isProfileFormValid(): boolean {
+    return this.isFirstNameValid &&
+      this.isLastNameValid &&
+      this.isProfilePhoneValid &&
+      this.isProfileDobValid &&
+      this.isEmergencyNameValid &&
+      this.isEmergencyPhoneValid &&
+      this.isPincodeValid &&
+      this.isHouseNameValid;
   }
 
   get isProfileModalValid(): boolean {
@@ -131,25 +222,40 @@ export class PatientDashboardComponent implements OnInit {
 
   syncPatientInfo() {
     const user = this.authService.currentUser();
-    if (user && user.patientProfile) {
-      this.patientName = `${user.patientProfile.firstName} ${user.patientProfile.lastName}`.trim() || 'Patient';
-      this.profileForm.phone = user.patientProfile.phone || '';
-      if (user.patientProfile.dateOfBirth) {
-        this.profileForm.dateOfBirth = new Date(user.patientProfile.dateOfBirth).toISOString().split('T')[0];
-      }
-      this.profileForm.gender = user.patientProfile.gender || 'Prefer not to say';
-      this.profileForm.bloodGroup = user.patientProfile.bloodGroup || '';
-      if (user.patientProfile.address) {
-        this.profileForm.address = {
-          houseName: user.patientProfile.address.houseName || '',
-          pincode: user.patientProfile.address.pincode || '',
-          city: user.patientProfile.address.city || '',
-          district: user.patientProfile.address.district || '',
-          state: user.patientProfile.address.state || '',
-          country: user.patientProfile.address.country || 'India'
-        };
-        if (user.patientProfile.address.pincode) {
-          this.fetchPincodeDetails(user.patientProfile.address.pincode);
+    if (user) {
+      this.patientEmail = user.email || '';
+      if (user.patientProfile) {
+        this.patientName = `${user.patientProfile.firstName} ${user.patientProfile.lastName}`.trim() || 'Patient';
+        this.profileForm.firstName = user.patientProfile.firstName || '';
+        this.profileForm.lastName = user.patientProfile.lastName || '';
+        this.profileForm.phone = user.patientProfile.phone || '';
+        this.profileForm.profileImage = user.patientProfile.profileImage || '';
+        if (user.patientProfile.dateOfBirth) {
+          this.profileForm.dateOfBirth = this.getLocalDateString(new Date(user.patientProfile.dateOfBirth));
+        }
+        this.profileForm.gender = user.patientProfile.gender || 'Prefer not to say';
+        this.profileForm.bloodGroup = user.patientProfile.bloodGroup || '';
+        
+        if (user.patientProfile.emergencyContact) {
+          this.profileForm.emergencyContact = {
+            name: user.patientProfile.emergencyContact.name || '',
+            phone: user.patientProfile.emergencyContact.phone || '',
+            relation: user.patientProfile.emergencyContact.relation || 'Parent'
+          };
+        }
+
+        if (user.patientProfile.address) {
+          this.profileForm.address = {
+            houseName: user.patientProfile.address.houseName || '',
+            pincode: user.patientProfile.address.pincode || '',
+            city: user.patientProfile.address.city || '',
+            district: user.patientProfile.address.district || '',
+            state: user.patientProfile.address.state || '',
+            country: user.patientProfile.address.country || 'India'
+          };
+          if (user.patientProfile.address.pincode) {
+            this.fetchPincodeDetails(user.patientProfile.address.pincode);
+          }
         }
       }
     } else {
@@ -217,6 +323,13 @@ export class PatientDashboardComponent implements OnInit {
       this.profileForm.address.district = match.district;
       this.profileForm.address.state = match.state;
       this.profileForm.address.country = 'India';
+    }
+  }
+
+  onLocalityChange(event: any) {
+    const selectedCity = event.target?.value;
+    if (selectedCity) {
+      this.onLocalitySelect(selectedCity);
     }
   }
 
@@ -290,12 +403,145 @@ export class PatientDashboardComponent implements OnInit {
     });
   }
 
+  // ─── Profile Page Handlers ────────────────────────────────────────────────
+  onProfileImageSelected(event: any) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate size (max 5MB) and type
+    if (file.size > 5 * 1024 * 1024) {
+      this.showToast('Image size exceeds 5MB limit. Please choose a smaller file.', 'error');
+      return;
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      this.showToast('Please select a valid image (JPEG, PNG, or WebP).', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('profileImage', file);
+
+    this.uploadingImage = true;
+    this.authService.uploadProfileImage(formData).subscribe({
+      next: (res) => {
+        this.uploadingImage = false;
+        this.profileForm.profileImage = res.profileImage;
+        this.syncPatientInfo();
+        this.showToast('✓ Profile photo updated successfully!', 'success');
+      },
+      error: (err) => {
+        this.uploadingImage = false;
+        this.showToast(err.error?.message || 'Failed to upload image.', 'error');
+      }
+    });
+  }
+
+  saveFullProfile() {
+    this.profileFirstNameTouched = true;
+    this.profileLastNameTouched = true;
+    this.profilePhoneTouched = true;
+    this.profileDobTouched = true;
+    this.profileEmergencyNameTouched = true;
+    this.profileEmergencyPhoneTouched = true;
+    this.profileHouseNameTouched = true;
+    this.profilePincodeTouched = true;
+
+    if (!this.isProfileFormValid) {
+      if (!this.isFirstNameValid) {
+        this.showToast('Please enter a valid first name (letters only, min 2 characters).', 'error');
+      } else if (!this.isLastNameValid) {
+        this.showToast('Please enter a valid last name (letters only).', 'error');
+      } else if (!this.isProfilePhoneValid) {
+        this.showToast('Please enter a valid 10-digit Indian phone number (starts with 6-9).', 'error');
+      } else if (!this.isProfileDobValid) {
+        this.showToast('Please enter a valid Date of Birth (cannot be in the future).', 'error');
+      } else if (!this.isEmergencyNameValid) {
+        this.showToast('Please enter a valid emergency contact name.', 'error');
+      } else if (this.isEmergencyPhoneSelf) {
+        this.showToast('Emergency contact phone cannot be the same as your personal phone.', 'error');
+      } else if (!this.isEmergencyPhoneValid) {
+        this.showToast('Please enter a valid 10-digit emergency contact phone number.', 'error');
+      } else if (!this.isPincodeValid) {
+        this.showToast('Please enter a valid 6-digit Indian postal pincode.', 'error');
+      }
+      return;
+    }
+
+    this.savingProfile = true;
+    const payload = {
+      firstName: this.profileForm.firstName.trim(),
+      lastName: this.profileForm.lastName.trim(),
+      phone: this.profileForm.phone,
+      dateOfBirth: this.profileForm.dateOfBirth,
+      gender: this.profileForm.gender,
+      bloodGroup: this.profileForm.bloodGroup,
+      emergencyContact: this.profileForm.emergencyContact,
+      address: this.profileForm.address
+    };
+
+    this.authService.updateProfile(payload).subscribe({
+      next: (res) => {
+        this.savingProfile = false;
+        this.syncPatientInfo();
+        this.showToast('✓ Profile updated successfully!', 'success');
+      },
+      error: (err) => {
+        this.savingProfile = false;
+        this.showToast(err.error?.message || 'Failed to update profile.', 'error');
+      }
+    });
+  }
+
+  changeAccountPassword() {
+    this.passwordError = '';
+    this.passwordSuccess = '';
+
+    if (!this.passwordForm.currentPassword || !this.passwordForm.newPassword) {
+      this.passwordError = 'Please fill in all password fields.';
+      return;
+    }
+
+    if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
+      this.passwordError = 'New password and confirm password do not match.';
+      return;
+    }
+
+    if (this.passwordForm.newPassword.length < 8) {
+      this.passwordError = 'New password must be at least 8 characters long.';
+      return;
+    }
+
+    const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
+    if (!regex.test(this.passwordForm.newPassword)) {
+      this.passwordError = 'Password must contain both letters and numbers.';
+      return;
+    }
+
+    this.changingPassword = true;
+    this.authService.changePassword({
+      currentPassword: this.passwordForm.currentPassword,
+      newPassword: this.passwordForm.newPassword
+    }).subscribe({
+      next: (res) => {
+        this.changingPassword = false;
+        this.passwordSuccess = '✓ Password changed successfully!';
+        this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
+        this.showToast('✓ Password updated successfully!', 'success');
+      },
+      error: (err) => {
+        this.changingPassword = false;
+        this.passwordError = err.error?.message || 'Failed to change password. Please check your current password.';
+      }
+    });
+  }
+
   ngOnInit() {
     const today = new Date();
     const max = new Date();
     max.setFullYear(max.getFullYear() + 1);
-    this.minDate = today.toISOString().split('T')[0];
-    this.maxDate = max.toISOString().split('T')[0];
+    this.minDate = this.getTodayDateString();
+    this.maxDate = this.getLocalDateString(max);
     this.loadDoctors();
 
     if (this.isProfileIncomplete()) {
@@ -316,11 +562,34 @@ export class PatientDashboardComponent implements OnInit {
     this.toastMessage = '';
   }
 
+  // ─── User Profile Dropdown ────────────────────────────────────────────────
+  toggleUserDropdown(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.showUserDropdown = !this.showUserDropdown;
+  }
+
+  closeUserDropdown() {
+    this.showUserDropdown = false;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.user-menu-container')) {
+      this.closeUserDropdown();
+    }
+  }
+
   // ─── Tab ───────────────────────────────────────────────────────────────────
-  setTab(tab: 'find-doctors' | 'my-appointments') {
+  setTab(tab: 'find-doctors' | 'my-appointments' | 'profile') {
     this.activeTab = tab;
+    this.closeUserDropdown();
     if (tab === 'my-appointments') {
       this.loadMyAppointments();
+    } else if (tab === 'profile') {
+      this.syncPatientInfo();
     }
   }
 
@@ -432,26 +701,45 @@ export class PatientDashboardComponent implements OnInit {
   }
 
   nextStep() {
-    if (this.bookingStep === 1 && this.selectedDate && !this.isOffDay) this.bookingStep = 2;
-    else if (this.bookingStep === 2 && this.selectedSlot) this.bookingStep = 3;
-    else if (this.bookingStep === 3) this.bookingStep = 4;
+    if (this.bookingStep === 1) {
+      if (this.appointmentType === 'Emergency Sync') {
+        // Emergency Sync bypasses date and slot selection -> jumps directly to Payment
+        const todayStr = this.getTodayDateString();
+        this.selectedDate = todayStr;
+        this.bookingStep = 4;
+      } else {
+        this.bookingStep = 2;
+      }
+    } else if (this.bookingStep === 2 && this.selectedDate && !this.isOffDay) {
+      this.bookingStep = 3;
+    } else if (this.bookingStep === 3 && this.selectedSlot) {
+      this.bookingStep = 4;
+    }
   }
 
   prevStep() {
-    if (this.bookingStep > 1) this.bookingStep--;
+    if (this.bookingStep === 4 && this.appointmentType === 'Emergency Sync') {
+      this.bookingStep = 1;
+    } else if (this.bookingStep > 1) {
+      this.bookingStep--;
+    }
   }
 
   proceedToPayment() {
-    if (!this.selectedDoctor || !this.selectedDate || !this.selectedSlot) return;
+    if (!this.selectedDoctor) return;
+    const isEmergency = this.appointmentType === 'Emergency Sync';
+    if (!isEmergency && (!this.selectedDate || !this.selectedSlot)) return;
+
     this.bookingInProgress = true;
 
+    const todayStr = this.getTodayDateString();
     const payload = {
       doctorId: this.selectedDoctor._id,
-      appointmentDate: this.selectedDate,
-      startTime: this.selectedSlot.start,
-      endTime: this.selectedSlot.end,
+      appointmentDate: isEmergency ? todayStr : (this.selectedDate || todayStr),
+      startTime: isEmergency ? 'Immediate Queue' : (this.selectedSlot?.start || '09:00 AM'),
+      endTime: isEmergency ? 'Immediate Queue' : (this.selectedSlot?.end || '09:30 AM'),
       type: this.appointmentType,
-      symptoms: this.symptoms
+      symptoms: this.symptoms || (isEmergency ? 'Emergency Triage Request' : '')
     };
 
     this.appointmentService.bookAppointment(payload).subscribe({
@@ -533,6 +821,7 @@ export class PatientDashboardComponent implements OnInit {
   closeConfirmationModal() {
     this.showConfirmationModal = false;
     this.confirmationData = null;
+    this.appointmentFilter = 'today';
     this.setTab('my-appointments');
   }
 
@@ -551,38 +840,52 @@ export class PatientDashboardComponent implements OnInit {
     });
   }
 
+  normalizeDateStr(dateInput: string): string {
+    if (!dateInput) return '';
+    return dateInput.split('T')[0];
+  }
+
+  getLocalDateString(d: Date = new Date()): string {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   getTodayDateString(): string {
-    const now = new Date();
-    // Return YYYY-MM-DD in IST timezone (+5.5 hrs)
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(now.getTime() + istOffset);
-    return istDate.toISOString().split('T')[0];
+    return this.getLocalDateString(new Date());
   }
 
   get todayAppointments(): AppointmentItem[] {
     const today = this.getTodayDateString();
     return this.myAppointments.filter(a =>
-      a.appointmentDate === today && ['Confirmed', 'Pending Payment'].includes(a.status)
+      this.normalizeDateStr(a.appointmentDate) === today && ['Confirmed', 'Pending Payment'].includes(a.status)
     );
   }
 
   isTodayAppt(appt: AppointmentItem): boolean {
-    return appt.appointmentDate === this.getTodayDateString();
+    return this.normalizeDateStr(appt.appointmentDate) === this.getTodayDateString();
+  }
+
+  canJoinCall(appt: AppointmentItem): boolean {
+    if (appt.status !== 'Confirmed') return false;
+    const today = this.getTodayDateString();
+    return this.normalizeDateStr(appt.appointmentDate) >= today;
   }
 
   get filteredAppointments(): AppointmentItem[] {
     const today = this.getTodayDateString();
     if (this.appointmentFilter === 'today') {
       return this.myAppointments.filter(a =>
-        a.appointmentDate === today && ['Confirmed', 'Pending Payment'].includes(a.status)
+        this.normalizeDateStr(a.appointmentDate) === today && ['Confirmed', 'Pending Payment'].includes(a.status)
       );
     } else if (this.appointmentFilter === 'upcoming') {
       return this.myAppointments.filter(a =>
-        a.appointmentDate >= today && ['Confirmed', 'Pending Payment'].includes(a.status)
+        this.normalizeDateStr(a.appointmentDate) >= today && ['Confirmed', 'Pending Payment'].includes(a.status)
       );
     } else if (this.appointmentFilter === 'past') {
       return this.myAppointments.filter(a =>
-        a.appointmentDate < today || a.status === 'Completed' || a.status === 'Cancelled'
+        this.normalizeDateStr(a.appointmentDate) < today || a.status === 'Completed' || a.status === 'Cancelled'
       );
     }
     return this.myAppointments;
@@ -600,8 +903,8 @@ export class PatientDashboardComponent implements OnInit {
 
   canCancel(appt: AppointmentItem): boolean {
     if (appt.status !== 'Confirmed') return false;
-    const today = new Date().toISOString().split('T')[0];
-    return appt.appointmentDate >= today;
+    const today = this.getTodayDateString();
+    return this.normalizeDateStr(appt.appointmentDate) >= today;
   }
 
   // ─── Cancel Modal ──────────────────────────────────────────────────────────

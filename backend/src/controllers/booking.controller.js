@@ -281,11 +281,15 @@ const getAvailableSlots = async (req, res) => {
       allSlots = allSlots.filter(s => parseTimeToMinutes(s.start) > nowMinutes);
     }
 
-    // Remove already booked slots
+    // Remove already booked slots (Only Confirmed or recent Pending Payment < 15 mins)
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
     const booked = await Appointment.find({
       doctorId,
       appointmentDate: date,
-      status: { $in: ['Pending Payment', 'Confirmed'] }
+      $or: [
+        { status: 'Confirmed' },
+        { status: 'Pending Payment', createdAt: { $gte: fifteenMinsAgo } }
+      ]
     }).select('startTime');
 
     const bookedTimes = new Set(booked.map(b => b.startTime));
@@ -301,14 +305,25 @@ const getAvailableSlots = async (req, res) => {
 // Patient books appointment → creates Razorpay order
 const bookAppointment = async (req, res) => {
   try {
-    const { doctorId, appointmentDate, startTime, endTime, type, symptoms } = req.body;
+    let { doctorId, appointmentDate, startTime, endTime, type, symptoms } = req.body;
+
+    const { todayStr, nowMinutes } = getNowIST();
+    const isEmergencySync = type === 'Emergency Sync';
+
+    // Auto-fill immediate date/time for Emergency Sync
+    if (isEmergencySync) {
+      appointmentDate = todayStr;
+      if (!startTime || startTime === 'Immediate Queue') {
+        startTime = 'Immediate Queue';
+        endTime = 'Immediate Queue';
+      }
+    }
 
     if (!doctorId || !appointmentDate || !startTime || !endTime) {
       return res.status(400).json({ message: 'doctorId, appointmentDate, startTime, endTime are required.' });
     }
 
-    const { todayStr, nowMinutes } = getNowIST();
-    if (appointmentDate < todayStr || (appointmentDate === todayStr && parseTimeToMinutes(startTime) <= nowMinutes)) {
+    if (!isEmergencySync && (appointmentDate < todayStr || (appointmentDate === todayStr && parseTimeToMinutes(startTime) <= nowMinutes))) {
       return res.status(400).json({ message: 'Cannot book appointment slots in the past.' });
     }
 
@@ -320,19 +335,23 @@ const bookAppointment = async (req, res) => {
       return res.status(404).json({ message: 'Doctor not found or not active.' });
     }
 
-    // Check slot still available
-    const conflicting = await Appointment.findOne({
-      doctorId,
-      appointmentDate,
-      startTime,
-      status: { $in: ['Pending Payment', 'Confirmed'] }
-    });
-    if (conflicting) {
-      return res.status(409).json({ message: 'This slot is already booked. Please choose another.' });
+    // Check slot availability for routine bookings
+    if (!isEmergencySync) {
+      const conflicting = await Appointment.findOne({
+        doctorId,
+        appointmentDate,
+        startTime,
+        status: { $in: ['Pending Payment', 'Confirmed'] }
+      });
+      if (conflicting) {
+        return res.status(409).json({ message: 'This slot is already booked. Please choose another.' });
+      }
     }
 
     const doctorSchedule = await DoctorSchedule.findOne({ doctorId });
-    const fee = doctorSchedule?.consultationFee || doctor.consultationFee || 500;
+    const fee = isEmergencySync 
+      ? Math.round((doctorSchedule?.consultationFee || doctor.consultationFee || 500) * 1.2) // Emergency priority fee
+      : (doctorSchedule?.consultationFee || doctor.consultationFee || 500);
 
     // Create Razorpay order (amount in paise = fee * 100)
     const razorpayOrder = await getRazorpay().orders.create({
@@ -359,7 +378,9 @@ const bookAppointment = async (req, res) => {
       status: 'Pending Payment',
       amount: fee,
       currency: 'INR',
-      razorpayOrderId: razorpayOrder.id
+      razorpayOrderId: razorpayOrder.id,
+      isEmergency: isEmergencySync,
+      emergencyStatus: isEmergencySync ? 'Pending' : 'None'
     });
 
     // Create Payment record
@@ -431,6 +452,26 @@ const verifyPayment = async (req, res) => {
       }
     );
 
+    // 🚨 Emit Live Socket.io Emergency Alert to Doctor if Emergency Sync
+    if (appointment.type === 'Emergency Sync' || appointment.isEmergency) {
+      try {
+        const { getIO } = require('../config/socket');
+        const io = getIO();
+        const docId = appointment.doctorId?._id?.toString() || appointment.doctorId?.toString();
+        const patientName = appointment.patientId ? `${appointment.patientId.firstName || ''} ${appointment.patientId.lastName || ''}`.trim() || 'Patient' : 'Patient';
+
+        io.to(`doctor_${docId}`).emit('emergency-alert', {
+          appointmentId: appointment._id.toString(),
+          patientName,
+          symptomSummary: appointment.symptoms || 'Emergency Triage Request',
+          timestamp: new Date()
+        });
+        console.log(`[Socket.io] 🚨 Live Emergency Alert sent to doctor_${docId} for ${patientName}`);
+      } catch (socketErr) {
+        console.warn('[Socket.io] Could not emit socket alert (non-fatal):', socketErr.message);
+      }
+    }
+
     // Send Receipt Email to Patient
     try {
       const patientDoc = appointment.patientId;
@@ -495,16 +536,16 @@ const getDoctorAppointments = async (req, res) => {
     const doctor = await Doctor.findOne({ userId: req.user._id });
     if (!doctor) return res.status(404).json({ message: 'Doctor profile not found.' });
 
-    const today = new Date().toISOString().split('T')[0];
+    const { todayStr: today } = getNowIST();
     const appointments = await Appointment.find({
       doctorId: doctor._id,
       status: { $in: ['Confirmed', 'Completed'] }
     })
-      .populate('patientId', 'firstName lastName')
+      .populate('patientId', 'firstName lastName age phone email bloodGroup')
       .sort({ appointmentDate: 1, startTime: 1 });
 
-    const todayAppts = appointments.filter(a => a.appointmentDate === today);
-    const upcoming = appointments.filter(a => a.appointmentDate > today);
+    const todayAppts = appointments.filter(a => a.appointmentDate === today && a.status === 'Confirmed');
+    const upcoming = appointments.filter(a => a.appointmentDate > today && a.status === 'Confirmed');
     const past = appointments.filter(a => a.appointmentDate < today || a.status === 'Completed');
 
     res.json({ success: true, today: todayAppts, upcoming, past, all: appointments });

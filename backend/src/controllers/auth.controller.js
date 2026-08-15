@@ -691,6 +691,291 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// ─── Multer Setup for Profile Images ─────────────────────────────────────────
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const profileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../../uploads/profiles');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const uniqueName = `profile_${req.user._id}_${Date.now()}${ext}`;
+    cb(null, uniqueName);
+  }
+});
+
+const profileUpload = multer({
+  storage: profileStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|webp/;
+    const extname = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowed.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only JPEG, PNG and WebP images are allowed.'));
+  }
+});
+
+// @desc    Upload Profile Photo
+// @route   POST /api/auth/profile-image
+// @access  Private
+const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Please select an image file to upload.' });
+    }
+
+    const relativePath = `/uploads/profiles/${req.file.filename}`;
+    const userRole = req.user.role;
+
+    if (userRole === 'patient') {
+      const patient = await Patient.findOne({ userId: req.user._id });
+      if (patient) {
+        // Remove old file if exists
+        if (patient.profileImage && patient.profileImage.startsWith('/uploads/profiles/')) {
+          const oldPath = path.join(__dirname, '../../', patient.profileImage);
+          if (fs.existsSync(oldPath)) {
+            try { fs.unlinkSync(oldPath); } catch (e) {}
+          }
+        }
+        patient.profileImage = relativePath;
+        await patient.save();
+      }
+    } else if (userRole === 'doctor') {
+      const doctor = await Doctor.findOne({ userId: req.user._id });
+      if (doctor) {
+        if (doctor.profileImage && doctor.profileImage.startsWith('/uploads/profiles/')) {
+          const oldPath = path.join(__dirname, '../../', doctor.profileImage);
+          if (fs.existsSync(oldPath)) {
+            try { fs.unlinkSync(oldPath); } catch (e) {}
+          }
+        }
+        doctor.profileImage = relativePath;
+        await doctor.save();
+      }
+    }
+
+    const updatedProfile = await getProfileForUser(req.user._id, userRole);
+
+    res.json({
+      success: true,
+      message: 'Profile photo uploaded successfully!',
+      profileImage: relativePath,
+      user: {
+        _id: req.user._id,
+        email: req.user.email,
+        role: req.user.role,
+        patientProfile: userRole === 'patient' ? updatedProfile : null,
+        doctorProfile: userRole === 'doctor' ? updatedProfile : null
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading profile photo:', error);
+    res.status(500).json({ message: 'Error uploading profile photo.', error: error.message });
+  }
+};
+
+// @desc    Update Profile Details (Patient / Doctor)
+// @route   PUT /api/auth/update-profile
+// @access  Private
+const updateProfile = async (req, res) => {
+  try {
+    const userRole = req.user.role;
+    let reverificationTriggered = false;
+
+    if (userRole === 'patient') {
+      const { firstName, lastName, phone, dateOfBirth, gender, bloodGroup, emergencyContact, address } = req.body;
+
+      if (!firstName || !isValidName(firstName)) {
+        return res.status(400).json({ message: 'Please enter a valid first name.' });
+      }
+
+      if (phone && !isValidPhone(phone)) {
+        return res.status(400).json({ message: 'Please enter a valid 10-digit phone number.' });
+      }
+
+      let patient = await Patient.findOne({ userId: req.user._id });
+      if (!patient) {
+        patient = new Patient({ userId: req.user._id, firstName, lastName });
+      }
+
+      patient.firstName = firstName.trim();
+      patient.lastName = (lastName || '').trim();
+      if (phone !== undefined) patient.phone = phone ? phone.trim() : '';
+      if (dateOfBirth) patient.dateOfBirth = new Date(dateOfBirth);
+      if (gender) patient.gender = gender;
+      if (bloodGroup !== undefined) patient.bloodGroup = bloodGroup;
+
+      if (emergencyContact) {
+        patient.emergencyContact = {
+          name: (emergencyContact.name || '').trim(),
+          phone: (emergencyContact.phone || '').trim(),
+          relation: (emergencyContact.relation || '').trim()
+        };
+      }
+
+      if (address) {
+        patient.address = {
+          houseName: (address.houseName || '').trim(),
+          pincode: (address.pincode || '').trim(),
+          city: (address.city || '').trim(),
+          district: (address.district || '').trim(),
+          state: (address.state || '').trim(),
+          country: (address.country || 'India').trim(),
+          latitude: address.latitude || patient.address?.latitude || null,
+          longitude: address.longitude || patient.address?.longitude || null
+        };
+      }
+
+      await patient.save();
+
+      const user = await User.findById(req.user._id);
+      return res.json({
+        success: true,
+        message: 'Profile updated successfully!',
+        user: {
+          _id: user._id,
+          email: user.email,
+          role: user.role,
+          patientProfile: patient
+        }
+      });
+    } else if (userRole === 'doctor') {
+      const {
+        firstName,
+        lastName,
+        specialization,
+        licenseNumber,
+        experienceYears,
+        clinicName,
+        clinicAddress,
+        consultationFee
+      } = req.body;
+
+      if (!firstName || !isValidName(firstName)) {
+        return res.status(400).json({ message: 'Please enter a valid first name.' });
+      }
+
+      let doctor = await Doctor.findOne({ userId: req.user._id });
+      if (!doctor) {
+        return res.status(404).json({ message: 'Doctor profile not found.' });
+      }
+
+      // Check if specialization or license number changed -> triggers re-verification
+      const cleanSpec = (specialization || '').trim();
+      const cleanLic = (licenseNumber || '').trim();
+
+      const specChanged = cleanSpec && doctor.specialization && cleanSpec.toLowerCase() !== doctor.specialization.toLowerCase();
+      const licChanged = cleanLic && doctor.licenseNumber && cleanLic.toLowerCase() !== doctor.licenseNumber.toLowerCase();
+
+      if (specChanged || licChanged) {
+        doctor.isVerified = false;
+        doctor.status = 'pending';
+        reverificationTriggered = true;
+      }
+
+      doctor.firstName = firstName.trim();
+      doctor.lastName = (lastName || '').trim();
+      if (cleanSpec) doctor.specialization = cleanSpec;
+      if (cleanLic) doctor.licenseNumber = cleanLic;
+      if (experienceYears !== undefined) doctor.experienceYears = Number(experienceYears) || 0;
+      if (clinicName !== undefined) doctor.clinicName = (clinicName || '').trim();
+
+      if (clinicAddress) {
+        doctor.clinicAddress = {
+          city: (clinicAddress.city || '').trim(),
+          district: (clinicAddress.district || '').trim(),
+          state: (clinicAddress.state || '').trim(),
+          pincode: (clinicAddress.pincode || '').trim(),
+          country: (clinicAddress.country || 'India').trim(),
+          latitude: clinicAddress.latitude || doctor.clinicAddress?.latitude || null,
+          longitude: clinicAddress.longitude || doctor.clinicAddress?.longitude || null
+        };
+        if (clinicAddress.latitude) doctor.latitude = clinicAddress.latitude;
+        if (clinicAddress.longitude) doctor.longitude = clinicAddress.longitude;
+      }
+
+      if (consultationFee !== undefined) {
+        const fee = Number(consultationFee);
+        if (!isNaN(fee) && fee >= 0 && fee <= 25000) {
+          doctor.consultationFee = fee;
+        }
+      }
+
+      await doctor.save();
+
+      const user = await User.findById(req.user._id);
+      return res.json({
+        success: true,
+        reverificationTriggered,
+        message: reverificationTriggered
+          ? 'Profile updated. Critical credentials changed: admin re-verification is now pending.'
+          : 'Doctor profile updated successfully!',
+        user: {
+          _id: user._id,
+          email: user.email,
+          role: user.role,
+          doctorProfile: doctor
+        }
+      });
+    }
+
+    res.status(400).json({ message: 'Invalid user role for profile update.' });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'Error updating profile.', error: error.message });
+  }
+};
+
+// @desc    Change Password (Authenticated User)
+// @route   PUT /api/auth/change-password
+// @access  Private
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Please provide both your current and new password.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Verify current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password does not match our records.' });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        message: 'New password must be at least 8 characters long and contain both letters and numbers.'
+      });
+    }
+
+    user.passwordHash = newPassword;
+    await user.save();
+
+    console.log(`[AUTH] Password changed successfully for ${user.email}`);
+
+    res.json({ success: true, message: 'Password changed successfully!' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ message: 'Server error changing password.' });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -699,5 +984,9 @@ module.exports = {
   completeProfile,
   getPincodeDetails,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  updateProfile,
+  changePassword,
+  uploadProfileImage,
+  profileUpload
 };

@@ -25,7 +25,8 @@ const fs = require('fs');
 const uploadDirs = [
   path.join(__dirname, '../uploads'),
   path.join(__dirname, '../uploads/reports'),
-  path.join(__dirname, '../uploads/meals')
+  path.join(__dirname, '../uploads/meals'),
+  path.join(__dirname, '../uploads/profiles')
 ];
 uploadDirs.forEach(dir => {
   if (!fs.existsSync(dir)){

@@ -1,21 +1,97 @@
-<div class="dashboard-container animate-fade-in">
-  <!-- Top Navigation Header -->
-  <header class="dashboard-navbar glass-card">
-    <div class="brand-group">
-      <span class="brand-logo">✦ CarePath <span class="accent-text">AI</span></span>
-      <span class="badge-role doctor-badge">🩺 Clinician Portal</span>
-    </div>
-    
-    <div class="user-profile-menu">
-      <div class="user-info">
-        <span class="user-name">{{ doctorName }}</span>
-        <span class="user-spec">{{ specialization }} • {{ licenseNumber }}</span>
-      </div>
-      <button type="button" class="btn btn-secondary btn-sm" (click)="onLogout()">
-        Sign Out 🚪
+<!-- Top Navigation Header (Admin-Style 100% Full Width Sticky Navbar) -->
+<header class="dashboard-navbar glass-card">
+  <div class="brand-group">
+    <img src="assets/photos/logo_circle.png" alt="CarePath AI Logo" class="brand-logo-img">
+    <span class="brand-logo">CarePath <span class="accent-text">AI</span></span>
+    <span class="badge-role doctor-badge">🩺 Clinician Portal</span>
+  </div>
+  
+  <div class="user-profile-menu ms-auto d-flex align-items-center gap-3">
+    <!-- Top Header Navigation: Consultation Overview (Second from right) -->
+    <button 
+      type="button" 
+      class="header-overview-btn" 
+      [class.active]="activeNavTab === 'appointments'"
+      (click)="setNavTab('appointments')"
+      title="View Consultation Queue & Daily Overview">
+      <i class="bi bi-calendar2-week text-primary me-1"></i>
+      <span>Consultation Overview</span>
+    </button>
+
+    <!-- Doctor Profile Dropdown Toggle (Rightmost) -->
+    <div class="doctor-menu-container position-relative">
+      <button type="button" class="doctor-dropdown-btn" (click)="toggleDoctorDropdown($event)" [class.active]="showDoctorDropdown">
+        <div class="doc-avatar-mini" *ngIf="!docProfileImage">
+          {{ doctorInitials }}
+        </div>
+        <img [src]="'http://localhost:5000' + docProfileImage" *ngIf="docProfileImage" class="doc-avatar-img-mini" alt="Doctor Photo" />
+        <div class="doctor-btn-info">
+          <span class="user-name">{{ doctorName }}</span>
+          <span class="user-spec-mini">{{ specialization }} • <strong class="text-success" *ngIf="isVerified">Verified ✅</strong><strong class="text-warning" *ngIf="!isVerified">Pending ⏳</strong></span>
+        </div>
+        <i class="bi bi-chevron-down dropdown-arrow" [class.rotate]="showDoctorDropdown"></i>
       </button>
+
+      <!-- Doctor Profile Dropdown Card -->
+      <div class="doctor-dropdown-menu glass-card animate-fade-in" *ngIf="showDoctorDropdown" (click)="$event.stopPropagation()">
+        <div class="dropdown-header">
+          <div class="dropdown-avatar" *ngIf="!docProfileImage">
+            {{ doctorInitials }}
+          </div>
+          <img [src]="'http://localhost:5000' + docProfileImage" *ngIf="docProfileImage" class="dropdown-avatar-img" alt="Doctor Photo" />
+          <div class="dropdown-user-details">
+            <strong class="dropdown-name">{{ doctorName }}</strong>
+            <span class="dropdown-email text-truncate">{{ docEmail }}</span>
+            <span class="badge mt-1" [ngClass]="isVerified ? 'bg-success' : 'bg-warning text-dark'" style="font-size: 0.68rem;">
+              {{ isVerified ? 'Verified Clinician ✅' : 'Re-verification Pending ⏳' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="dropdown-divider"></div>
+
+        <div class="dropdown-links">
+          <button type="button" class="dropdown-item" (click)="setNavTab('profile')">
+            <i class="bi bi-person-circle item-icon text-primary"></i>
+            <span>Profile</span>
+          </button>
+        </div>
+
+        <div class="dropdown-divider"></div>
+
+        <button type="button" class="dropdown-item logout-item" (click)="onLogout()">
+          <i class="bi bi-box-arrow-right item-icon text-danger"></i>
+          <span>Sign Out</span>
+        </button>
+      </div>
     </div>
-  </header>
+  </div>
+</header>
+
+<div class="dashboard-container animate-fade-in">
+
+  <!-- 🚨 LIVE EMERGENCY ALERT BANNER -->
+  <div *ngIf="activeEmergencyAlert && !isSuspended" class="emergency-dashboard-banner shadow-lg animate-fade-in my-3">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <div class="pulse-red-badge">
+          <i class="bi bi-bell-fill fs-4 text-white"></i>
+        </div>
+        <div>
+          <strong class="text-white fs-5 d-block">🚨 INCOMING EMERGENCY SYNC REQUEST</strong>
+          <span class="text-light">Patient: <strong>{{ activeEmergencyAlert.patientName }}</strong> • {{ activeEmergencyAlert.symptomSummary || 'Acute Emergency Triage' }}</span>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-light text-danger fw-bold shadow-sm" (click)="joinEmergencyRoom(activeEmergencyAlert.appointmentId)">
+          <i class="bi bi-camera-video-fill me-1"></i> Join Emergency Video Call
+        </button>
+        <button class="btn btn-outline-light btn-sm" (click)="activeEmergencyAlert = null">
+          Dismiss
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Suspended Account Warning Banner -->
   <section class="suspension-banner-card glass-card animate-fade-in" *ngIf="isSuspended">
@@ -50,177 +126,614 @@
     </button>
   </section>
 
-  <!-- Hero Welcome Banner -->
-  <section class="welcome-banner glass-card" [class.suspended-border]="isSuspended">
-    <div class="banner-content">
-      <div class="doctor-badge-status" [class.verified]="isVerified && !isSuspended" [class.suspended-badge]="isSuspended">
-        <span class="status-dot"></span> {{ isSuspended ? 'Account Suspended' : (isVerified ? 'Verified Medical Clinician' : 'Verification Pending') }}
+  <div *ngIf="activeNavTab === 'appointments'">
+    <!-- Top Welcome & Schedule Actions Banner -->
+    <section class="welcome-banner glass-card" *ngIf="!isSuspended">
+      <div class="banner-content">
+        <div class="doctor-badge-status" [class.verified]="isVerified && !isSuspended" [class.suspended-badge]="isSuspended">
+          <span class="status-dot"></span> {{ isSuspended ? 'Account Suspended' : (isVerified ? 'Verified Medical Clinician' : 'Verification Pending') }}
+        </div>
+        <h1>Welcome back, <span class="accent-text">{{ doctorName }}</span></h1>
+        <p class="subtitle">{{ specialization }} • Fee: <strong class="text-emerald">₹{{ consultationFee }}</strong> / Session</p>
       </div>
-      <h1>Welcome back, <span class="accent-text">{{ doctorName }}</span></h1>
-      <p class="subtitle">{{ specialization }} • Fee: <strong class="text-emerald">₹{{ consultationFee }}</strong> / Session</p>
-    </div>
-    <div class="banner-actions">
-      <button class="btn btn-primary btn-md shadow-glow" (click)="openScheduleModal()" [disabled]="isSuspended" [title]="isSuspended ? 'Schedule management is disabled while account is suspended' : ''">
-        ⚙️ Manage Slots & Pricing (₹)
-      </button>
-      <div class="banner-date mt-2">
-        <span class="date-label">Today's Schedule</span>
-        <span class="date-value">{{ today | date:'EEEE, MMMM d, y' }}</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- Quick Stats Summary -->
-  <section class="stats-grid">
-    <div class="stat-card glass-card">
-      <div class="stat-icon teal-glow">📅</div>
-      <div class="stat-info">
-        <span class="stat-value">{{ stats.totalAppointments }}</span>
-        <span class="stat-label">Total Appointments</span>
-      </div>
-    </div>
-
-    <div class="stat-card glass-card">
-      <div class="stat-icon amber-glow">⏳</div>
-      <div class="stat-info">
-        <span class="stat-value">{{ stats.pendingRequests }}</span>
-        <span class="stat-label">Pending Reviews</span>
-      </div>
-    </div>
-
-    <div class="stat-card glass-card">
-      <div class="stat-icon emerald-glow">💰</div>
-      <div class="stat-info">
-        <span class="stat-value">₹{{ consultationFee }}</span>
-        <span class="stat-label">Fee per Appointment</span>
-      </div>
-    </div>
-
-    <div class="stat-card glass-card">
-      <div class="stat-icon purple-glow">⭐</div>
-      <div class="stat-info">
-        <span class="stat-value">{{ stats.rating }} / 5.0</span>
-        <span class="stat-label">Patient Feedback</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- Live Appointments Panel -->
-  <section class="appointments-panel glass-card" *ngIf="!isSuspended">
-    <div class="panel-header">
-      <h2>📅 Appointments</h2>
-      <div class="appt-tabs">
-        <button class="appt-tab-btn" [class.active]="apptTab === 'today'" (click)="apptTab = 'today'">
-          Today <span class="appt-count" *ngIf="todayApptsList.length > 0">{{ todayApptsList.length }}</span>
+      <div class="banner-actions">
+        <button class="btn btn-primary btn-md shadow-glow" (click)="openScheduleModal()" [disabled]="isSuspended" [title]="isSuspended ? 'Schedule management is disabled while account is suspended' : ''">
+          ⚙️ Manage Slots & Pricing (₹)
         </button>
-        <button class="appt-tab-btn" [class.active]="apptTab === 'upcoming'" (click)="apptTab = 'upcoming'">
-          Upcoming <span class="appt-count" *ngIf="upcomingApptsList.length > 0">{{ upcomingApptsList.length }}</span>
-        </button>
+        <div class="banner-date mt-2">
+          <span class="date-label">Today's Schedule</span>
+          <span class="date-value">{{ today | date:'EEEE, MMMM d, y' }}</span>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div *ngIf="loadingAppts" class="appt-loading">
-      <div class="spinner-sm-d"></div> Loading appointments…
-    </div>
-
-    <!-- Today -->
-    <div *ngIf="apptTab === 'today' && !loadingAppts">
-      <div *ngIf="todayApptsList.length === 0" class="appt-empty">
-        <span>🌙</span> No appointments scheduled for today.
+    <!-- Key Metrics Stats Row -->
+    <section class="stats-grid" *ngIf="!isSuspended">
+      <div class="stat-card glass-card">
+        <div class="stat-icon">📅</div>
+        <div class="stat-details">
+          <span class="stat-value">{{ stats.totalAppointments }}</span>
+          <span class="stat-label">Total Appointments</span>
+        </div>
       </div>
-      <div class="live-appt-list" *ngIf="todayApptsList.length > 0">
-        <div class="live-appt-item" *ngFor="let a of todayApptsList">
-          <div class="live-appt-time">{{ a.startTime }}</div>
-          <div class="live-appt-details">
-            <h4>{{ a.patientId ? a.patientId.firstName + ' ' + a.patientId.lastName : 'Patient' }}</h4>
-            <p>{{ a.type }}<span *ngIf="a.symptoms"> · {{ a.symptoms }}</span></p>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <a [routerLink]="['/consultation', a._id]" class="btn btn-sm btn-success pill-btn shadow-sm" *ngIf="a.status === 'Confirmed'">
-              📹 Join Call
-            </a>
-            <span class="live-appt-status confirmed">{{ a.status }}</span>
+
+      <div class="stat-card glass-card">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-details">
+          <span class="stat-value">{{ stats.pendingRequests }}</span>
+          <span class="stat-label">Pending Requests</span>
+        </div>
+      </div>
+
+      <div class="stat-card glass-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-details">
+          <span class="stat-value">{{ stats.activePatients }}</span>
+          <span class="stat-label">Active Patients</span>
+        </div>
+      </div>
+
+      <div class="stat-card glass-card">
+        <div class="stat-icon">⭐</div>
+        <div class="stat-details">
+          <span class="stat-value">{{ stats.rating }}</span>
+          <span class="stat-label">Patient Rating</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Appointments & Consultation Records Panel -->
+    <section class="appointments-panel glass-card" *ngIf="!isSuspended">
+      <div class="panel-header">
+        <div class="d-flex align-items-center gap-2">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <h2>Appointments & Consultation Records</h2>
+        </div>
+        <div class="appt-tabs">
+          <button class="appt-tab-btn" [class.active]="apptTab === 'today'" (click)="apptTab = 'today'">
+            Today <span class="appt-count" *ngIf="todayApptsList.length > 0">{{ todayApptsList.length }}</span>
+          </button>
+          <button class="appt-tab-btn" [class.active]="apptTab === 'upcoming'" (click)="apptTab = 'upcoming'">
+            Upcoming <span class="appt-count" *ngIf="upcomingApptsList.length > 0">{{ upcomingApptsList.length }}</span>
+          </button>
+          <button class="appt-tab-btn" [class.active]="apptTab === 'past'" (click)="apptTab = 'past'">
+            📜 Past Consultations <span class="appt-count" *ngIf="pastApptsList.length > 0">{{ pastApptsList.length }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="loadingAppts" class="appt-loading py-4 text-center">
+        <div class="spinner-border text-primary spinner-border-sm mb-2"></div>
+        <p class="small text-muted mb-0">Loading patient appointments…</p>
+      </div>
+
+      <!-- Today -->
+      <div *ngIf="apptTab === 'today' && !loadingAppts">
+        <div *ngIf="todayApptsList.length === 0" class="appt-empty">
+          <span>🌙</span> No appointments scheduled for today.
+        </div>
+        <div class="live-appt-list" *ngIf="todayApptsList.length > 0">
+          <div class="live-appt-item" *ngFor="let a of todayApptsList" [class.emergency-appt-item]="a.type === 'Emergency Sync' || a.isEmergency">
+            <div class="live-appt-time" [class.text-danger]="a.type === 'Emergency Sync' || a.isEmergency">
+              <span *ngIf="a.type === 'Emergency Sync' || a.isEmergency">🚨 Immediate Queue</span>
+              <span *ngIf="a.type !== 'Emergency Sync' && !a.isEmergency">{{ a.startTime }}</span>
+            </div>
+            <div class="live-appt-details">
+              <h4 class="d-flex align-items-center gap-2">
+                <span>{{ a.patientId ? (a.patientId.firstName ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientId.name || 'Patient')) : 'Patient' }}</span>
+                <span *ngIf="a.type === 'Emergency Sync' || a.isEmergency" class="badge bg-danger text-white px-2 py-1 small">🚨 EMERGENCY</span>
+              </h4>
+              <p>{{ a.type }}<span *ngIf="a.symptoms"> · {{ a.symptoms }}</span></p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <a [routerLink]="['/consultation', a._id]" class="btn btn-sm pill-btn shadow-sm" [class.btn-danger]="a.type === 'Emergency Sync' || a.isEmergency" [class.btn-success]="a.type !== 'Emergency Sync' && !a.isEmergency" *ngIf="a.status === 'Confirmed'">
+                <i class="bi bi-camera-video-fill me-1"></i> Join Call
+              </a>
+              <span class="live-appt-status" [class.confirmed]="a.status === 'Confirmed' && a.type !== 'Emergency Sync'" [class.bg-danger]="a.type === 'Emergency Sync' || a.isEmergency" [class.text-white]="a.type === 'Emergency Sync' || a.isEmergency">{{ a.status }}</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Upcoming -->
-    <div *ngIf="apptTab === 'upcoming' && !loadingAppts">
-      <div *ngIf="upcomingApptsList.length === 0" class="appt-empty">
-        <span>📆</span> No upcoming appointments yet.
-      </div>
-      <div class="live-appt-list" *ngIf="upcomingApptsList.length > 0">
-        <div class="live-appt-item" *ngFor="let a of upcomingApptsList">
-          <div class="live-appt-time">
-            <span class="live-appt-date">{{ formatApptDate(a.appointmentDate) }}</span>
-            <span>{{ a.startTime }}</span>
-          </div>
-          <div class="live-appt-details">
-            <h4>{{ a.patientId ? a.patientId.firstName + ' ' + a.patientId.lastName : 'Patient' }}</h4>
-            <p>{{ a.type }}</p>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <a [routerLink]="['/consultation', a._id]" class="btn btn-sm btn-success pill-btn shadow-sm" *ngIf="a.status === 'Confirmed'">
-              📹 Join Call
-            </a>
-            <span class="live-appt-status confirmed">{{ a.status }}</span>
+      <!-- Upcoming -->
+      <div *ngIf="apptTab === 'upcoming' && !loadingAppts">
+        <div *ngIf="upcomingApptsList.length === 0" class="appt-empty">
+          <span>📆</span> No upcoming appointments yet.
+        </div>
+        <div class="live-appt-list" *ngIf="upcomingApptsList.length > 0">
+          <div class="live-appt-item" *ngFor="let a of upcomingApptsList" [class.emergency-appt-item]="a.type === 'Emergency Sync' || a.isEmergency">
+            <div class="live-appt-time">
+              <span class="live-appt-date">{{ formatApptDate(a.appointmentDate) }}</span>
+              <span [class.text-danger]="a.type === 'Emergency Sync' || a.isEmergency">{{ a.startTime }}</span>
+            </div>
+            <div class="live-appt-details">
+              <h4 class="d-flex align-items-center gap-2">
+                <span>{{ a.patientId ? (a.patientId.firstName ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientId.name || 'Patient')) : 'Patient' }}</span>
+                <span *ngIf="a.type === 'Emergency Sync' || a.isEmergency" class="badge bg-danger text-white px-2 py-1 small">🚨 EMERGENCY</span>
+              </h4>
+              <p>{{ a.type }}</p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <a [routerLink]="['/consultation', a._id]" class="btn btn-sm pill-btn shadow-sm" [class.btn-danger]="a.type === 'Emergency Sync' || a.isEmergency" [class.btn-success]="a.type !== 'Emergency Sync' && !a.isEmergency" *ngIf="a.status === 'Confirmed'">
+                <i class="bi bi-camera-video-fill me-1"></i> Join Call
+              </a>
+              <span class="live-appt-status" [class.confirmed]="a.status === 'Confirmed' && a.type !== 'Emergency Sync'" [class.bg-danger]="a.type === 'Emergency Sync' || a.isEmergency" [class.text-white]="a.type === 'Emergency Sync' || a.isEmergency">{{ a.status }}</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- Main Content Layout -->
-  <div class="dashboard-main-grid">
-    <!-- Today's Consultations -->
-    <div class="grid-card glass-card">
-      <div class="card-header">
-        <h2>🩺 Today's Consultations</h2>
-        <span class="badge-pill">{{ todayAppointments.length }} Scheduled</span>
-      </div>
-
-      <div class="appointment-list">
-        <div class="appointment-item" *ngFor="let apt of todayAppointments">
-          <div class="apt-time">
-            <span class="time-text">{{ apt.time }}</span>
-            <span class="apt-status" [class.confirmed]="apt.status === 'Confirmed'" [class.completed]="apt.status === 'Completed'" [class.pending]="apt.status === 'Pending'">
-              {{ apt.status }}
+      <!-- 📜 Past Consulted Patients Tab (Ergonomic Dual-Column Card Grid) -->
+      <div *ngIf="apptTab === 'past' && !loadingAppts">
+        
+        <!-- Search & Filter Past Patients Bar -->
+        <div class="past-search-row mb-3" *ngIf="pastApptsList.length > 0">
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0">
+              <i class="bi bi-search text-muted"></i>
             </span>
+            <input 
+              type="text" 
+              class="form-control border-start-0 ps-0" 
+              placeholder="Search consulted patients by name, symptoms, or consultation date…" 
+              [(ngModel)]="pastApptsSearch" />
           </div>
-          <div class="apt-details">
-            <h4>{{ apt.patientName }} <span class="patient-age">({{ apt.age }} yrs)</span></h4>
-            <p class="apt-reason"><strong>Reason:</strong> {{ apt.symptoms }}</p>
+        </div>
+
+        <div *ngIf="filteredPastApptsList.length === 0" class="appt-empty py-4 text-center">
+          <div class="fs-1 mb-2">📜</div>
+          <strong class="d-block text-dark">{{ pastApptsList.length === 0 ? 'No past consultations completed yet.' : 'No consulted patients match your search.' }}</strong>
+          <span class="small text-muted">Completed consultation sessions and patient clinical summaries will appear here.</span>
+        </div>
+
+        <div class="past-consultations-grid" *ngIf="filteredPastApptsList.length > 0">
+          <div class="past-consult-card" *ngFor="let a of filteredPastApptsList">
+            <div class="card-top-row d-flex justify-content-between align-items-center mb-2">
+              <div class="past-date-pill">
+                <i class="bi bi-calendar2-check me-1 text-success"></i>
+                <strong class="text-dark">{{ formatApptDate(a.appointmentDate) }}</strong>
+                <span class="text-muted ms-1">({{ a.startTime }})</span>
+              </div>
+              <span class="badge bg-light text-success border border-success fw-bold px-2 py-1">
+                Completed
+              </span>
+            </div>
+
+            <div class="past-patient-body mb-2">
+              <h4 class="past-patient-name m-0 d-flex align-items-center gap-2 flex-wrap">
+                <span>{{ a.patientId ? (a.patientId.firstName ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientId.name || 'Patient')) : (a.patientName || 'Patient') }}</span>
+                <span class="badge bg-secondary text-white small" *ngIf="a.type">{{ a.type }}</span>
+              </h4>
+              <p class="past-symptoms-text mb-0 text-muted small mt-1" *ngIf="a.symptoms">
+                <strong>Reason:</strong> {{ a.symptoms }}
+              </p>
+              <p class="past-symptoms-text mb-0 text-muted small mt-1" *ngIf="!a.symptoms">
+                <strong>Clinical Notes:</strong> Telehealth consultation completed.
+              </p>
+            </div>
+
+            <div class="card-bottom-actions d-flex justify-content-between align-items-center pt-2 border-top">
+              <span class="badge bg-success text-white small" *ngIf="a.prescription && a.prescription.length > 0">
+                <i class="bi bi-capsule me-1"></i>Rx ({{ a.prescription.length }} Medications)
+              </span>
+              <span class="badge bg-light text-muted border small" *ngIf="!a.prescription || a.prescription.length === 0">
+                No RX Issued
+              </span>
+
+              <button 
+                type="button" 
+                class="btn btn-outline-primary btn-sm ms-auto"
+                (click)="selectedPastAppointment = a"
+                title="View Consultation Summary & Prescription">
+                <i class="bi bi-file-earmark-medical me-1"></i> View Record
+              </button>
+            </div>
           </div>
-          <div class="apt-actions">
-            <button class="btn btn-primary btn-xs">View EHR</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content 2-Column Grid -->
+    <div class="dashboard-grid" *ngIf="!isSuspended">
+      <!-- Mock Consultation Queue -->
+      <div class="grid-card glass-card">
+        <div class="card-header">
+          <h2>🕒 Consultation Queue</h2>
+          <span class="badge-count">{{ todayAppointments.length }} Active</span>
+        </div>
+
+        <div class="appointment-list">
+          <div class="appointment-item" *ngFor="let apt of todayAppointments">
+            <div class="apt-time-badge">
+              <span class="time">{{ apt.time }}</span>
+              <span class="type-pill" [ngClass]="apt.type.toLowerCase().replace(' ', '-')">{{ apt.type }}</span>
+            </div>
+            <div class="apt-patient-info">
+              <h4>{{ apt.patientName }} <span class="patient-age">({{ apt.age }} yrs)</span></h4>
+              <p class="apt-reason"><strong>Reason:</strong> {{ apt.symptoms }}</p>
+            </div>
+            <div class="apt-actions">
+              <button class="btn btn-primary btn-xs">View EHR</button>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Active Patient Care Plans -->
+      <div class="grid-card glass-card">
+        <div class="card-header">
+          <h2>📋 Active Patient Care Plans</h2>
+        </div>
+
+        <div class="careplan-list">
+          <div class="careplan-item" *ngFor="let plan of activeCarePlans">
+            <div class="plan-info">
+              <h4>{{ plan.planTitle }}</h4>
+              <span class="plan-patient">Patient: {{ plan.patientName }}</span>
+            </div>
+            <div class="plan-meta">
+              <span class="plan-progress">Progress: {{ plan.progress }}</span>
+              <span class="plan-review">Review: {{ plan.nextReview }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="quick-action-box mt-3">
+          <button class="btn btn-secondary w-full">+ Create New Care Plan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ DOCTOR PROFILE TAB ══════════════ -->
+  <div *ngIf="activeNavTab === 'profile'" class="doctor-profile-section animate-fade-in">
+    
+    <!-- Re-verification Alert Banner (If pending) -->
+    <div *ngIf="!isVerified || docStatus === 'pending'" class="reverification-pending-banner animate-fade-in mb-3">
+      <div class="d-flex align-items-center gap-3">
+        <span class="fs-2">⏳</span>
+        <div>
+          <strong class="pending-banner-title d-block fs-6">Credentials Under Administrative Review</strong>
+          <span class="pending-banner-text small">You have updated your clinical specialization or license number. Your credentials are under admin review. Existing confirmed appointments remain active, but new bookings are temporarily paused until verified.</span>
         </div>
       </div>
     </div>
 
-    <!-- Active Patient Care Plans -->
-    <div class="grid-card glass-card">
-      <div class="card-header">
-        <h2>📋 Active Patient Care Plans</h2>
+    <!-- Alert / Toast Messages -->
+    <div *ngIf="profileSaveMsg" class="alert alert-success py-2 px-3 mb-3 small d-flex align-items-center gap-2">
+      <i class="bi bi-check-circle-fill"></i>
+      <span>{{ profileSaveMsg }}</span>
+    </div>
+    <div *ngIf="profileErrMsg" class="alert alert-danger py-2 px-3 mb-3 small d-flex align-items-center gap-2">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span>{{ profileErrMsg }}</span>
+    </div>
+
+    <!-- Profile Header Hero Card -->
+    <div class="doctor-hero-card glass-card">
+      <div class="doc-avatar-container">
+        <div class="doc-avatar-large" *ngIf="!docProfileImage">
+          {{ doctorInitials }}
+        </div>
+        <img
+          [src]="'http://localhost:5000' + docProfileImage"
+          *ngIf="docProfileImage"
+          class="doc-avatar-img-large"
+          alt="Doctor Photo"
+        />
+        <label class="avatar-upload-overlay" title="Upload New Photo">
+          <i class="bi bi-camera-fill"></i>
+          <span>{{ uploadingDoctorImage ? 'Uploading…' : 'Change Photo' }}</span>
+          <input type="file" accept="image/jpeg,image/png,image/webp" (change)="onDoctorImageSelected($event)" style="display: none;" [disabled]="uploadingDoctorImage" />
+        </label>
       </div>
 
-      <div class="careplan-list">
-        <div class="careplan-item" *ngFor="let plan of activeCarePlans">
-          <div class="plan-info">
-            <h4>{{ plan.planTitle }}</h4>
-            <span class="plan-patient">Patient: {{ plan.patientName }}</span>
+      <div class="doc-hero-details">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <h2 class="doc-hero-name">Dr. {{ docFirstName }} {{ docLastName }}</h2>
+          <span class="badge" [ngClass]="isVerified ? 'bg-success' : 'bg-warning text-dark'">
+            {{ isVerified ? 'Verified Clinician ✅' : 'Re-verification Pending ⏳' }}
+          </span>
+        </div>
+        <div class="doc-meta-tags">
+          <span class="meta-pill spec-pill">🩺 {{ docSpecialization }}</span>
+          <span class="meta-pill license-pill">📜 {{ docLicenseNumber }}</span>
+          <span class="meta-pill exp-pill">⭐ {{ docExperienceYears }} Years Exp</span>
+          <span class="meta-pill fee-pill">💰 ₹{{ docConsultationFee }} / Session</span>
+        </div>
+        <p class="doc-hero-sub">Official CarePath AI Clinician Profile & Practice Credentials.</p>
+      </div>
+    </div>
+
+    <div class="doc-profile-grid">
+      
+      <!-- Column 1: Professional Information & Clinic Location -->
+      <div class="doc-profile-column">
+        
+        <!-- Professional Info Card -->
+        <div class="doc-box glass-card">
+          <div class="box-header">
+            <h3 class="box-title"><i class="bi bi-person-badge-fill text-primary me-2"></i>Professional Credentials</h3>
           </div>
-          <div class="plan-meta">
-            <span class="plan-progress">Progress: {{ plan.progress }}</span>
-            <span class="plan-review">Review: {{ plan.nextReview }}</span>
+          
+          <div class="box-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">First Name <span class="text-danger">*</span></label>
+                <input
+                  type="text"
+                  class="form-control"
+                  [(ngModel)]="docFirstName"
+                  (input)="docFirstNameTouched = true"
+                  (blur)="docFirstNameTouched = true"
+                  [class.is-invalid]="docFirstNameTouched && !isDocFirstNameValid"
+                  [class.is-valid]="docFirstNameTouched && isDocFirstNameValid"
+                  placeholder="First Name"
+                />
+                <span *ngIf="docFirstNameTouched && !isDocFirstNameValid" class="field-error-msg">
+                  Letters only (2–50 characters).
+                </span>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Last Name</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  [(ngModel)]="docLastName"
+                  (input)="docLastNameTouched = true"
+                  (blur)="docLastNameTouched = true"
+                  [class.is-invalid]="docLastNameTouched && !isDocLastNameValid"
+                  [class.is-valid]="docLastNameTouched && isDocLastNameValid && docLastName.trim().length > 0"
+                  placeholder="Last Name"
+                />
+                <span *ngIf="docLastNameTouched && !isDocLastNameValid" class="field-error-msg">
+                  Letters only (max 50 characters).
+                </span>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">
+                  Specialization <span class="text-danger">*</span>
+                  <span class="badge bg-warning text-dark ms-1" style="font-size: 0.68rem;">⚠️ Re-verifies</span>
+                </label>
+                <select
+                  class="form-select"
+                  [(ngModel)]="docSpecialization"
+                  (change)="docSpecializationTouched = true"
+                  (blur)="docSpecializationTouched = true"
+                  [class.is-invalid]="docSpecializationTouched && !isDocSpecializationValid"
+                  [class.is-valid]="docSpecializationTouched && isDocSpecializationValid"
+                >
+                  <option value="">-- Select Specialization --</option>
+                  <option *ngFor="let spec of specializationsList" [value]="spec">{{ spec }}</option>
+                </select>
+                <span *ngIf="docSpecializationTouched && !isDocSpecializationValid" class="field-error-msg">
+                  Please select a medical specialization.
+                </span>
+                <small *ngIf="!docSpecializationTouched || isDocSpecializationValid" class="text-muted" style="font-size: 0.72rem;">Changing specialization requires admin review.</small>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">
+                  License Number <span class="text-danger">*</span>
+                  <span class="badge bg-warning text-dark ms-1" style="font-size: 0.68rem;">⚠️ Re-verifies</span>
+                </label>
+                <input
+                  type="text"
+                  class="form-control"
+                  [(ngModel)]="docLicenseNumber"
+                  (input)="docLicenseNumberTouched = true"
+                  (blur)="docLicenseNumberTouched = true"
+                  [class.is-invalid]="docLicenseNumberTouched && !isDocLicenseValid"
+                  [class.is-valid]="docLicenseNumberTouched && isDocLicenseValid"
+                  placeholder="e.g. LIC-77889900"
+                />
+                <span *ngIf="docLicenseNumberTouched && !isDocLicenseValid" class="field-error-msg">
+                  4–35 alphanumeric characters (with / or -).
+                </span>
+                <small *ngIf="!docLicenseNumberTouched || isDocLicenseValid" class="text-muted" style="font-size: 0.72rem;">Changing license number requires admin review.</small>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Experience (Years) <span class="text-danger">*</span></label>
+                <input
+                  type="number"
+                  class="form-control"
+                  [(ngModel)]="docExperienceYears"
+                  (input)="docExperienceYearsTouched = true"
+                  (blur)="docExperienceYearsTouched = true"
+                  [class.is-invalid]="docExperienceYearsTouched && !isDocExperienceValid"
+                  [class.is-valid]="docExperienceYearsTouched && isDocExperienceValid"
+                  min="0"
+                  max="60"
+                />
+                <span *ngIf="docExperienceYearsTouched && !isDocExperienceValid" class="field-error-msg">
+                  Must be between 0 and 60 years.
+                </span>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Consultation Fee (₹) <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light text-dark border-secondary">₹</span>
+                  <input
+                    type="number"
+                    class="form-control"
+                    [(ngModel)]="docConsultationFee"
+                    (input)="docConsultationFeeTouched = true"
+                    (blur)="docConsultationFeeTouched = true"
+                    [class.is-invalid]="docConsultationFeeTouched && !isDocFeeValid"
+                    [class.is-valid]="docConsultationFeeTouched && isDocFeeValid"
+                    min="0"
+                    max="25000"
+                    step="50"
+                  />
+                </div>
+                <span *ngIf="docConsultationFeeTouched && !isDocFeeValid" class="field-error-msg">
+                  Must be between ₹0 and ₹25,000.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- Clinic Practice Address Card -->
+        <div class="doc-box glass-card">
+          <div class="box-header">
+            <h3 class="box-title"><i class="bi bi-hospital text-danger me-2"></i>Clinic Practice Details</h3>
+          </div>
+
+          <div class="box-body">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-bold small">Clinic / Hospital Name</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  [(ngModel)]="docClinicName"
+                  (input)="docClinicNameTouched = true"
+                  (blur)="docClinicNameTouched = true"
+                  [class.is-invalid]="docClinicNameTouched && !isDocClinicNameValid"
+                  [class.is-valid]="docClinicNameTouched && isDocClinicNameValid && docClinicName.trim().length > 0"
+                  placeholder="e.g. Heart & Vascular Clinic"
+                />
+                <span *ngIf="docClinicNameTouched && !isDocClinicNameValid" class="field-error-msg">
+                  Clinic name must be at least 2 characters.
+                </span>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Pincode</label>
+                <div class="position-relative">
+                  <input
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="editPincode"
+                    (input)="onLocationPincodeInput(); docPincodeTouched = true"
+                    (blur)="docPincodeTouched = true"
+                    [class.is-invalid]="docPincodeTouched && !isDocPincodeValid"
+                    [class.is-valid]="docPincodeTouched && isDocPincodeValid && editPincode.trim().length === 6"
+                    placeholder="6-digit Pincode"
+                    maxlength="6"
+                  />
+                  <span *ngIf="loadingPincode" class="pincode-spinner"></span>
+                </div>
+                <span *ngIf="docPincodeTouched && !isDocPincodeValid" class="field-error-msg">
+                  Must be exactly 6 digits.
+                </span>
+                <span *ngIf="pincodeErrorMsg" class="text-danger small d-block mt-1">{{ pincodeErrorMsg }}</span>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">City / Locality</label>
+                <input *ngIf="localitiesList.length <= 1" type="text" class="form-control" [(ngModel)]="editCity" placeholder="City" />
+                <select *ngIf="localitiesList.length > 1" class="form-select" [(ngModel)]="editCity">
+                  <option *ngFor="let loc of localitiesList" [value]="loc">{{ loc }}</option>
+                </select>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">District</label>
+                <input type="text" class="form-control" [(ngModel)]="editDistrict" placeholder="District" />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">State</label>
+                <input type="text" class="form-control" [(ngModel)]="editState" placeholder="State" />
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <div class="quick-action-box mt-3">
-        <button class="btn btn-secondary w-full">+ Create New Care Plan</button>
+      <!-- Column 2: Account Security & Save Actions -->
+      <div class="doc-profile-column">
+        
+        <!-- Account Security & Password -->
+        <div class="doc-box glass-card">
+          <div class="box-header">
+            <h3 class="box-title"><i class="bi bi-shield-lock-fill text-success me-2"></i>Account Security & Password</h3>
+          </div>
+
+          <div class="box-body">
+            <div *ngIf="passwordSuccess" class="alert alert-success py-2 small mb-3">
+              {{ passwordSuccess }}
+            </div>
+            <div *ngIf="passwordError" class="alert alert-danger py-2 small mb-3">
+              {{ passwordError }}
+            </div>
+
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-bold small">Current Password</label>
+                <input type="password" class="form-control" [(ngModel)]="passwordForm.currentPassword" placeholder="••••••••" />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">New Password</label>
+                <input type="password" class="form-control" [(ngModel)]="passwordForm.newPassword" placeholder="Min. 8 characters" />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">Confirm New Password</label>
+                <input type="password" class="form-control" [(ngModel)]="passwordForm.confirmPassword" placeholder="Re-type new password" />
+              </div>
+
+              <div class="col-12 text-end mt-3">
+                <button class="btn btn-outline-secondary btn-sm" (click)="changeDoctorPassword()" [disabled]="changingPassword">
+                  <span *ngIf="changingPassword" class="spinner-border spinner-border-sm me-1"></span>
+                  {{ changingPassword ? 'Updating Password…' : 'Update Password' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Save Profile Button -->
+        <div class="doc-save-box">
+          <button class="btn btn-primary btn-lg w-full shadow-glow" (click)="initiateSaveDoctorProfile()" [disabled]="isSavingProfile">
+            <span *ngIf="isSavingProfile" class="spinner-border spinner-border-sm me-2"></span>
+            {{ isSavingProfile ? 'Saving Profile Changes…' : '💾 Save Profile Changes' }}
+          </button>
+        </div>
+
       </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- ⚠️ RE-VERIFICATION WARNING MODAL -->
+<!-- ========================================== -->
+<div class="modal-backdrop animate-fade-in" *ngIf="showReverificationModal" (click)="cancelReverificationModal()">
+  <div class="reverification-card text-center p-4" (click)="$event.stopPropagation()" style="max-width: 520px; width: 90%;">
+    <div class="display-4 mb-3">⚠️</div>
+    <h3 class="reverification-title mb-2">Credential Re-Verification Required</h3>
+    <p class="reverification-desc mb-3">
+      You are modifying your <strong>Specialization</strong> or <strong>Medical License Number</strong>.
+      For clinical compliance and patient safety, changing these credentials will place your account under <strong>Admin Re-Verification</strong>.
+    </p>
+    <div class="reverification-notice text-start small mb-4">
+      <ul class="mb-0 ps-3">
+        <li><strong>Existing appointments</strong> remain confirmed and intact.</li>
+        <li><strong>New patient bookings</strong> will be paused until the platform admin reviews and approves your updated medical credentials.</li>
+      </ul>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button class="btn btn-outline-secondary" (click)="cancelReverificationModal()">Cancel</button>
+      <button class="btn btn-confirm-reverify" (click)="confirmReverificationAndSave()">
+        Confirm & Submit for Review
+      </button>
     </div>
   </div>
 </div>
@@ -474,4 +987,74 @@
       </div>
     </div>
   </div>
+
+  <!-- ══════════════ PAST CONSULTATION RECORD MODAL ══════════════ -->
+  <div class="modal-backdrop-custom animate-fade-in" *ngIf="selectedPastAppointment">
+    <div class="modal-card glass-card shadow-2xl" style="max-width: 620px; width: 100%;">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <span class="fs-4">📜</span>
+          <div>
+            <h3 class="m-0 fs-5 fw-bold text-dark">Consultation & Clinical Record</h3>
+            <span class="small text-muted">{{ formatApptDate(selectedPastAppointment.appointmentDate) }} • {{ selectedPastAppointment.startTime }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close" (click)="selectedPastAppointment = null"></button>
+      </div>
+
+      <div class="modal-body p-3">
+        <!-- Patient Bio Card -->
+        <div class="p-3 bg-light rounded-3 mb-3 border">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <h5 class="fw-bold text-primary m-0">
+              {{ selectedPastAppointment.patientId ? (selectedPastAppointment.patientId.firstName ? (selectedPastAppointment.patientId.firstName + ' ' + (selectedPastAppointment.patientId.lastName || '')) : (selectedPastAppointment.patientId.name || 'Patient')) : (selectedPastAppointment.patientName || 'Patient') }}
+            </h5>
+            <span class="badge bg-success">Completed Session</span>
+          </div>
+          <p class="small text-muted mb-0">
+            Consultation Type: <strong>{{ selectedPastAppointment.type || 'General Consultation' }}</strong>
+          </p>
+        </div>
+
+        <!-- Symptoms & Reason -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted text-uppercase">Reported Symptoms & Reason</label>
+          <div class="p-2.5 bg-white border rounded small text-dark">
+            {{ selectedPastAppointment.symptoms || 'No specific symptoms entered at time of booking.' }}
+          </div>
+        </div>
+
+        <!-- Prescriptions Issued -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted text-uppercase d-flex justify-content-between">
+            <span>Prescription & Medications</span>
+            <span class="badge bg-primary" *ngIf="selectedPastAppointment.prescription">{{ selectedPastAppointment.prescription.length }} Items</span>
+          </label>
+          <div *ngIf="!selectedPastAppointment.prescription || selectedPastAppointment.prescription.length === 0" class="p-3 text-center bg-light rounded text-muted small border">
+            No digital prescription was issued during this consultation session.
+          </div>
+          <div *ngIf="selectedPastAppointment.prescription && selectedPastAppointment.prescription.length > 0" class="d-flex flex-column gap-2">
+            <div class="p-2.5 bg-white border rounded" *ngFor="let med of selectedPastAppointment.prescription">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <strong class="text-dark">💊 {{ med.medicineName || med.name }}</strong>
+                <span class="badge bg-light text-dark border">{{ med.dosage }}</span>
+              </div>
+              <div class="small text-muted d-flex justify-content-between">
+                <span>Frequency: {{ med.frequency }}</span>
+                <span>Duration: {{ med.duration }}</span>
+              </div>
+              <div class="small text-secondary mt-1" *ngIf="med.instructions">
+                <em>Note: {{ med.instructions }}</em>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top">
+        <button type="button" class="btn btn-secondary btn-sm" (click)="selectedPastAppointment = null">Close</button>
+      </div>
+    </div>
+  </div>
+
 </div>

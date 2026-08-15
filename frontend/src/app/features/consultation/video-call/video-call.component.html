@@ -21,8 +21,8 @@
     <!-- Header Bar -->
     <header class="consultation-header">
       <div class="header-left">
-        <div class="brand-badge">
-          <i class="bi bi-shield-lock-fill text-success me-2"></i>
+        <div class="brand-badge d-flex align-items-center gap-2">
+          <img src="assets/photos/logo_circle.png" alt="CarePath AI Logo" style="width: 24px; height: 24px; object-fit: contain; border-radius: 50%;">
           <span class="brand-title">CarePath AI Telehealth</span>
         </div>
         <div class="consultation-info" *ngIf="appointmentDetails">
@@ -34,9 +34,13 @@
       </div>
 
       <div class="header-center" *ngIf="isInCall">
-        <div class="timer-badge">
+        <div class="timer-badge" [class.bg-danger]="isEmergencyTriageMode || appointmentDetails?.isEmergency">
           <span class="live-dot"></span>
-          <span>{{ callTimer }}</span>
+          <span>{{ (isEmergencyTriageMode || appointmentDetails?.isEmergency) ? '🚨 Emergency: ' + callTimer + ' / 10:00' : callTimer }}</span>
+        </div>
+        <div *ngIf="showEmergency8MinWarning" class="alert alert-warning py-1 px-2.5 ms-2 mb-0 border-0 small text-dark fw-bold d-inline-flex align-items-center gap-1 shadow-sm">
+          <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+          <span>2 mins remaining in triage. Direct acute cases to ER.</span>
         </div>
       </div>
 
@@ -83,15 +87,52 @@
     <!-- IN-CALL STAGE LAYOUT -->
     <div *ngIf="isInCall && !isCallEnded" class="in-call-stage">
       
+      <!-- 🚨 DOCTOR IN-CALL EMERGENCY REQUEST ALERT BANNER -->
+      <div *ngIf="userRole === 'doctor' && activeEmergencyAlert" class="emergency-alert-overlay shadow-lg">
+        <div class="d-flex align-items-center gap-3">
+          <div class="pulse-red-icon">
+            <i class="bi bi-bell-fill fs-4 text-white"></i>
+          </div>
+          <div>
+            <strong class="text-white d-block">🚨 EMERGENCY SYNC REQUEST</strong>
+            <span class="text-light small">Patient: <strong>{{ activeEmergencyAlert.patientName }}</strong> • {{ activeEmergencyAlert.symptomSummary || 'Acute Triage' }}</span>
+          </div>
+          <div class="ms-auto d-flex gap-2">
+            <button class="btn btn-sm btn-light text-danger fw-bold" (click)="acceptEmergencyTriage()">
+              <i class="bi bi-camera-video-fill me-1"></i> Accept 5-Min Triage
+            </button>
+            <button class="btn btn-sm btn-outline-light" (click)="dismissEmergencyAlert()">
+              Defer to 9:30 AM
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⏸️ PATIENT "CALL TEMPORARILY PAUSED FOR EMERGENCY" OVERLAY -->
+      <div *ngIf="isCallPaused && userRole === 'patient'" class="call-paused-backdrop">
+        <div class="glass-card paused-card p-4 text-center text-white">
+          <div class="paused-pulse-icon mb-3">
+            <i class="bi bi-pause-circle-fill display-3 text-warning"></i>
+          </div>
+          <h4 class="fw-bold mb-2">Consultation Temporarily Paused</h4>
+          <p class="text-light mb-3" style="max-width: 440px;">
+            Dr. Alen is currently attending a 5-minute urgent emergency case. Your video call will resume automatically when the doctor returns!
+          </p>
+          <div class="badge bg-success py-2 px-3 fw-normal d-block">
+            ✔ Your consultation time will be extended automatically
+          </div>
+        </div>
+      </div>
+      
       <!-- Video Streams Area -->
       <div class="video-grid" [class.with-sidebar]="activeSidebarTab !== null">
         
         <!-- Remote Video (Primary View) -->
         <div class="remote-video-container">
-          <video #remoteVideo autoplay playsinline class="remote-video" [class.d-none]="!remoteStream"></video>
+          <video #remoteVideo autoplay playsinline class="remote-video" [class.d-none]="!remoteStream || isCallPaused"></video>
           
           <!-- Remote Video Off / Waiting Placeholder -->
-          <div *ngIf="!remoteStream" class="remote-placeholder">
+          <div *ngIf="!remoteStream && !isCallPaused" class="remote-placeholder">
             <div class="avatar-ring pulse">
               <i class="bi bi-person-fill display-3 text-light"></i>
             </div>

@@ -12,7 +12,8 @@
   <!-- Navbar -->
   <header class="pd-navbar">
     <div class="pd-brand">
-      <span class="brand-icon">✦</span> CarePath <span class="brand-accent">AI</span>
+      <img src="assets/photos/logo_circle.png" alt="CarePath AI Logo" class="brand-logo-img">
+      <span>CarePath <span class="brand-accent">AI</span></span>
     </div>
     <div class="pd-nav-center">
       <button class="nav-tab" [class.active]="activeTab === 'find-doctors'" (click)="setTab('find-doctors')">
@@ -23,15 +24,58 @@
       </button>
     </div>
     <div class="pd-nav-right">
-      <span class="welcome-text">Welcome, <strong>{{ patientName }}</strong></span>
-      <button class="btn-logout" (click)="onLogout()">Sign Out</button>
+      <div class="user-menu-container position-relative">
+        <button type="button" class="user-dropdown-btn" (click)="toggleUserDropdown($event)" [class.active]="showUserDropdown">
+          <div class="user-avatar-mini" *ngIf="!profileForm.profileImage">
+            {{ patientInitials }}
+          </div>
+          <img [src]="'http://localhost:5000' + profileForm.profileImage" *ngIf="profileForm.profileImage" class="user-avatar-img-mini" alt="Profile" />
+          <span class="user-display-name">{{ patientName }}</span>
+          <i class="bi bi-chevron-down dropdown-arrow" [class.rotate]="showUserDropdown"></i>
+        </button>
+
+        <!-- User Profile Dropdown Card -->
+        <div class="user-dropdown-menu glass-card animate-fade-in" *ngIf="showUserDropdown" (click)="$event.stopPropagation()">
+          <div class="dropdown-header">
+            <div class="dropdown-avatar" *ngIf="!profileForm.profileImage">
+              {{ patientInitials }}
+            </div>
+            <img [src]="'http://localhost:5000' + profileForm.profileImage" *ngIf="profileForm.profileImage" class="dropdown-avatar-img" alt="Profile Photo" />
+            <div class="dropdown-user-details">
+              <strong class="dropdown-name">{{ patientName }}</strong>
+              <span class="dropdown-email text-truncate">{{ patientEmail }}</span>
+              <span class="dropdown-role-pill">👤 Patient</span>
+            </div>
+          </div>
+
+          <div class="dropdown-divider"></div>
+
+          <div class="dropdown-links">
+            <button type="button" class="dropdown-item" (click)="setTab('profile')">
+              <i class="bi bi-person-circle item-icon text-primary"></i>
+              <span>My Profile & Settings</span>
+            </button>
+            <button type="button" class="dropdown-item" (click)="setTab('my-appointments')">
+              <i class="bi bi-calendar-check item-icon text-success"></i>
+              <span>My Appointments</span>
+            </button>
+          </div>
+
+          <div class="dropdown-divider"></div>
+
+          <button type="button" class="dropdown-item logout-item" (click)="onLogout()">
+            <i class="bi bi-box-arrow-right item-icon text-danger"></i>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
   <main class="pd-main">
 
     <!-- Profile Completion Alert Banner (Option B) -->
-    <div *ngIf="isProfileIncomplete()" class="profile-notice-banner glass-card animate-fade-in">
+    <div *ngIf="isProfileIncomplete() && activeTab !== 'profile'" class="profile-notice-banner glass-card animate-fade-in">
       <div class="notice-content">
         <span class="notice-icon">💡</span>
         <div class="notice-text">
@@ -39,7 +83,7 @@
           <p>Add your Date of Birth, Gender, and Phone Number for faster doctor bookings and personalized clinical AI features.</p>
         </div>
       </div>
-      <button class="btn-complete-profile-sm" (click)="openProfileModal()">
+      <button class="btn-complete-profile-sm" (click)="setTab('profile')">
         Complete Profile Now
       </button>
     </div>
@@ -197,42 +241,404 @@
         <button class="btn-primary-sm" (click)="setTab('find-doctors')">Book your first appointment →</button>
       </div>
 
-      <div class="appointments-list" *ngIf="!loadingAppointments && filteredAppointments.length > 0">
-        <div class="appointment-card glass-card" [class.today-highlight-card]="isTodayAppt(appt)" *ngFor="let appt of filteredAppointments">
-          <div class="today-ribbon" *ngIf="isTodayAppt(appt)">⚡ TODAY</div>
-          <div class="appt-left">
-            <div class="appt-date-block">
-              <span class="appt-full-date">{{ formatDate(appt.appointmentDate) }}</span>
+      <div class="appointments-grid" *ngIf="!loadingAppointments && filteredAppointments.length > 0">
+        <div class="appointment-grid-card glass-card" [class.today-highlight-card]="isTodayAppt(appt)" *ngFor="let appt of filteredAppointments">
+          <div class="card-top-bar">
+            <div class="doc-profile-group">
+              <div class="doc-avatar-circle">
+                🩺
+              </div>
+              <div>
+                <h4 class="appt-doctor">Dr. {{ appt.doctorId ? appt.doctorId.firstName + ' ' + appt.doctorId.lastName : 'Doctor' }}</h4>
+                <span class="appt-spec">{{ appt.doctorId ? appt.doctorId.specialization : 'General Practitioner' }}</span>
+              </div>
             </div>
-            <div class="appt-time">🕐 {{ appt.startTime }} – {{ appt.endTime }}</div>
+            <div class="d-flex flex-column align-items-end gap-1">
+              <span class="appt-badge" [ngClass]="getStatusClass(appt.status)">{{ appt.status }}</span>
+              <span class="appt-fee-tag">₹{{ appt.amount | number }}</span>
+            </div>
           </div>
-          <div class="appt-center">
-            <h4 class="appt-doctor">Dr. {{ appt.doctorId ? appt.doctorId.firstName + ' ' + appt.doctorId.lastName : 'Doctor' }}</h4>
-            <p class="appt-spec">{{ appt.doctorId ? appt.doctorId.specialization : '' }}</p>
-            <p class="appt-type">{{ appt.type }}</p>
-            <p class="appt-symptoms" *ngIf="appt.symptoms">📝 {{ appt.symptoms }}</p>
+
+          <div class="card-meta-block">
+            <div class="meta-row">
+              <span class="date-tag">
+                <i class="bi bi-calendar-event me-1"></i> {{ formatDate(appt.appointmentDate) }}
+              </span>
+              <span class="time-tag" [class.text-danger]="appt.type === 'Emergency Sync' || appt.isEmergency">
+                <i class="bi bi-clock me-1"></i> {{ appt.startTime === 'Immediate Queue' ? '⚡ Immediate Queue' : (appt.startTime + ' – ' + appt.endTime) }}
+              </span>
+            </div>
+
+            <div class="type-symptoms-box">
+              <div class="d-flex align-items-center justify-content-between mb-1">
+                <strong class="type-label">{{ appt.type }}</strong>
+                <span *ngIf="appt.type === 'Emergency Sync' || appt.isEmergency" class="badge bg-danger text-white px-2 py-1 small">🚨 EMERGENCY</span>
+              </div>
+              <p class="symptoms-text" *ngIf="appt.symptoms">📝 {{ appt.symptoms }}</p>
+              <p class="symptoms-text text-muted" *ngIf="!appt.symptoms">Regular consultation appointment</p>
+            </div>
           </div>
-          <div class="appt-right">
-            <span class="appt-badge" [ngClass]="getStatusClass(appt.status)">{{ appt.status }}</span>
-            <span class="appt-fee">₹{{ appt.amount | number }}</span>
+
+          <div class="card-action-bar">
             <a
-              *ngIf="appt.status === 'Confirmed'"
+              *ngIf="canJoinCall(appt)"
               [routerLink]="['/consultation', appt._id]"
-              class="btn-pay-now text-decoration-none"
-              style="background: #10b981; border-color: #10b981;"
-            >📹 Join Call</a>
+              class="btn-join-grid text-decoration-none"
+            >
+              <i class="bi bi-camera-video-fill me-1"></i> Join Video Call
+            </a>
             <button
               *ngIf="appt.status === 'Pending Payment'"
-              class="btn-pay-now"
+              class="btn-pay-grid"
               (click)="onRetryPayment(appt._id)"
-            >💳 Pay Now</button>
+            >
+              💳 Complete Payment (₹{{ appt.amount }})
+            </button>
             <button
               *ngIf="canCancel(appt)"
-              class="btn-cancel-appt"
+              class="btn-cancel-grid"
               (click)="openCancelModal(appt)"
-            >Cancel</button>
+            >
+              Cancel Consultation
+            </button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ MY PROFILE TAB ══════════════ -->
+    <section class="pd-section animate-fade-in" *ngIf="activeTab === 'profile'">
+      
+      <!-- Profile Header Hero Card -->
+      <div class="profile-hero-card glass-card">
+        <div class="profile-avatar-container">
+          <div class="profile-avatar-large" *ngIf="!profileForm.profileImage">
+            {{ patientInitials }}
+          </div>
+          <img
+            [src]="'http://localhost:5000' + profileForm.profileImage"
+            *ngIf="profileForm.profileImage"
+            class="profile-avatar-img-large"
+            alt="Profile Photo"
+          />
+          <label class="avatar-upload-overlay" title="Upload New Photo">
+            <i class="bi bi-camera-fill"></i>
+            <span>{{ uploadingImage ? 'Uploading…' : 'Change' }}</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" (change)="onProfileImageSelected($event)" style="display: none;" [disabled]="uploadingImage" />
+          </label>
+        </div>
+
+        <div class="profile-hero-details">
+          <h2 class="profile-hero-name">{{ profileForm.firstName }} {{ profileForm.lastName }}</h2>
+          <div class="profile-meta-tags">
+            <span class="meta-pill role-pill">👤 Patient Account</span>
+            <span class="meta-pill email-pill"><i class="bi bi-envelope me-1"></i>{{ patientEmail }}</span>
+            <span class="meta-pill blood-pill" *ngIf="profileForm.bloodGroup">🩸 {{ profileForm.bloodGroup }}</span>
+          </div>
+          <p class="profile-hero-sub">Manage your personal medical profile, contact info, home address, and security credentials.</p>
+        </div>
+      </div>
+
+      <div class="profile-grid-container">
+        
+        <!-- Column 1: Personal & Address Details -->
+        <div class="profile-column">
+          
+          <!-- Card 1: Personal Info -->
+          <div class="profile-box glass-card">
+            <div class="box-header">
+              <h3 class="box-title"><i class="bi bi-person-badge text-primary me-2"></i>Personal Information</h3>
+            </div>
+            
+            <div class="box-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">First Name <span class="text-danger">*</span></label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="profileForm.firstName"
+                    (input)="profileFirstNameTouched = true"
+                    (blur)="profileFirstNameTouched = true"
+                    [class.is-invalid]="profileFirstNameTouched && !isFirstNameValid"
+                    [class.is-valid]="profileFirstNameTouched && isFirstNameValid"
+                    placeholder="First Name"
+                  />
+                  <span *ngIf="profileFirstNameTouched && !isFirstNameValid" class="field-error-msg">
+                    Letters only (2–50 characters).
+                  </span>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Last Name</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="profileForm.lastName"
+                    (input)="profileLastNameTouched = true"
+                    (blur)="profileLastNameTouched = true"
+                    [class.is-invalid]="profileLastNameTouched && !isLastNameValid"
+                    [class.is-valid]="profileLastNameTouched && isLastNameValid && profileForm.lastName.trim().length > 0"
+                    placeholder="Last Name"
+                  />
+                  <span *ngIf="profileLastNameTouched && !isLastNameValid" class="field-error-msg">
+                    Letters only (max 50 characters).
+                  </span>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Phone Number <span class="text-danger">*</span></label>
+                  <input
+                    type="tel"
+                    class="form-control"
+                    [(ngModel)]="profileForm.phone"
+                    (input)="profilePhoneTouched = true"
+                    (blur)="profilePhoneTouched = true"
+                    [class.is-invalid]="profilePhoneTouched && !isProfilePhoneValid"
+                    [class.is-valid]="profilePhoneTouched && isProfilePhoneValid"
+                    placeholder="+91 98765 43210"
+                    maxlength="13"
+                  />
+                  <span *ngIf="profilePhoneTouched && !isProfilePhoneValid" class="field-error-msg">
+                    10-digit Indian mobile starting with 6–9.
+                  </span>
+                  <small *ngIf="!profilePhoneTouched || isProfilePhoneValid" class="text-muted" style="font-size: 0.72rem;">10-digit Indian mobile number</small>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Date of Birth <span class="text-danger">*</span></label>
+                  <input
+                    type="date"
+                    class="form-control"
+                    [(ngModel)]="profileForm.dateOfBirth"
+                    (input)="profileDobTouched = true"
+                    (change)="profileDobTouched = true"
+                    (blur)="profileDobTouched = true"
+                    [class.is-invalid]="profileDobTouched && !isProfileDobValid"
+                    [class.is-valid]="profileDobTouched && isProfileDobValid"
+                    [max]="maxDobDate"
+                    [min]="minDobDate"
+                  />
+                  <span *ngIf="profileDobTouched && !isProfileDobValid" class="field-error-msg">
+                    Cannot be in the future or before 1900.
+                  </span>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Gender</label>
+                  <select class="form-select" [(ngModel)]="profileForm.gender">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Blood Group</label>
+                  <select class="form-select" [(ngModel)]="profileForm.bloodGroup">
+                    <option value="">-- Select Blood Group --</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Address Information -->
+          <div class="profile-box glass-card">
+            <div class="box-header">
+              <h3 class="box-title"><i class="bi bi-geo-alt text-danger me-2"></i>Residential Address</h3>
+            </div>
+
+            <div class="box-body">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label fw-bold small">House / Apartment / Street</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="profileForm.address.houseName"
+                    (input)="profileHouseNameTouched = true"
+                    (blur)="profileHouseNameTouched = true"
+                    [class.is-invalid]="profileHouseNameTouched && !isHouseNameValid"
+                    [class.is-valid]="profileHouseNameTouched && isHouseNameValid && profileForm.address.houseName.trim().length > 0"
+                    placeholder="House No, Street, Landmark"
+                  />
+                  <span *ngIf="profileHouseNameTouched && !isHouseNameValid" class="field-error-msg">
+                    Address must be at least 2 characters.
+                  </span>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Pincode</label>
+                  <div class="position-relative">
+                    <input
+                      type="text"
+                      class="form-control"
+                      [(ngModel)]="profileForm.address.pincode"
+                      (input)="onPincodeInput(); profilePincodeTouched = true"
+                      (blur)="profilePincodeTouched = true"
+                      [class.is-invalid]="profilePincodeTouched && !isPincodeValid"
+                      [class.is-valid]="profilePincodeTouched && isPincodeValid && profileForm.address.pincode.trim().length === 6"
+                      placeholder="6-digit Pincode"
+                      maxlength="6"
+                    />
+                    <span *ngIf="loadingPincode" class="pincode-spinner"></span>
+                  </div>
+                  <span *ngIf="profilePincodeTouched && !isPincodeValid" class="field-error-msg">
+                    Must be exactly 6 digits.
+                  </span>
+                  <span *ngIf="pincodeErrorMsg" class="text-danger small d-block mt-1">{{ pincodeErrorMsg }}</span>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">City / Locality</label>
+                  <input *ngIf="localitiesList.length <= 1" type="text" class="form-control" [(ngModel)]="profileForm.address.city" placeholder="City" />
+                  <select *ngIf="localitiesList.length > 1" class="form-select" [(ngModel)]="profileForm.address.city" (change)="onLocalityChange($event)">
+                    <option *ngFor="let loc of localitiesList" [value]="loc">{{ loc }}</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">District</label>
+                  <input type="text" class="form-control" [(ngModel)]="profileForm.address.district" placeholder="District" />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">State</label>
+                  <input type="text" class="form-control" [(ngModel)]="profileForm.address.state" placeholder="State" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Column 2: Emergency Contact & Account Security -->
+        <div class="profile-column">
+          
+          <!-- Card 3: Emergency Contact -->
+          <div class="profile-box glass-card">
+            <div class="box-header">
+              <h3 class="box-title"><i class="bi bi-shield-plus text-warning me-2"></i>Emergency Contact</h3>
+            </div>
+
+            <div class="box-body">
+              <p class="text-muted small mb-3">Add a trusted contact who can be reached in case of medical emergencies or urgent clinical follow-ups.</p>
+              
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label fw-bold small">Contact Person Name</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="profileForm.emergencyContact.name"
+                    (input)="profileEmergencyNameTouched = true"
+                    (blur)="profileEmergencyNameTouched = true"
+                    [class.is-invalid]="profileEmergencyNameTouched && !isEmergencyNameValid"
+                    [class.is-valid]="profileEmergencyNameTouched && isEmergencyNameValid && profileForm.emergencyContact.name.trim().length > 0"
+                    placeholder="Full Name"
+                  />
+                  <span *ngIf="profileEmergencyNameTouched && !isEmergencyNameValid" class="field-error-msg">
+                    Letters only (2–50 characters).
+                  </span>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Contact Phone Number</label>
+                  <input
+                    type="tel"
+                    class="form-control"
+                    [(ngModel)]="profileForm.emergencyContact.phone"
+                    (input)="profileEmergencyPhoneTouched = true"
+                    (blur)="profileEmergencyPhoneTouched = true"
+                    [class.is-invalid]="profileEmergencyPhoneTouched && (!isEmergencyPhoneValid || isEmergencyPhoneSelf)"
+                    [class.is-valid]="profileEmergencyPhoneTouched && isEmergencyPhoneValid && !isEmergencyPhoneSelf && profileForm.emergencyContact.phone.trim().length > 0"
+                    placeholder="+91 98765 43210"
+                    maxlength="13"
+                  />
+                  <span *ngIf="profileEmergencyPhoneTouched && isEmergencyPhoneSelf" class="field-error-msg">
+                    Cannot be your own phone number.
+                  </span>
+                  <span *ngIf="profileEmergencyPhoneTouched && !isEmergencyPhoneSelf && !isEmergencyPhoneValid" class="field-error-msg">
+                    10-digit Indian phone starting with 6–9.
+                  </span>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Relationship</label>
+                  <select class="form-select" [(ngModel)]="profileForm.emergencyContact.relation">
+                    <option value="Parent">Parent</option>
+                    <option value="Spouse">Spouse</option>
+                    <option value="Child">Child</option>
+                    <option value="Sibling">Sibling</option>
+                    <option value="Guardian">Guardian</option>
+                    <option value="Friend">Friend</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: Change Password -->
+          <div class="profile-box glass-card">
+            <div class="box-header">
+              <h3 class="box-title"><i class="bi bi-lock text-success me-2"></i>Account Security & Password</h3>
+            </div>
+
+            <div class="box-body">
+              <div *ngIf="passwordSuccess" class="alert alert-success py-2 small mb-3">
+                {{ passwordSuccess }}
+              </div>
+              <div *ngIf="passwordError" class="alert alert-danger py-2 small mb-3">
+                {{ passwordError }}
+              </div>
+
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label fw-bold small">Current Password</label>
+                  <input type="password" class="form-control" [(ngModel)]="passwordForm.currentPassword" placeholder="••••••••" />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">New Password</label>
+                  <input type="password" class="form-control" [(ngModel)]="passwordForm.newPassword" placeholder="Min. 8 characters" />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-bold small">Confirm New Password</label>
+                  <input type="password" class="form-control" [(ngModel)]="passwordForm.confirmPassword" placeholder="Re-type new password" />
+                </div>
+
+                <div class="col-12 text-end mt-3">
+                  <button class="btn btn-outline-secondary btn-sm" (click)="changeAccountPassword()" [disabled]="changingPassword">
+                    <span *ngIf="changingPassword" class="spinner-border spinner-border-sm me-1"></span>
+                    {{ changingPassword ? 'Updating Password…' : 'Update Password' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Save Profile Action Button -->
+          <div class="profile-save-banner">
+            <button class="btn-save-profile-large" (click)="saveFullProfile()" [disabled]="savingProfile">
+              <span *ngIf="savingProfile" class="spinner-border spinner-border-sm me-2"></span>
+              {{ savingProfile ? 'Saving Changes…' : '💾 Save Profile Changes' }}
+            </button>
+          </div>
+
+        </div>
+
       </div>
     </section>
 
@@ -255,15 +661,15 @@
     <!-- Step Indicators -->
     <div class="step-track">
       <div class="step-node" [class.active]="bookingStep >= 1" [class.done]="bookingStep > 1">
-        <span>1</span><label>Date</label>
+        <span>1</span><label>Type</label>
       </div>
       <div class="step-line" [class.done]="bookingStep > 1"></div>
       <div class="step-node" [class.active]="bookingStep >= 2" [class.done]="bookingStep > 2">
-        <span>2</span><label>Slot</label>
+        <span>2</span><label>Date</label>
       </div>
       <div class="step-line" [class.done]="bookingStep > 2"></div>
       <div class="step-node" [class.active]="bookingStep >= 3" [class.done]="bookingStep > 3">
-        <span>3</span><label>Details</label>
+        <span>3</span><label>Slot</label>
       </div>
       <div class="step-line" [class.done]="bookingStep > 3"></div>
       <div class="step-node" [class.active]="bookingStep >= 4">
@@ -271,8 +677,35 @@
       </div>
     </div>
 
-    <!-- Step 1: Select Date -->
+    <!-- Step 1: Appointment Type Selection -->
     <div class="step-content" *ngIf="bookingStep === 1">
+      <label class="field-label">Select Consultation Type</label>
+      <div class="type-selector mb-3">
+        <button
+          *ngFor="let t of appointmentTypes"
+          class="type-btn"
+          [class.selected]="appointmentType === t"
+          [class.emergency-btn]="t === 'Emergency Sync'"
+          (click)="appointmentType = t"
+        >{{ t }}</button>
+      </div>
+
+      <div *ngIf="appointmentType === 'Emergency Sync'" class="alert alert-danger border-0 p-3 shadow-sm rounded-3 mt-2 text-white" style="background: linear-gradient(135deg, #DC2626, #B91C1C);">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <i class="bi bi-lightning-charge-fill fs-5"></i>
+          <strong>🚨 Immediate Emergency Priority Queue</strong>
+        </div>
+        <p class="small m-0 text-white-50">
+          Selecting Emergency Sync bypasses scheduled date & time pickers. Your appointment will be placed in Doctor Alen's live priority queue instantly upon payment.
+        </p>
+      </div>
+      <p *ngIf="appointmentType !== 'Emergency Sync'" class="field-hint text-muted">
+        Choose <strong>General Consultation</strong> for new visits, <strong>Follow-up</strong> for lab report checks, or <strong>Care Plan Review</strong> for chronic disease monitoring.
+      </p>
+    </div>
+
+    <!-- Step 2: Select Date -->
+    <div class="step-content" *ngIf="bookingStep === 2">
       <label class="field-label">Select Appointment Date</label>
       <input
         type="date"
@@ -297,8 +730,8 @@
       </div>
     </div>
 
-    <!-- Step 2: Select Slot -->
-    <div class="step-content" *ngIf="bookingStep === 2">
+    <!-- Step 3: Select Slot -->
+    <div class="step-content" *ngIf="bookingStep === 3">
       <label class="field-label">Select a Time Slot for {{ formatDate(selectedDate) }}</label>
       <div class="slots-grid">
         <button
@@ -313,19 +746,6 @@
       <p class="field-hint">Each session is 30 minutes. You'll meet Dr. {{ selectedDoctor?.firstName }} virtually or at {{ selectedDoctor?.clinicAddress }}.</p>
     </div>
 
-    <!-- Step 3: Type & Symptoms -->
-    <div class="step-content" *ngIf="bookingStep === 3">
-      <label class="field-label">Appointment Type</label>
-      <div class="type-selector">
-        <button
-          *ngFor="let t of appointmentTypes"
-          class="type-btn"
-          [class.selected]="appointmentType === t"
-          (click)="appointmentType = t"
-        >{{ t }}</button>
-      </div>
-    </div>
-
     <!-- Step 4: Policy + Pay -->
     <div class="step-content" *ngIf="bookingStep === 4">
       <div class="booking-summary-box">
@@ -335,16 +755,20 @@
           <strong>Dr. {{ selectedDoctor?.firstName }} {{ selectedDoctor?.lastName }}</strong>
         </div>
         <div class="summary-row">
+          <span>Consultation Type</span>
+          <strong class="text-primary">{{ appointmentType }}</strong>
+        </div>
+        <div class="summary-row" *ngIf="appointmentType !== 'Emergency Sync'">
           <span>Date</span>
           <strong>{{ formatDate(selectedDate) }}</strong>
         </div>
-        <div class="summary-row">
+        <div class="summary-row" *ngIf="appointmentType !== 'Emergency Sync'">
           <span>Time</span>
           <strong>{{ selectedSlot?.start }} – {{ selectedSlot?.end }}</strong>
         </div>
-        <div class="summary-row">
-          <span>Type</span>
-          <strong>{{ appointmentType }}</strong>
+        <div class="summary-row" *ngIf="appointmentType === 'Emergency Sync'">
+          <span>Queue Status</span>
+          <strong class="text-danger">🚨 Immediate Priority Queue (Next Available)</strong>
         </div>
         <div class="summary-row fee-row">
           <span>Consultation Fee</span>
@@ -371,7 +795,7 @@
           class="btn-next"
           *ngIf="bookingStep < 4"
           (click)="nextStep()"
-          [disabled]="(bookingStep === 1 && (!selectedDate || isOffDay || availableSlots.length === 0)) || (bookingStep === 2 && !selectedSlot)"
+          [disabled]="(bookingStep === 1 && !appointmentType) || (bookingStep === 2 && (!selectedDate || isOffDay || availableSlots.length === 0)) || (bookingStep === 3 && !selectedSlot)"
         >
           Next →
         </button>

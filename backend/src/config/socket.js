@@ -141,6 +141,7 @@ function initSocket(server) {
             : 0;
 
           appt.callStatus = 'Completed';
+          appt.status = 'Completed';
           appt.callEndedAt = now;
           appt.callDurationSeconds = duration;
           await appt.save();
@@ -148,6 +149,50 @@ function initSocket(server) {
       } catch (err) {
         console.error('[Socket.io] Error completing call on DB:', err.message);
       }
+    });
+
+    // Join Doctor Dashboard Notification Room
+    socket.on('join-doctor-dashboard', (data) => {
+      const { doctorId } = data || {};
+      if (doctorId) {
+        const roomName = `doctor_${doctorId}`;
+        socket.join(roomName);
+        console.log(`[Socket.io] Doctor registered for emergency notifications: ${roomName}`);
+      }
+    });
+
+    // Handle Live Emergency Request Alert
+    socket.on('emergency-request', (data) => {
+      const { doctorId, patientName, symptomSummary, appointmentId } = data || {};
+      console.log(`[Socket.io] 🚨 Emergency Request for Doctor ${doctorId} from ${patientName}`);
+      const doctorRoom = `doctor_${doctorId}`;
+      io.to(doctorRoom).emit('emergency-alert', {
+        appointmentId,
+        patientName,
+        symptomSummary,
+        timestamp: new Date()
+      });
+    });
+
+    // Handle Doctor Pausing Active Consultation for Emergency Triage
+    socket.on('pause-consultation', (data) => {
+      const { appointmentId, reason } = data || {};
+      const roomName = `room_${appointmentId}`;
+      console.log(`[Socket.io] Pausing consultation room ${roomName} for emergency triage`);
+      io.in(roomName).emit('consultation-paused', {
+        reason: reason || 'Doctor is attending a 5-minute urgent emergency case.',
+        timestamp: new Date()
+      });
+    });
+
+    // Handle Doctor Resuming Consultation
+    socket.on('resume-consultation', (data) => {
+      const { appointmentId } = data || {};
+      const roomName = `room_${appointmentId}`;
+      console.log(`[Socket.io] Resuming consultation room ${roomName}`);
+      io.in(roomName).emit('consultation-resumed', {
+        timestamp: new Date()
+      });
     });
 
     // Handle Disconnect

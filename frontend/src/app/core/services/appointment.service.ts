@@ -138,11 +138,14 @@ export interface AppointmentItem {
   paymentStatus: string;
   cancelledAt?: string;
   cancellationReason?: string;
+  isEmergency?: boolean;
+  emergencyStatus?: string;
 }
 
 export interface DoctorAppointmentItem {
   _id: string;
-  patientId: { _id: string; firstName: string; lastName: string };
+  patientId?: { _id: string; firstName?: string; lastName?: string; name?: string; age?: number; phone?: string; email?: string; bloodGroup?: string };
+  patientName?: string;
   appointmentDate: string;
   startTime: string;
   endTime: string;
@@ -150,6 +153,12 @@ export interface DoctorAppointmentItem {
   symptoms: string;
   status: string;
   amount: number;
+  isEmergency?: boolean;
+  emergencyStatus?: string;
+  prescription?: any[];
+  prescribedAt?: string;
+  time?: string;
+  age?: number;
 }
 
 export interface CancelResponse {

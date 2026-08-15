@@ -13,6 +13,12 @@ export interface User {
     gender?: string;
     phone?: string;
     bloodGroup?: string;
+    profileImage?: string;
+    emergencyContact?: {
+      name?: string;
+      phone?: string;
+      relation?: string;
+    };
     address?: {
       houseName?: string;
       city?: string;
@@ -20,6 +26,8 @@ export interface User {
       state?: string;
       pincode?: string;
       country?: string;
+      latitude?: number | null;
+      longitude?: number | null;
     };
   };
   doctorProfile?: {
@@ -30,6 +38,7 @@ export interface User {
     isVerified: boolean;
     experienceYears?: number;
     clinicName?: string;
+    profileImage?: string;
     clinicAddress?: {
       streetAddress?: string;
       city?: string;
@@ -46,12 +55,13 @@ export interface User {
     status?: 'pending' | 'approved' | 'suspended' | 'rejected';
     suspensionReason?: string;
     suspendedAt?: string;
+    rating?: number;
   };
 }
 
 interface AuthResponse {
   message: string;
-  token: string;
+  token?: string;
   user: User;
 }
 
@@ -109,6 +119,38 @@ export class AuthService {
     return this.http.put<AuthResponse>(`${this.apiUrl}/complete-profile`, payload).pipe(
       tap(res => this.handleAuthentication(res))
     );
+  }
+
+  updateProfile(payload: any): Observable<{ success: boolean; message: string; reverificationTriggered?: boolean; user: User }> {
+    return this.http.put<{ success: boolean; message: string; reverificationTriggered?: boolean; user: User }>(`${this.apiUrl}/update-profile`, payload).pipe(
+      tap(res => {
+        if (res && res.user) {
+          this.updateLocalUser(res.user);
+        }
+      })
+    );
+  }
+
+  changePassword(payload: { currentPassword: string; newPassword: string }): Observable<{ success: boolean; message: string }> {
+    return this.http.put<{ success: boolean; message: string }>(`${this.apiUrl}/change-password`, payload);
+  }
+
+  uploadProfileImage(formData: FormData): Observable<{ success: boolean; message: string; profileImage: string; user: User }> {
+    return this.http.post<{ success: boolean; message: string; profileImage: string; user: User }>(`${this.apiUrl}/profile-image`, formData).pipe(
+      tap(res => {
+        if (res && res.user) {
+          this.updateLocalUser(res.user);
+        }
+      })
+    );
+  }
+
+  updateLocalUser(user: User) {
+    if (!user) return;
+    const current = this.currentUser();
+    const updated = { ...current, ...user };
+    localStorage.setItem('user', JSON.stringify(updated));
+    this.currentUser.set(updated);
   }
 
   forgotPassword(email: string): Observable<{ message: string; otp?: string }> {

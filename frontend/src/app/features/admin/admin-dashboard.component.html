@@ -12,13 +12,7 @@
   <header class="admin-header">
     <div class="header-container">
       <div class="brand-group">
-        <div class="logo-badge">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
+        <img src="assets/photos/logo_circle.png" alt="CarePath AI Logo" class="brand-logo-img">
         <div class="brand-text">
           <h1>CarePath <span class="highlight">AI</span></h1>
           <span class="admin-portal-tag">Admin Verification & Compliance Portal</span>
@@ -225,12 +219,17 @@
 
                 <!-- License Number -->
                 <td>
-                  <div class="license-badge">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                    </svg>
-                    <span>{{ doc.licenseNumber }}</span>
+                  <div class="license-cell-group">
+                    <div class="license-badge">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      </svg>
+                      <span>{{ doc.licenseNumber }}</span>
+                    </div>
+                    <button type="button" class="btn-nmc-pill" (click)="$event.stopPropagation(); openDetailsModal(doc, true)" title="Run Live NMC Verification">
+                      🇮🇳 NMC Check
+                    </button>
                   </div>
                 </td>
 
@@ -421,7 +420,18 @@
 
           <div class="detail-item">
             <label>Medical License Number</label>
-            <span class="detail-val license">{{ selectedDoctorForModal.licenseNumber }}</span>
+            <div class="d-flex align-items-center justify-content-between gap-2">
+              <span class="detail-val license">{{ selectedDoctorForModal.licenseNumber }}</span>
+              <button 
+                type="button" 
+                class="btn-nmc-verify-modal" 
+                (click)="runNmcVerification()" 
+                [disabled]="isVerifyingNmc"
+                title="Query official National Medical Commission live IMR registry">
+                <span *ngIf="!isVerifyingNmc">🇮🇳 Verify Live NMC</span>
+                <span *ngIf="isVerifyingNmc" class="spinner-border spinner-border-sm"></span>
+              </button>
+            </div>
           </div>
 
           <div class="detail-item">
@@ -440,10 +450,148 @@
           </div>
         </div>
 
-        <div class="verification-notes-box" *ngIf="selectedDoctorForModal.status === 'pending'">
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- 🇮🇳 OFFICIAL NMC LIVE VERIFICATION PANEL -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="nmc-verification-panel mt-3">
+          <div class="nmc-panel-header">
+            <div class="d-flex align-items-center gap-2">
+              <span class="nmc-flag">🇮🇳</span>
+              <strong>National Medical Commission (NMC) Live Verification</strong>
+            </div>
+            <span class="nmc-status-pill" [ngClass]="{
+              'status-loading': isVerifyingNmc,
+              'status-matched': !isVerifyingNmc && nmcResults.length > 0,
+              'status-unmatched': !isVerifyingNmc && nmcSearched && nmcResults.length === 0,
+              'status-idle': !nmcSearched && !isVerifyingNmc
+            }">
+              <span *ngIf="isVerifyingNmc">Querying NMC Gateway…</span>
+              <span *ngIf="!isVerifyingNmc && nmcResults.length > 0">✅ {{ nmcResults.length }} Match(es) Found</span>
+              <span *ngIf="!isVerifyingNmc && nmcSearched && nmcResults.length === 0">⚠️ No Direct Match</span>
+              <span *ngIf="!nmcSearched && !isVerifyingNmc">Not Checked Yet</span>
+            </span>
+          </div>
+
+          <!-- Loading Spinner -->
+          <div *ngIf="isVerifyingNmc" class="nmc-loading-state py-3 text-center">
+            <div class="spinner-border text-primary spinner-border-sm mb-2" role="status"></div>
+            <p class="small text-muted mb-0">Cross-referencing practitioner credentials with Indian Medical Register (IMR) live database…</p>
+          </div>
+
+          <!-- NMC Error Alert -->
+          <div *ngIf="nmcError && !isVerifyingNmc" class="alert alert-warning small py-2 px-3 my-2">
+            ⚠️ {{ nmcError }}
+          </div>
+
+          <!-- Matched Results List -->
+          <div *ngIf="!isVerifyingNmc && nmcResults.length > 0" class="nmc-results-list mt-2">
+            <div class="nmc-match-card" *ngFor="let item of nmcResults">
+              <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+                <div>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success" style="font-size: 0.72rem;">Official IMR Match</span>
+                    <strong class="nmc-doc-name">{{ item.name }}</strong>
+                  </div>
+                  <div class="nmc-meta-row mt-1">
+                    <span>🏛️ <strong>Council:</strong> {{ item.council }}</span>
+                    <span>📜 <strong>Reg No:</strong> {{ item.registrationNo }}</span>
+                    <span>📅 <strong>Year:</strong> {{ item.year }}</span>
+                    <span *ngIf="item.fatherName && item.fatherName !== 'N/A'">👨‍⚕️ <strong>Father:</strong> {{ item.fatherName }}</span>
+                  </div>
+                </div>
+
+                <button 
+                  type="button" 
+                  class="btn btn-sm btn-outline-primary nmc-view-bio-btn" 
+                  *ngIf="item.doctorId"
+                  (click)="viewNmcDetails(item)"
+                  [disabled]="isLoadingNmcDetails">
+                  <span *ngIf="!isLoadingNmcDetails">📜 View Official Bio & Degrees</span>
+                  <span *ngIf="isLoadingNmcDetails">Loading…</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Official NMC Degrees & Bio Modal Sub-view -->
+          <div *ngIf="selectedNmcDetails" class="nmc-bio-card animate-fade-in mt-3">
+            <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-2">
+              <strong class="text-primary small"><i class="bi bi-patch-check-fill me-1"></i>Official NMC Recognized Medical Qualifications</strong>
+              <button type="button" class="btn-close btn-close-sm" (click)="closeNmcDetails()"></button>
+            </div>
+
+            <div class="row g-2 small">
+              <div class="col-md-6" *ngIf="selectedNmcDetails.firstName || selectedNmcDetails.name">
+                <span class="text-muted d-block">Registered Name:</span>
+                <strong>{{ selectedNmcDetails.firstName }} {{ selectedNmcDetails.lastName || selectedNmcDetails.name }}</strong>
+              </div>
+              <div class="col-md-6" *ngIf="selectedNmcDetails.smcName">
+                <span class="text-muted d-block">State Council:</span>
+                <strong>{{ selectedNmcDetails.smcName }}</strong>
+              </div>
+              <div class="col-12" *ngIf="selectedNmcDetails.doctorAddress">
+                <span class="text-muted d-block">Registered Address:</span>
+                <span>{{ selectedNmcDetails.doctorAddress }}</span>
+              </div>
+            </div>
+
+            <!-- Qualifications Array -->
+            <div class="mt-2" *ngIf="selectedNmcDetails.qualificationList && selectedNmcDetails.qualificationList.length > 0">
+              <span class="text-muted small d-block mb-1">Degrees Awarded:</span>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered nmc-degrees-table mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Degree / Qualification</th>
+                      <th>Year</th>
+                      <th>College / Medical Institution</th>
+                      <th>University</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let q of selectedNmcDetails.qualificationList">
+                      <td><strong class="text-success">{{ q.qualification || 'MBBS' }}</strong></td>
+                      <td>{{ q.qualificationYear || 'N/A' }}</td>
+                      <td>{{ q.collegeName || 'N/A' }}</td>
+                      <td>{{ q.universityName || 'N/A' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Unmatched / Refine Query Bar -->
+          <div *ngIf="!isVerifyingNmc && nmcSearched && nmcResults.length === 0" class="nmc-unmatched-box mt-2">
+            <p class="small text-muted mb-2">
+              No live record returned with exact name and license number. You can select the specific State Medical Council or refine terms below:
+            </p>
+            <div class="row g-2 align-items-center">
+              <div class="col-md-4">
+                <input type="text" class="form-control form-control-sm" [(ngModel)]="nmcCustomName" placeholder="Doctor Name" />
+              </div>
+              <div class="col-md-4">
+                <input type="text" class="form-control form-control-sm" [(ngModel)]="nmcCustomRegNo" placeholder="Registration No" />
+              </div>
+              <div class="col-md-4">
+                <select class="form-select form-select-sm" [(ngModel)]="selectedCouncilId">
+                  <option value="">All State Councils (India)</option>
+                  <option *ngFor="let c of councilsList" [value]="c.id">{{ c.name }}</option>
+                </select>
+              </div>
+              <div class="col-12 text-end mt-2">
+                <button type="button" class="btn btn-primary btn-sm" (click)="runNmcVerification()" [disabled]="isVerifyingNmc">
+                  🔍 Re-check NMC Gateway
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="verification-notes-box mt-3" *ngIf="selectedDoctorForModal.status === 'pending'">
           <div class="note-icon">ℹ️</div>
           <div class="note-text">
-            <strong>Verification Checklist:</strong> Confirm that the provided medical license number matches state medical council registry before accepting.
+            <strong>Verification Checklist:</strong> Verify practitioner credentials above via live NMC records before accepting.
           </div>
         </div>
       </div>

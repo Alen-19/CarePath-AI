@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, DoctorVerificationItem, AdminStats } from '../../core/services/admin.service';
+import { NmcService, MedicalCouncil, NMCDoctorSummary, NMCDoctorDetails } from '../../core/services/nmc.service';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -45,9 +46,22 @@ export class AdminDashboardComponent implements OnInit {
   suspensionReasonInput = '';
   suspensionErrorMsg = '';
 
+  // 🇮🇳 NMC Live Verification State
+  councilsList: MedicalCouncil[] = [];
+  selectedCouncilId = '';
+  isVerifyingNmc = false;
+  nmcResults: NMCDoctorSummary[] = [];
+  nmcSearched = false;
+  nmcError: string | null = null;
+  selectedNmcDetails: NMCDoctorDetails | null = null;
+  isLoadingNmcDetails = false;
+  nmcCustomRegNo = '';
+  nmcCustomName = '';
+
   constructor(
     private authService: AuthService,
     private adminService: AdminService,
+    private nmcService: NmcService,
     private router: Router
   ) {
     const user = this.authService.currentUser();
@@ -65,6 +79,18 @@ export class AdminDashboardComponent implements OnInit {
   ngOnInit(): void {
     this.loadStats();
     this.loadDoctors();
+    this.loadCouncils();
+  }
+
+  loadCouncils(): void {
+    this.nmcService.getCouncils().subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.councilsList = res.councils || [];
+        }
+      },
+      error: (err) => console.warn('Could not load NMC councils:', err)
+    });
   }
 
   loadStats(): void {
@@ -240,12 +266,110 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  openDetailsModal(doctor: DoctorVerificationItem): void {
+  openDetailsModal(doctor: DoctorVerificationItem, autoVerifyNmc = false): void {
     this.selectedDoctorForModal = doctor;
+    this.clearNmcState();
+    this.nmcCustomName = `${doctor.firstName} ${doctor.lastName}`.trim();
+    this.nmcCustomRegNo = (doctor.licenseNumber || '').replace(/^LIC-?/i, '').trim();
+
+    if (autoVerifyNmc || doctor.status === 'pending') {
+      this.runNmcVerification();
+    }
   }
 
   closeModal(): void {
     this.selectedDoctorForModal = null;
+    this.clearNmcState();
+  }
+
+  clearNmcState(): void {
+    this.nmcResults = [];
+    this.nmcSearched = false;
+    this.nmcError = null;
+    this.selectedNmcDetails = null;
+    this.isVerifyingNmc = false;
+    this.isLoadingNmcDetails = false;
+    this.selectedCouncilId = '';
+  }
+
+  runNmcVerification(): void {
+    if (!this.selectedDoctorForModal) return;
+
+    this.isVerifyingNmc = true;
+    this.nmcError = null;
+    this.nmcSearched = true;
+    this.nmcResults = [];
+    this.selectedNmcDetails = null;
+
+    const nameToQuery = (this.nmcCustomName || this.selectedDoctorForModal.firstName || '').trim();
+    const regNoToQuery = (this.nmcCustomRegNo || this.selectedDoctorForModal.licenseNumber || '').replace(/^LIC-?/i, '').trim();
+
+    this.nmcService.searchNMC({
+      name: nameToQuery,
+      registrationNo: regNoToQuery,
+      smcId: this.selectedCouncilId || undefined,
+      length: 25
+    }).subscribe({
+      next: (res) => {
+        this.isVerifyingNmc = false;
+        if (res.success) {
+          this.nmcResults = res.data || [];
+          if (this.nmcResults.length === 0 && regNoToQuery) {
+            // Fallback: If combined name + regNo yields 0, try searching by registrationNo only
+            this.searchByRegNoOnly(regNoToQuery);
+          }
+        } else {
+          this.nmcError = res.error || 'Unable to fetch results from NMC portal.';
+        }
+      },
+      error: (err) => {
+        this.isVerifyingNmc = false;
+        console.error('NMC search error:', err);
+        this.nmcError = err.error?.error || 'Failed to connect to National Medical Commission gateway.';
+      }
+    });
+  }
+
+  private searchByRegNoOnly(regNo: string): void {
+    this.nmcService.searchNMC({
+      registrationNo: regNo,
+      smcId: this.selectedCouncilId || undefined,
+      length: 25
+    }).subscribe({
+      next: (res) => {
+        if (res.success && res.data && res.data.length > 0) {
+          this.nmcResults = res.data;
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  viewNmcDetails(item: NMCDoctorSummary): void {
+    if (!item.doctorId) return;
+
+    this.isLoadingNmcDetails = true;
+    this.selectedNmcDetails = null;
+
+    this.nmcService.getDoctorDetails(item.doctorId, item.registrationNo).subscribe({
+      next: (res) => {
+        this.isLoadingNmcDetails = false;
+        if (res.success && res.details) {
+          this.selectedNmcDetails = res.details;
+        } else {
+          this.showToast('Could not load official details for this record.', 'error');
+        }
+      },
+      error: (err) => {
+        this.isLoadingNmcDetails = false;
+        console.error('Error fetching NMC doctor details:', err);
+        this.showToast('Failed to load NMC doctor bio details.', 'error');
+      }
+    });
+  }
+
+  closeNmcDetails(): void {
+    this.selectedNmcDetails = null;
   }
 
   showToast(message: string, type: 'success' | 'error' = 'success'): void {

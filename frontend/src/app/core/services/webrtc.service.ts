@@ -37,6 +37,9 @@ export class WebRtcService {
     audioEnabled: true,
     videoEnabled: true
   });
+  public emergencyAlert$ = new BehaviorSubject<{ appointmentId: string; patientName: string; symptomSummary: string } | null>(null);
+  public consultationPaused$ = new Subject<{ reason: string }>();
+  public consultationResumed$ = new Subject<void>();
 
   private currentAppointmentId: string | null = null;
   private currentTargetSocketId: string | null = null;
@@ -174,6 +177,50 @@ export class WebRtcService {
       this.peerUsers$.next(remaining);
       this.remoteStream$.next(null);
     });
+
+    // Emergency Alert Listener
+    this.socket.on('emergency-alert', (data: { appointmentId: string; patientName: string; symptomSummary: string }) => {
+      console.log('[WebRtcService] 🚨 Received Emergency Alert:', data);
+      this.emergencyAlert$.next(data);
+    });
+
+    // Consultation Paused Listener
+    this.socket.on('consultation-paused', (data: { reason: string }) => {
+      console.log('[WebRtcService] Consultation paused:', data.reason);
+      this.consultationPaused$.next(data);
+    });
+
+    // Consultation Resumed Listener
+    this.socket.on('consultation-resumed', () => {
+      console.log('[WebRtcService] Consultation resumed');
+      this.consultationResumed$.next();
+    });
+  }
+
+  public registerDoctorDashboard(doctorId: string): void {
+    this.connect();
+    if (this.socket) {
+      this.socket.emit('join-doctor-dashboard', { doctorId });
+    }
+  }
+
+  public emitEmergencyRequest(doctorId: string, patientName: string, symptomSummary: string, appointmentId: string): void {
+    this.connect();
+    if (this.socket) {
+      this.socket.emit('emergency-request', { doctorId, patientName, symptomSummary, appointmentId });
+    }
+  }
+
+  public pauseConsultation(appointmentId: string, reason?: string): void {
+    if (this.socket) {
+      this.socket.emit('pause-consultation', { appointmentId, reason });
+    }
+  }
+
+  public resumeConsultation(appointmentId: string): void {
+    if (this.socket) {
+      this.socket.emit('resume-consultation', { appointmentId });
+    }
   }
 
   /**

@@ -48,6 +48,10 @@ const PatientSchema = new mongoose.Schema({
     country: { type: String, trim: true, default: 'India' },
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null }
+  },
+  profileImage: {
+    type: String,
+    default: null
   }
 }, { 
   timestamps: true,

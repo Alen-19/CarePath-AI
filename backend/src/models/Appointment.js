@@ -108,6 +108,20 @@ const AppointmentSchema = new mongoose.Schema({
   prescribedAt: {
     type: Date,
     default: null
+  },
+  // Emergency Triage & Queue Shift fields
+  isEmergency: {
+    type: Boolean,
+    default: false
+  },
+  emergencyStatus: {
+    type: String,
+    enum: ['None', 'Pending', 'Accepted', 'Completed'],
+    default: 'None'
+  },
+  delayMinutes: {
+    type: Number,
+    default: 0
   }
 }, { 
   timestamps: true,

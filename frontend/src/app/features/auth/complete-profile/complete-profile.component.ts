@@ -96,7 +96,15 @@ export class CompleteProfileComponent implements OnInit {
   phoneTouched = false;
   licenseNumberTouched = false;
   experienceYearsTouched = false;
-  maxDobDate = new Date().toISOString().split('T')[0];
+  maxDobDate = this.getLocalDateString(new Date());
+
+  getLocalDateString(d: Date): string {
+    if (!d) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   get isFirstNameValid(): boolean {
     const clean = this.firstName.trim();
@@ -231,7 +239,7 @@ export class CompleteProfileComponent implements OnInit {
       
       // If the user already had profile fields filled, pre-fill them
       if (user.role === 'patient' && user.patientProfile) {
-        this.dateOfBirth = user.patientProfile.dateOfBirth ? new Date(user.patientProfile.dateOfBirth).toISOString().split('T')[0] : '';
+        this.dateOfBirth = user.patientProfile.dateOfBirth ? this.getLocalDateString(new Date(user.patientProfile.dateOfBirth)) : '';
         this.gender = user.patientProfile.gender || 'Prefer not to say';
         this.phone = user.patientProfile.phone || '';
         this.bloodGroup = user.patientProfile.bloodGroup || '';

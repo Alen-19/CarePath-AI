@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -10,6 +10,7 @@ import {
   DoctorDateOverrideData,
   DoctorAppointmentItem
 } from '../../core/services/appointment.service';
+import { WebRtcService } from '../../core/services/webrtc.service';
 
 @Component({
   selector: 'app-doctor-dashboard',
@@ -26,6 +27,10 @@ export class DoctorDashboardComponent implements OnInit {
   clinicAddress = 'Heart & Vascular Clinic, Medical Block C, Metro Hospital';
   isVerified = true;
   today = new Date();
+  showDoctorDropdown = false;
+
+  // Emergency Live Alert State
+  activeEmergencyAlert: { appointmentId: string; patientName: string; symptomSummary: string } | null = null;
 
   // Clean time options for strict dropdown selection
   timeOptions: string[] = [
@@ -115,29 +120,214 @@ export class DoctorDashboardComponent implements OnInit {
   loadingPincode = false;
   pincodeErrorMsg = '';
 
+  activeNavTab: 'appointments' | 'profile' = 'appointments';
+  
+  // Doctor Profile Editing State
+  docFirstName = '';
+  docLastName = '';
+  docEmail = '';
+  docSpecialization = '';
+  specializationsList: string[] = [
+    'General Practice / General Physician',
+    'Allergy & Immunology',
+    'Anesthesiology',
+    'Cardiology',
+    'Dermatology',
+    'Emergency Medicine',
+    'Endocrinology',
+    'Family Medicine',
+    'Gastroenterology',
+    'General Surgery',
+    'Geriatric Medicine',
+    'Hematology',
+    'Infectious Disease',
+    'Internal Medicine',
+    'Medical Genetics',
+    'Nephrology',
+    'Neurology',
+    'Neurosurgery',
+    'Obstetrics & Gynecology (OB-GYN)',
+    'Oncology',
+    'Ophthalmology',
+    'Orthopedic Surgery',
+    'Otolaryngology (ENT)',
+    'Pathology',
+    'Pediatrics',
+    'Physical Medicine & Rehabilitation',
+    'Plastic Surgery',
+    'Psychiatry',
+    'Pulmonology',
+    'Radiology',
+    'Rheumatology',
+    'Sports Medicine',
+    'Urology',
+    'Vascular Surgery',
+    'Other / Specialized'
+  ];
+  docLicenseNumber = '';
+  docExperienceYears = 0;
+  docClinicName = '';
+  docConsultationFee = 500;
+  docProfileImage = '';
+  docStatus: 'pending' | 'approved' | 'suspended' | 'rejected' = 'approved';
+
+  originalSpecialization = '';
+  originalLicenseNumber = '';
+
+  uploadingDoctorImage = false;
+  isSavingProfile = false;
+  profileSaveMsg = '';
+  profileErrMsg = '';
+  showReverificationModal = false;
+
+  // Password Change State
+  passwordForm = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+  changingPassword = false;
+  passwordSuccess = '';
+  passwordError = '';
+
   // Appointments
   todayApptsList: DoctorAppointmentItem[] = [];
   upcomingApptsList: DoctorAppointmentItem[] = [];
+  pastApptsList: DoctorAppointmentItem[] = [];
+  pastApptsSearch = '';
+  selectedPastAppointment: DoctorAppointmentItem | null = null;
   loadingAppts = false;
-  apptTab: 'today' | 'upcoming' = 'today';
+  apptTab: 'today' | 'upcoming' | 'past' = 'today';
+
+  get filteredPastApptsList(): DoctorAppointmentItem[] {
+    const q = (this.pastApptsSearch || '').toLowerCase().trim();
+    if (!q) return this.pastApptsList;
+    return this.pastApptsList.filter(a => {
+      const patientName = (a.patientId ? (a.patientId.firstName ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientId.name || '')) : (a.patientName || '')).toLowerCase();
+      const symptoms = (a.symptoms || '').toLowerCase();
+      const type = (a.type || '').toLowerCase();
+      const date = (a.appointmentDate || '').toLowerCase();
+      return patientName.includes(q) || symptoms.includes(q) || type.includes(q) || date.includes(q);
+    });
+  }
+
+  // Touch Trackers for Doctor Profile
+  docFirstNameTouched = false;
+  docLastNameTouched = false;
+  docSpecializationTouched = false;
+  docLicenseNumberTouched = false;
+  docExperienceYearsTouched = false;
+  docConsultationFeeTouched = false;
+  docClinicNameTouched = false;
+  docPincodeTouched = false;
+
+  get isDocFirstNameValid(): boolean {
+    const clean = (this.docFirstName || '').trim();
+    if (clean.length < 2 || clean.length > 50) return false;
+    return /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/.test(clean);
+  }
+
+  get isDocLastNameValid(): boolean {
+    const clean = (this.docLastName || '').trim();
+    if (!clean) return true;
+    if (clean.length < 1 || clean.length > 50) return false;
+    return /^[a-zA-Z]+(?:[\s'\.\-][a-zA-Z]+)*$/.test(clean);
+  }
+
+  get isDocSpecializationValid(): boolean {
+    const clean = (this.docSpecialization || '').trim();
+    if (clean.length < 2 || clean.length > 60) return false;
+    return /^[a-zA-Z]+(?:[\s'\.\-\&][a-zA-Z]+)*$/.test(clean);
+  }
+
+  get isDocLicenseValid(): boolean {
+    const clean = (this.docLicenseNumber || '').trim();
+    if (clean.length < 4 || clean.length > 35) return false;
+    if (/^(.)\1+$/.test(clean)) return false; // reject '0000', '1111', 'aaaa'
+    return /^[a-zA-Z0-9]+(?:[\/\-][a-zA-Z0-9]+)*$/.test(clean);
+  }
+
+  get isDocExperienceValid(): boolean {
+    if (this.docExperienceYears === null || this.docExperienceYears === undefined || (this.docExperienceYears as any) === '') return false;
+    return this.docExperienceYears >= 0 && this.docExperienceYears <= 60;
+  }
+
+  get isDocFeeValid(): boolean {
+    if (this.docConsultationFee === null || this.docConsultationFee === undefined || (this.docConsultationFee as any) === '') return false;
+    return this.docConsultationFee >= 0 && this.docConsultationFee <= 25000;
+  }
+
+  get isDocClinicNameValid(): boolean {
+    const clean = (this.docClinicName || '').trim();
+    if (!clean) return true;
+    return clean.length >= 2;
+  }
+
+  get isDocPincodeValid(): boolean {
+    const clean = (this.editPincode || '').trim();
+    if (!clean) return true;
+    return /^\d{6}$/.test(clean);
+  }
+
+  get isDocProfileFormValid(): boolean {
+    return this.isDocFirstNameValid &&
+      this.isDocLastNameValid &&
+      this.isDocSpecializationValid &&
+      this.isDocLicenseValid &&
+      this.isDocExperienceValid &&
+      this.isDocFeeValid &&
+      this.isDocClinicNameValid &&
+      this.isDocPincodeValid;
+  }
+
+  get doctorInitials(): string {
+    const f = this.docFirstName?.charAt(0) || 'D';
+    const l = this.docLastName?.charAt(0) || 'R';
+    return (f + l).toUpperCase();
+  }
 
   constructor(
     private authService: AuthService,
     private appointmentService: AppointmentService,
+    private webRtcService: WebRtcService,
     private router: Router
   ) {
+    this.syncDoctorProfile();
+  }
+
+  syncDoctorProfile(): void {
     const user = this.authService.currentUser();
     if (user && user.doctorProfile) {
-      this.doctorName = `Dr. ${user.doctorProfile.firstName} ${user.doctorProfile.lastName}`.trim();
-      this.specialization = user.doctorProfile.specialization || 'General Physician';
-      this.licenseNumber = user.doctorProfile.licenseNumber || 'LIC-Pending';
+      this.docEmail = user.email || '';
+      this.docFirstName = user.doctorProfile.firstName || '';
+      this.docLastName = user.doctorProfile.lastName || '';
+      this.doctorName = `Dr. ${this.docFirstName} ${this.docLastName}`.trim();
+      this.docSpecialization = user.doctorProfile.specialization || 'General Physician';
+      this.specialization = this.docSpecialization;
+      this.originalSpecialization = this.docSpecialization;
+
+      this.docLicenseNumber = user.doctorProfile.licenseNumber || 'LIC-Pending';
+      this.licenseNumber = this.docLicenseNumber;
+      this.originalLicenseNumber = this.docLicenseNumber;
+
+      this.docProfileImage = user.doctorProfile.profileImage || '';
       this.isVerified = user.doctorProfile.isVerified ?? false;
+      this.docStatus = user.doctorProfile.status || (this.isVerified ? 'approved' : 'pending');
+
       if (user.doctorProfile.experienceYears) {
-        this.experienceYears = user.doctorProfile.experienceYears;
+        this.docExperienceYears = user.doctorProfile.experienceYears;
+        this.experienceYears = this.docExperienceYears;
+      }
+
+      // Register doctor ID for real-time emergency WebSocket alerts
+      const docId = (user.doctorProfile as any)?._id || (user.doctorProfile as any)?.id;
+      if (docId) {
+        this.webRtcService.registerDoctorDashboard(docId);
       }
       
       const doc = user.doctorProfile;
       if (doc.clinicName) {
+        this.docClinicName = doc.clinicName;
         this.editClinicName = doc.clinicName;
       }
 
@@ -165,6 +355,7 @@ export class DoctorDashboardComponent implements OnInit {
       }
 
       if (user.doctorProfile.consultationFee) {
+        this.docConsultationFee = user.doctorProfile.consultationFee;
         this.consultationFee = user.doctorProfile.consultationFee;
       }
       if (user.doctorProfile.status === 'suspended') {
@@ -181,6 +372,37 @@ export class DoctorDashboardComponent implements OnInit {
     if (this.editPincode) {
       this.onLocationPincodeInput();
     }
+
+    // Subscribe to real-time Emergency Alerts
+    this.webRtcService.emergencyAlert$.subscribe(alertData => {
+      if (alertData) {
+        this.activeEmergencyAlert = alertData;
+        this.playEmergencyChime();
+        this.loadDoctorAppointments(); // Refresh appointment list
+      }
+    });
+  }
+
+  playEmergencyChime(): void {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.6);
+    } catch (e) {
+      console.warn('Audio chime unsupported or blocked by browser user gesture.');
+    }
+  }
+
+  joinEmergencyRoom(appointmentId: string): void {
+    this.activeEmergencyAlert = null;
+    this.router.navigate([`/consultation/${appointmentId}`]);
   }
 
   openLocationModal(): void {
@@ -282,16 +504,250 @@ export class DoctorDashboardComponent implements OnInit {
     });
   }
 
+  // ─── Doctor Profile Dropdown ──────────────────────────────────────────────
+  toggleDoctorDropdown(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.showDoctorDropdown = !this.showDoctorDropdown;
+  }
+
+  closeDoctorDropdown(): void {
+    this.showDoctorDropdown = false;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.doctor-menu-container')) {
+      this.closeDoctorDropdown();
+    }
+  }
+
+  // ─── Doctor Profile Page Handlers ─────────────────────────────────────────
+  setNavTab(tab: 'appointments' | 'profile'): void {
+    this.activeNavTab = tab;
+    this.closeDoctorDropdown();
+    this.profileSaveMsg = '';
+    this.profileErrMsg = '';
+    this.passwordSuccess = '';
+    this.passwordError = '';
+  }
+
+  onDoctorImageSelected(event: any): void {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      this.profileErrMsg = 'Image size exceeds 5MB limit. Please choose a smaller file.';
+      return;
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      this.profileErrMsg = 'Please select a valid image (JPEG, PNG, or WebP).';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('profileImage', file);
+
+    this.uploadingDoctorImage = true;
+    this.authService.uploadProfileImage(formData).subscribe({
+      next: (res) => {
+        this.uploadingDoctorImage = false;
+        this.docProfileImage = res.profileImage;
+        this.syncDoctorProfile();
+        this.profileSaveMsg = 'Profile photo updated successfully!';
+      },
+      error: (err) => {
+        this.uploadingDoctorImage = false;
+        this.profileErrMsg = err.error?.message || 'Failed to upload profile photo.';
+      }
+    });
+  }
+
+  initiateSaveDoctorProfile(): void {
+    this.profileSaveMsg = '';
+    this.profileErrMsg = '';
+
+    this.docFirstNameTouched = true;
+    this.docLastNameTouched = true;
+    this.docSpecializationTouched = true;
+    this.docLicenseNumberTouched = true;
+    this.docExperienceYearsTouched = true;
+    this.docConsultationFeeTouched = true;
+    this.docClinicNameTouched = true;
+    this.docPincodeTouched = true;
+
+    if (!this.isDocProfileFormValid) {
+      if (!this.isDocFirstNameValid) {
+        this.profileErrMsg = 'Please enter a valid first name (letters only, min 2 characters).';
+      } else if (!this.isDocLastNameValid) {
+        this.profileErrMsg = 'Please enter a valid last name (letters only).';
+      } else if (!this.isDocSpecializationValid) {
+        this.profileErrMsg = 'Please enter a valid specialization (2–60 characters).';
+      } else if (!this.isDocLicenseValid) {
+        this.profileErrMsg = 'Please enter a valid medical license registration number (4–35 alphanumeric characters).';
+      } else if (!this.isDocExperienceValid) {
+        this.profileErrMsg = 'Experience must be between 0 and 60 years.';
+      } else if (!this.isDocFeeValid) {
+        this.profileErrMsg = 'Consultation fee must be between ₹0 and ₹25,000.';
+      } else if (!this.isDocClinicNameValid) {
+        this.profileErrMsg = 'Clinic name must be at least 2 characters.';
+      } else if (!this.isDocPincodeValid) {
+        this.profileErrMsg = 'Please enter a valid 6-digit Indian pincode.';
+      }
+      return;
+    }
+
+    const cleanSpec = (this.docSpecialization || '').trim();
+    const cleanLic = (this.docLicenseNumber || '').trim();
+
+    // Check if specialization or license changed compared to initial
+    const specChanged = cleanSpec && this.originalSpecialization && cleanSpec.toLowerCase() !== this.originalSpecialization.toLowerCase();
+    const licChanged = cleanLic && this.originalLicenseNumber && cleanLic.toLowerCase() !== this.originalLicenseNumber.toLowerCase();
+
+    if (specChanged || licChanged) {
+      // Trigger confirmation warning modal
+      this.showReverificationModal = true;
+    } else {
+      this.executeSaveDoctorProfile();
+    }
+  }
+
+  confirmReverificationAndSave(): void {
+    this.showReverificationModal = false;
+    this.executeSaveDoctorProfile();
+  }
+
+  cancelReverificationModal(): void {
+    this.showReverificationModal = false;
+  }
+
+  private executeSaveDoctorProfile(): void {
+    this.isSavingProfile = true;
+    this.profileSaveMsg = '';
+    this.profileErrMsg = '';
+
+    const payload = {
+      firstName: this.docFirstName.trim(),
+      lastName: this.docLastName.trim(),
+      specialization: this.docSpecialization.trim(),
+      licenseNumber: this.docLicenseNumber.trim(),
+      experienceYears: Number(this.docExperienceYears) || 0,
+      clinicName: (this.docClinicName || '').trim(),
+      consultationFee: Number(this.docConsultationFee) || 500,
+      clinicAddress: {
+        city: (this.editCity || '').trim(),
+        district: (this.editDistrict || '').trim(),
+        state: (this.editState || '').trim(),
+        pincode: (this.editPincode || '').trim(),
+        country: this.editCountry || 'India',
+        latitude: this.editLat,
+        longitude: this.editLng
+      }
+    };
+
+    this.authService.updateProfile(payload).subscribe({
+      next: (res) => {
+        this.isSavingProfile = false;
+        this.syncDoctorProfile();
+        if (res.reverificationTriggered) {
+          this.profileSaveMsg = '⚠️ Profile updated. Re-verification has been requested. Admin review is pending.';
+        } else {
+          this.profileSaveMsg = '✓ Doctor profile updated successfully!';
+        }
+      },
+      error: (err) => {
+        this.isSavingProfile = false;
+        this.profileErrMsg = err.error?.message || 'Failed to update profile.';
+      }
+    });
+  }
+
+  changeDoctorPassword(): void {
+    this.passwordError = '';
+    this.passwordSuccess = '';
+
+    if (!this.passwordForm.currentPassword || !this.passwordForm.newPassword) {
+      this.passwordError = 'Please fill in all password fields.';
+      return;
+    }
+
+    if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
+      this.passwordError = 'New password and confirm password do not match.';
+      return;
+    }
+
+    if (this.passwordForm.newPassword.length < 8) {
+      this.passwordError = 'New password must be at least 8 characters long.';
+      return;
+    }
+
+    const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
+    if (!regex.test(this.passwordForm.newPassword)) {
+      this.passwordError = 'Password must contain both letters and numbers.';
+      return;
+    }
+
+    this.changingPassword = true;
+    this.authService.changePassword({
+      currentPassword: this.passwordForm.currentPassword,
+      newPassword: this.passwordForm.newPassword
+    }).subscribe({
+      next: (res) => {
+        this.changingPassword = false;
+        this.passwordSuccess = '✓ Password changed successfully!';
+        this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
+      },
+      error: (err) => {
+        this.changingPassword = false;
+        this.passwordError = err.error?.message || 'Failed to change password. Please verify your current password.';
+      }
+    });
+  }
+
   loadDoctorAppointments(): void {
     this.loadingAppts = true;
     this.appointmentService.getDoctorAppointments().subscribe({
       next: (res) => {
-        this.todayApptsList = res.today || [];
-        this.upcomingApptsList = res.upcoming || [];
+        const rawToday = res.today || [];
+        // Sort Emergency Sync appointments to top of list
+        this.todayApptsList = rawToday.sort((a, b) => {
+          const aEmerg = a.type === 'Emergency Sync' || a.isEmergency ? 1 : 0;
+          const bEmerg = b.type === 'Emergency Sync' || b.isEmergency ? 1 : 0;
+          return bEmerg - aEmerg;
+        });
+
+        const rawUpcoming = res.upcoming || [];
+        this.upcomingApptsList = rawUpcoming.sort((a, b) => {
+          const aEmerg = a.type === 'Emergency Sync' || a.isEmergency ? 1 : 0;
+          const bEmerg = b.type === 'Emergency Sync' || b.isEmergency ? 1 : 0;
+          return bEmerg - aEmerg;
+        });
+
+        const rawPast = res.past || [];
+        this.pastApptsList = rawPast.sort((a, b) => {
+          return new Date((b.appointmentDate || '2000-01-01') + 'T' + (b.startTime ? this.convertTo24h(b.startTime) : '00:00:00')).getTime() -
+                 new Date((a.appointmentDate || '2000-01-01') + 'T' + (a.startTime ? this.convertTo24h(a.startTime) : '00:00:00')).getTime();
+        });
+
         this.loadingAppts = false;
       },
       error: () => { this.loadingAppts = false; }
     });
+  }
+
+  private convertTo24h(time12h: string): string {
+    if (!time12h) return '00:00:00';
+    const match = time12h.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return '00:00:00';
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const mod = match[3].toUpperCase();
+    if (mod === 'PM' && h < 12) h += 12;
+    if (mod === 'AM' && h === 12) h = 0;
+    return `${String(h).padStart(2, '0')}:${m}:00`;
   }
 
   formatApptDate(dateStr: string): string {

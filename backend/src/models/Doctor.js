@@ -82,6 +82,10 @@ const DoctorSchema = new mongoose.Schema({
   rating: {
     type: Number,
     default: 5.0
+  },
+  profileImage: {
+    type: String,
+    default: null
   }
 }, { 
   timestamps: true,
