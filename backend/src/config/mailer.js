@@ -157,6 +157,21 @@ const sendAppointmentReceiptEmail = async (details) => {
       ? `<img src="cid:carepath_logo_circle" alt="CarePath AI Logo" style="width: 56px; height: 56px; border-radius: 50%; vertical-align: middle; object-fit: cover;" />`
       : `<span style="font-size: 24px; color: #ffffff; line-height: 46px; display: block;">✦</span>`;
 
+    let formattedClinicAddress = '';
+    if (typeof clinicAddress === 'string') {
+      formattedClinicAddress = clinicAddress;
+    } else if (clinicAddress && typeof clinicAddress === 'object') {
+      const parts = [];
+      if (clinicAddress.clinicName || clinicAddress.houseName || clinicAddress.streetAddress) {
+        parts.push(clinicAddress.clinicName || clinicAddress.houseName || clinicAddress.streetAddress);
+      }
+      if (clinicAddress.city) parts.push(clinicAddress.city);
+      if (clinicAddress.district && clinicAddress.district !== clinicAddress.city) parts.push(clinicAddress.district);
+      if (clinicAddress.state) parts.push(clinicAddress.state);
+      if (clinicAddress.pincode) parts.push(`Pincode: ${clinicAddress.pincode}`);
+      formattedClinicAddress = parts.join(', ');
+    }
+
     const htmlContent = `
       <div style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b1329; color: #f8fafc; padding: 40px 20px; max-width: 600px; margin: 0 auto; border-radius: 16px; border: 1px solid rgba(0, 180, 216, 0.25);">
         
@@ -227,10 +242,10 @@ const sendAppointmentReceiptEmail = async (details) => {
               <td style="padding: 10px 0; color: #94a3b8;">Consultation Type:</td>
               <td style="padding: 10px 0; color: #f59e0b; font-weight: 600; text-align: right;">${consultationType || 'General Consultation'}</td>
             </tr>
-            ${clinicAddress ? `
+            ${formattedClinicAddress ? `
             <tr style="border-top: 1px dashed rgba(255, 255, 255, 0.1);">
               <td style="padding: 10px 0; color: #94a3b8;">Clinic Address:</td>
-              <td style="padding: 10px 0; color: #cbd5e1; text-align: right; font-size: 13px;">${clinicAddress}</td>
+              <td style="padding: 10px 0; color: #cbd5e1; text-align: right; font-size: 13px;">${formattedClinicAddress}</td>
             </tr>
             ` : ''}
           </table>
@@ -305,7 +320,7 @@ const sendAppointmentReceiptEmail = async (details) => {
   }
 };
 
-const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, specialty, prescriptionList, dateStr) => {
+const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, specialty, prescriptionList, dateStr, clinicalNotes = null) => {
   try {
     const transporter = await createTransporter();
     if (!transporter) return false;
@@ -314,7 +329,7 @@ const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, spec
       ? `<img src="cid:carepath_logo_circle" alt="CarePath AI Logo" style="width: 52px; height: 52px; border-radius: 50%; vertical-align: middle; object-fit: cover;" />`
       : `<span style="font-size: 24px; color: #2563EB;">✦</span>`;
 
-    const medsTableRows = prescriptionList.map((m, idx) => `
+    const medsTableRows = (prescriptionList || []).map((m, idx) => `
       <tr style="border-bottom: 1px solid #E2E8F0;">
         <td style="padding: 12px; font-weight: 700; color: #0F172A;">${idx + 1}. ${m.medicineName}</td>
         <td style="padding: 12px; color: #2563EB; font-weight: 700; text-align: center;">${m.dosage}</td>
@@ -323,12 +338,40 @@ const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, spec
       </tr>
     `).join('');
 
+    let doctorRemarksHtml = '';
+    let dietaryAdviceHtml = '';
+
+    if (clinicalNotes) {
+      if (clinicalNotes.doctorRemarks) {
+        doctorRemarksHtml = `
+          <div style="background: #EFF6FF; border-left: 4px solid #2563EB; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+            <strong style="color: #1E40AF; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">📝 Doctor Remarks & Impression:</strong>
+            <p style="color: #1E293B; font-size: 0.92rem; margin: 0; line-height: 1.5;">${clinicalNotes.doctorRemarks}</p>
+          </div>
+        `;
+      }
+
+      const tagsHtml = (clinicalNotes.nutritionalTags || []).map(t => `<span style="background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; margin-right: 6px; display: inline-block; margin-bottom: 4px;">${t}</span>`).join('');
+
+      if (clinicalNotes.recommendedFoods || clinicalNotes.foodsToAvoid || (clinicalNotes.nutritionalTags && clinicalNotes.nutritionalTags.length > 0)) {
+        dietaryAdviceHtml = `
+          <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+            <h3 style="color: #16A34A; font-size: 0.95rem; margin: 0 0 10px 0; display: flex; align-items: center;">🥗 Doctor's Dietary & Food Recommendations</h3>
+            ${tagsHtml ? `<div style="margin-bottom: 10px;">${tagsHtml}</div>` : ''}
+            ${clinicalNotes.recommendedFoods ? `<p style="margin: 0 0 8px 0; font-size: 0.88rem; color: #1E293B;"><strong>🥦 Recommended Foods:</strong> ${clinicalNotes.recommendedFoods}</p>` : ''}
+            ${clinicalNotes.foodsToAvoid ? `<p style="margin: 0 0 8px 0; font-size: 0.88rem; color: #DC2626;"><strong>🚫 Foods to Avoid:</strong> ${clinicalNotes.foodsToAvoid}</p>` : ''}
+            ${clinicalNotes.hydrationGoalLiters ? `<p style="margin: 0; font-size: 0.85rem; color: #2563EB;"><strong>💧 Daily Hydration Goal:</strong> ${clinicalNotes.hydrationGoalLiters} Liters Water / Day</p>` : ''}
+          </div>
+        `;
+      }
+    }
+
     const htmlContent = `
       <div style="font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; background-color: #F8FAFC; color: #0F172A; padding: 40px 20px; max-width: 600px; margin: 0 auto; border: 1px solid #E2E8F0; border-radius: 16px;">
         <div style="text-align: center; margin-bottom: 20px;">
           ${logoHtml}
-          <h2 style="color: #2563EB; margin: 10px 0 2px;">CarePath AI E-Prescription</h2>
-          <p style="color: #64748B; font-size: 0.85rem; margin: 0;">Official Digital Clinical Prescription</p>
+          <h2 style="color: #2563EB; margin: 10px 0 2px;">CarePath AI E-Prescription & Consultation Summary</h2>
+          <p style="color: #64748B; font-size: 0.85rem; margin: 0;">Official Digital Clinical Record</p>
         </div>
 
         <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
@@ -344,6 +387,10 @@ const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, spec
           </table>
         </div>
 
+        ${doctorRemarksHtml}
+        ${dietaryAdviceHtml}
+
+        ${prescriptionList && prescriptionList.length > 0 ? `
         <h3 style="color: #0F172A; font-size: 1rem; margin-bottom: 10px;">💊 Prescribed Medications</h3>
         <table width="100%" style="border-collapse: collapse; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; overflow: hidden; margin-bottom: 25px;">
           <thead>
@@ -358,9 +405,10 @@ const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, spec
             ${medsTableRows}
           </tbody>
         </table>
+        ` : ''}
 
         <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 15px; font-size: 0.82rem; color: #15803D; margin-bottom: 20px;">
-          ✔ Verified by <strong>${doctorName}</strong>. Please follow all dosage timings specified above. Contact carepathaiadmin@gmail.com for support.
+          ✔ Verified by <strong>${doctorName}</strong>. Please follow all dosage timings and dietary advice specified above. Contact carepathaiadmin@gmail.com for support.
         </div>
       </div>
     `;

@@ -317,21 +317,30 @@
               </p>
             </div>
 
-            <div class="card-bottom-actions d-flex justify-content-between align-items-center pt-2 border-top">
+            <div class="card-bottom-actions d-flex justify-content-between align-items-center pt-2 border-top gap-2">
               <span class="badge bg-success text-white small" *ngIf="a.prescription && a.prescription.length > 0">
-                <i class="bi bi-capsule me-1"></i>Rx ({{ a.prescription.length }} Medications)
+                <i class="bi bi-capsule me-1"></i>Rx ({{ a.prescription.length }} Meds)
               </span>
               <span class="badge bg-light text-muted border small" *ngIf="!a.prescription || a.prescription.length === 0">
                 No RX Issued
               </span>
 
-              <button 
-                type="button" 
-                class="btn btn-outline-primary btn-sm ms-auto"
-                (click)="selectedPastAppointment = a"
-                title="View Consultation Summary & Prescription">
-                <i class="bi bi-file-earmark-medical me-1"></i> View Record
-              </button>
+              <div class="ms-auto d-flex gap-1">
+                <button 
+                  type="button" 
+                  class="btn btn-outline-info btn-sm"
+                  (click)="openClinicalNotesModal(a)"
+                  title="View / Edit Doctor Remarks & Dietary Advice">
+                  <i class="bi bi-journal-medical me-1"></i> Notes & Diet
+                </button>
+                <button 
+                  type="button" 
+                  class="btn btn-outline-primary btn-sm"
+                  (click)="selectedPastAppointment = a"
+                  title="View Consultation Summary & Prescription">
+                  <i class="bi bi-file-earmark-medical me-1"></i> View Record
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1053,6 +1062,76 @@
 
       <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top">
         <button type="button" class="btn btn-secondary btn-sm" (click)="selectedPastAppointment = null">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ CLINICAL REMARKS & DIETARY ADVICE EDIT MODAL ══════════════ -->
+  <div class="modal-backdrop-custom animate-fade-in" *ngIf="selectedNotesAppt">
+    <div class="modal-card glass-card shadow-2xl" style="max-width: 620px; width: 100%;">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <span class="fs-4">🥗</span>
+          <div>
+            <h3 class="m-0 fs-5 fw-bold text-dark">Clinical Remarks & Dietary Advice</h3>
+            <span class="small text-muted">Patient: <strong>{{ selectedNotesAppt.patientName || 'Patient' }}</strong> • {{ formatApptDate(selectedNotesAppt.appointmentDate) }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close" (click)="closeClinicalNotesModal()"></button>
+      </div>
+
+      <div class="modal-body p-3">
+        <!-- Success Alert -->
+        <div *ngIf="notesModalMsg" class="alert alert-success py-2 px-3 mb-3 small shadow-sm">
+          {{ notesModalMsg }}
+        </div>
+
+        <!-- Doctor Remarks -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted text-uppercase">📝 Doctor Remarks & Clinical Impression</label>
+          <textarea class="form-control" rows="3" placeholder="Enter clinical remarks, impression, or advice for patient…" [(ngModel)]="modalNotesData.doctorRemarks"></textarea>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted text-uppercase">🥗 Quick Dietary Focus Presets</label>
+          <div class="d-flex flex-wrap gap-1.5 mb-2">
+            <button type="button" class="btn btn-sm btn-outline-success" [class.active]="modalNotesData.nutritionalTags?.includes('High-Iron')" (click)="applyModalNutritionalPreset('iron')">🩸 High-Iron</button>
+            <button type="button" class="btn btn-sm btn-outline-info" [class.active]="modalNotesData.nutritionalTags?.includes('High-Protein')" (click)="applyModalNutritionalPreset('protein')">💪 High-Protein</button>
+            <button type="button" class="btn btn-sm btn-outline-warning" [class.active]="modalNotesData.nutritionalTags?.includes('Low-Sodium')" (click)="applyModalNutritionalPreset('sodium')">🧂 Low-Sodium</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" [class.active]="modalNotesData.nutritionalTags?.includes('Diabetic Friendly')" (click)="applyModalNutritionalPreset('diabetic')">🩺 Diabetic Low-GI</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" [class.active]="modalNotesData.nutritionalTags?.includes('Calcium & Vit-D')" (click)="applyModalNutritionalPreset('calcium')">🥛 Calcium & Vit-D</button>
+          </div>
+        </div>
+
+        <!-- Recommended Foods -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted text-uppercase">🥦 Recommended Foods</label>
+          <textarea class="form-control" rows="2" placeholder="e.g. Spinach, Pomegranate, Lentils, Eggs, Dates, Beetroot…" [(ngModel)]="modalNotesData.recommendedFoods"></textarea>
+        </div>
+
+        <!-- Foods to Avoid -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-danger text-uppercase">🚫 Foods to Avoid</label>
+          <textarea class="form-control border-danger" rows="2" placeholder="e.g. Processed sugars, Salt > 2g/day, Deep-fried items, Caffeine…" [(ngModel)]="modalNotesData.foodsToAvoid"></textarea>
+        </div>
+
+        <!-- Hydration Target -->
+        <div class="mb-2">
+          <label class="form-label fw-bold small text-info text-uppercase">💧 Daily Hydration Target (Liters)</label>
+          <div class="d-flex align-items-center gap-2">
+            <input type="range" class="form-range flex-grow-1" min="1" max="5" step="0.5" [(ngModel)]="modalNotesData.hydrationGoalLiters">
+            <span class="badge bg-info text-dark fw-bold fs-6">{{ modalNotesData.hydrationGoalLiters }} L/day</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top">
+        <button type="button" class="btn btn-secondary btn-sm" (click)="closeClinicalNotesModal()">Cancel</button>
+        <button type="button" class="btn btn-success btn-sm fw-bold" [disabled]="isSavingNotesModal" (click)="saveClinicalNotesFromModal()">
+          <span *ngIf="isSavingNotesModal" class="spinner-border spinner-border-sm me-1"></span>
+          <i *ngIf="!isSavingNotesModal" class="bi bi-check-circle-fill me-1"></i> Save & Send Email to Patient
+        </button>
       </div>
     </div>
   </div>

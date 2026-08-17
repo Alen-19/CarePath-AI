@@ -761,7 +761,7 @@ const addPrescription = async (req, res) => {
 
     if (patientEmail) {
       console.log(`[E-PRESCRIPTION] Sending email to patient: ${patientEmail}...`);
-      sendPrescriptionEmail(patientEmail, patientName, doctorName, specialty, prescription, appointment.appointmentDate);
+      sendPrescriptionEmail(patientEmail, patientName, doctorName, specialty, prescription, appointment.appointmentDate, appointment.clinicalNotes);
     } else {
       console.warn('[E-PRESCRIPTION] Could not find patient email to send prescription.');
     }
@@ -778,6 +778,99 @@ const addPrescription = async (req, res) => {
   }
 };
 
+// ─── POST /api/booking/:id/clinical-notes ──────────────────────────────────
+const saveClinicalNotes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { doctorRemarks, nutritionalTags, recommendedFoods, foodsToAvoid, hydrationGoalLiters } = req.body;
+
+    const doctor = await Doctor.findOne({ userId: req.user._id });
+    if (!doctor) return res.status(404).json({ message: 'Doctor profile not found.' });
+
+    const appointment = await Appointment.findOne({ _id: id, doctorId: doctor._id })
+      .populate({
+        path: 'patientId',
+        populate: { path: 'userId', select: 'email' }
+      })
+      .populate({
+        path: 'doctorId',
+        populate: { path: 'userId', select: 'firstName lastName' }
+      });
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found or unauthorized.' });
+    }
+
+    appointment.clinicalNotes = {
+      doctorRemarks: doctorRemarks || '',
+      nutritionalTags: nutritionalTags || [],
+      recommendedFoods: recommendedFoods || '',
+      foodsToAvoid: foodsToAvoid || '',
+      hydrationGoalLiters: hydrationGoalLiters || 3,
+      savedAt: new Date()
+    };
+
+    await appointment.save();
+
+    // Trigger email send to patient with remarks & dietary advice
+    let patientEmail = '';
+    let patientName = 'Patient';
+    if (appointment.patientId) {
+      patientName = `${appointment.patientId.firstName || ''} ${appointment.patientId.lastName || ''}`.trim() || 'Patient';
+      if (appointment.patientId.userId && appointment.patientId.userId.email) {
+        patientEmail = appointment.patientId.userId.email;
+      }
+    }
+
+    let doctorName = 'Doctor';
+    let specialty = 'General Practice';
+    if (appointment.doctorId) {
+      const docFirst = appointment.doctorId.firstName || appointment.doctorId.userId?.firstName || '';
+      const docLast = appointment.doctorId.lastName || appointment.doctorId.userId?.lastName || '';
+      doctorName = `Dr. ${docFirst} ${docLast}`.trim();
+      specialty = appointment.doctorId.specialization || 'General Practice';
+    }
+
+    if (patientEmail) {
+      console.log(`[CLINICAL-NOTES] Sending updated email to patient: ${patientEmail}...`);
+      sendPrescriptionEmail(
+        patientEmail,
+        patientName,
+        doctorName,
+        specialty,
+        appointment.prescription || [],
+        appointment.appointmentDate,
+        appointment.clinicalNotes
+      );
+    }
+
+    res.json({
+      success: true,
+      message: 'Clinical remarks and dietary advice saved and emailed to patient.',
+      clinicalNotes: appointment.clinicalNotes
+    });
+  } catch (err) {
+    console.error('Save clinical notes error:', err);
+    res.status(500).json({ message: 'Failed to save clinical notes.', error: err.message });
+  }
+};
+
+// ─── GET /api/booking/:id/clinical-notes ───────────────────────────────────
+const getClinicalNotes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id);
+    if (!appointment) return res.status(404).json({ message: 'Appointment not found.' });
+
+    res.json({
+      success: true,
+      clinicalNotes: appointment.clinicalNotes || {}
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch clinical notes.', error: err.message });
+  }
+};
+
 module.exports = {
   getDoctors,
   getAvailableSlots,
@@ -787,5 +880,7 @@ module.exports = {
   getDoctorAppointments,
   cancelAppointment,
   retryPayment,
-  addPrescription
+  addPrescription,
+  saveClinicalNotes,
+  getClinicalNotes
 };

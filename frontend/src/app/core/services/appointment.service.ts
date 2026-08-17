@@ -140,6 +140,7 @@ export interface AppointmentItem {
   cancellationReason?: string;
   isEmergency?: boolean;
   emergencyStatus?: string;
+  clinicalNotes?: ClinicalNotesData;
 }
 
 export interface DoctorAppointmentItem {
@@ -159,6 +160,7 @@ export interface DoctorAppointmentItem {
   prescribedAt?: string;
   time?: string;
   age?: number;
+  clinicalNotes?: ClinicalNotesData;
 }
 
 export interface CancelResponse {
@@ -168,6 +170,15 @@ export interface CancelResponse {
   refundAmount: number;
   estimatedRefundDate: string | null;
   policy: string;
+}
+
+export interface ClinicalNotesData {
+  doctorRemarks?: string;
+  nutritionalTags?: string[];
+  recommendedFoods?: string;
+  foodsToAvoid?: string;
+  hydrationGoalLiters?: number;
+  savedAt?: string;
 }
 
 @Injectable({
@@ -291,6 +302,29 @@ export class AppointmentService {
       prescription: any[];
       prescribedAt: string;
     }>(`${this.bookingUrl}/${appointmentId}/prescription`, { prescription });
+  }
+
+  // ─── Clinical Consultation Notes & Dietary Advice ──────────────────────────
+  saveClinicalNotes(appointmentId: string, payload: ClinicalNotesData): Observable<{
+    success: boolean;
+    message: string;
+    clinicalNotes: ClinicalNotesData;
+  }> {
+    return this.http.post<{
+      success: boolean;
+      message: string;
+      clinicalNotes: ClinicalNotesData;
+    }>(`${this.bookingUrl}/${appointmentId}/clinical-notes`, payload);
+  }
+
+  getClinicalNotes(appointmentId: string): Observable<{
+    success: boolean;
+    clinicalNotes: ClinicalNotesData;
+  }> {
+    return this.http.get<{
+      success: boolean;
+      clinicalNotes: ClinicalNotesData;
+    }>(`${this.bookingUrl}/${appointmentId}/clinical-notes`);
   }
 }
 

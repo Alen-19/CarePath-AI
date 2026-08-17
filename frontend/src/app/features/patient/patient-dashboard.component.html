@@ -277,6 +277,46 @@
               <p class="symptoms-text" *ngIf="appt.symptoms">📝 {{ appt.symptoms }}</p>
               <p class="symptoms-text text-muted" *ngIf="!appt.symptoms">Regular consultation appointment</p>
             </div>
+
+            <!-- 🥗 DOCTOR CLINICAL REMARKS & DIETARY GUIDANCE DISPLAY -->
+            <div class="clinical-notes-card mt-3 p-3 bg-light rounded border border-success border-opacity-25" *ngIf="appt.clinicalNotes && (appt.clinicalNotes.doctorRemarks || appt.clinicalNotes.recommendedFoods)">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="m-0 text-success fw-bold small"><i class="bi bi-journal-medical me-1"></i> Doctor Remarks & Dietary Guidance</h6>
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 small" *ngIf="appt.clinicalNotes.savedAt">Verified Clinical Note</span>
+              </div>
+
+              <!-- Doctor Remarks -->
+              <div class="mb-2" *ngIf="appt.clinicalNotes.doctorRemarks">
+                <strong class="small text-muted d-block text-uppercase">📝 Doctor Remarks:</strong>
+                <p class="small text-dark mb-0 fst-italic" style="line-height: 1.4;">"{{ appt.clinicalNotes.doctorRemarks }}"</p>
+              </div>
+
+              <!-- Prescribed Dietary Focus Badges -->
+              <div class="mb-2" *ngIf="appt.clinicalNotes.nutritionalTags && appt.clinicalNotes.nutritionalTags.length > 0">
+                <strong class="small text-muted d-block text-uppercase mb-1">🥗 Prescribed Dietary Focus:</strong>
+                <div class="d-flex flex-wrap gap-1">
+                  <span *ngFor="let tag of appt.clinicalNotes.nutritionalTags" class="badge bg-success text-white small px-2 py-1">{{ tag }}</span>
+                </div>
+              </div>
+
+              <!-- Recommended Foods -->
+              <div class="mb-2" *ngIf="appt.clinicalNotes.recommendedFoods">
+                <strong class="small text-muted d-block text-uppercase">🥦 Recommended Foods to Eat:</strong>
+                <span class="small text-dark fw-medium">{{ appt.clinicalNotes.recommendedFoods }}</span>
+              </div>
+
+              <!-- Foods to Avoid -->
+              <div class="mb-2" *ngIf="appt.clinicalNotes.foodsToAvoid">
+                <strong class="small text-danger d-block text-uppercase">🚫 Foods to Avoid:</strong>
+                <span class="small text-danger">{{ appt.clinicalNotes.foodsToAvoid }}</span>
+              </div>
+
+              <!-- Hydration Target -->
+              <div *ngIf="appt.clinicalNotes.hydrationGoalLiters">
+                <strong class="small text-info d-block text-uppercase">💧 Daily Hydration Target:</strong>
+                <span class="badge bg-info text-dark fw-bold small">{{ appt.clinicalNotes.hydrationGoalLiters }} Liters Water / Day</span>
+              </div>
+            </div>
           </div>
 
           <div class="card-action-bar">

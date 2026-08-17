@@ -35,7 +35,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   isAudioMuted: boolean = false;
   isVideoOff: boolean = false;
   isScreenSharing: boolean = false;
-  activeSidebarTab: 'chat' | 'rx' | 'info' | null = 'chat';
+  activeSidebarTab: 'chat' | 'rx' | 'notes' | 'info' | null = 'chat';
 
   // Streams & Remote Peer
   localStream: MediaStream | null = null;
@@ -60,6 +60,23 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   }> = [];
   isSavingPrescription: boolean = false;
   prescriptionSuccessMsg: string = '';
+
+  // Doctor Clinical Remarks & Dietary Advice
+  clinicalNotes: {
+    doctorRemarks: string;
+    nutritionalTags: string[];
+    recommendedFoods: string;
+    foodsToAvoid: string;
+    hydrationGoalLiters: number;
+  } = {
+    doctorRemarks: '',
+    nutritionalTags: [],
+    recommendedFoods: '',
+    foodsToAvoid: '',
+    hydrationGoalLiters: 3
+  };
+  isSavingNotes: boolean = false;
+  notesSuccessMsg: string = '';
 
   // Emergency Sync & Pause State
   activeEmergencyAlert: { appointmentId: string; patientName: string; symptomSummary: string } | null = null;
@@ -87,8 +104,8 @@ export class VideoCallComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUser = this.authService.currentUser();
-    if (this.currentUser) {
-      this.userRole = this.currentUser.role || 'patient';
+    if (this.currentUser && this.currentUser.role) {
+      this.userRole = (this.currentUser.role.toLowerCase() as any) || 'patient';
     }
 
     this.appointmentId = this.route.snapshot.paramMap.get('appointmentId') || '';
@@ -113,6 +130,27 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       next: (res) => {
         if (res.success) {
           this.appointmentDetails = res.appointment;
+          
+          // Verify user role explicitly from logged-in user or appointment doctor assignment
+          const user = this.authService.currentUser();
+          const currentUserId = user?._id || (user as any)?.id;
+          const userRoleStr = user?.role ? user.role.toLowerCase() : '';
+
+          const docObj = this.appointmentDetails?.doctorId;
+          const docUserId = docObj?.userId?._id || docObj?.userId || docObj?._id;
+          const docProfileId = docObj?._id;
+
+          if (
+            userRoleStr === 'doctor' ||
+            (currentUserId && (currentUserId.toString() === docUserId?.toString() || currentUserId.toString() === docProfileId?.toString()))
+          ) {
+            this.userRole = 'doctor';
+          } else if (userRoleStr === 'admin') {
+            this.userRole = 'admin';
+          } else {
+            this.userRole = 'patient';
+          }
+
           if (res.iceServers) {
             this.webRtcService.setIceServers(res.iceServers);
           }
@@ -121,11 +159,13 @@ export class VideoCallComponent implements OnInit, OnDestroy {
           this.errorMessage = 'Failed to load consultation details.';
         }
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error loading consultation details:', err);
         this.errorMessage = err.error?.message || 'Failed to connect to consultation room.';
         this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -319,7 +359,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     this.isScreenSharing = sharing;
   }
 
-  toggleSidebar(tab: 'chat' | 'rx' | 'info'): void {
+  toggleSidebar(tab: 'chat' | 'rx' | 'notes' | 'info'): void {
     if (this.activeSidebarTab === tab) {
       this.activeSidebarTab = null;
     } else {
@@ -451,6 +491,82 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
+  }
+
+  // ─── Doctor Clinical Remarks & Dietary Advice Helpers ───────────────────────
+  loadClinicalNotes(): void {
+    if (!this.appointmentId) return;
+    this.appointmentService.getClinicalNotes(this.appointmentId).subscribe({
+      next: (res) => {
+        if (res.success && res.clinicalNotes) {
+          this.clinicalNotes = {
+            doctorRemarks: res.clinicalNotes.doctorRemarks || '',
+            nutritionalTags: res.clinicalNotes.nutritionalTags || [],
+            recommendedFoods: res.clinicalNotes.recommendedFoods || '',
+            foodsToAvoid: res.clinicalNotes.foodsToAvoid || '',
+            hydrationGoalLiters: res.clinicalNotes.hydrationGoalLiters || 3
+          };
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => console.error('Failed to load clinical notes:', err)
+    });
+  }
+
+  toggleNutritionalTag(tag: string): void {
+    const idx = this.clinicalNotes.nutritionalTags.indexOf(tag);
+    if (idx > -1) {
+      this.clinicalNotes.nutritionalTags.splice(idx, 1);
+    } else {
+      this.clinicalNotes.nutritionalTags.push(tag);
+    }
+  }
+
+  applyNutritionalPreset(presetType: 'iron' | 'protein' | 'sodium' | 'diabetic' | 'calcium'): void {
+    if (presetType === 'iron') {
+      this.toggleNutritionalTag('High-Iron');
+      if (!this.clinicalNotes.recommendedFoods.includes('Spinach')) {
+        const foods = ['Palak (Spinach)', 'Pomegranate', 'Lentils/Dal', 'Dates', 'Beetroot', 'Eggs/Red Meat'];
+        this.clinicalNotes.recommendedFoods += (this.clinicalNotes.recommendedFoods ? ', ' : '') + foods.join(', ');
+      }
+    } else if (presetType === 'protein') {
+      this.toggleNutritionalTag('High-Protein');
+      if (!this.clinicalNotes.recommendedFoods.includes('Paneer')) {
+        const foods = ['Paneer', 'Eggs', 'Chickpeas/Chana', 'Tofu/Soya', 'Greek Yogurt', 'Chicken/Fish'];
+        this.clinicalNotes.recommendedFoods += (this.clinicalNotes.recommendedFoods ? ', ' : '') + foods.join(', ');
+      }
+    } else if (presetType === 'sodium') {
+      this.toggleNutritionalTag('Low-Sodium');
+      this.clinicalNotes.foodsToAvoid += (this.clinicalNotes.foodsToAvoid ? ', ' : '') + 'Table Salt (> 2g/day), Canned soups, Processed chips, Pickles';
+    } else if (presetType === 'diabetic') {
+      this.toggleNutritionalTag('Diabetic Friendly');
+      this.clinicalNotes.foodsToAvoid += (this.clinicalNotes.foodsToAvoid ? ', ' : '') + 'Refined Sugars, Sweetened Beverages, White Bread, Deep-fried snacks';
+    } else if (presetType === 'calcium') {
+      this.toggleNutritionalTag('Calcium & Vit-D');
+      this.clinicalNotes.recommendedFoods += (this.clinicalNotes.recommendedFoods ? ', ' : '') + 'Milk/Yogurt, Ragi, Sesame Seeds, Almonds, Fortified Cereals';
+    }
+  }
+
+  saveClinicalNotes(): void {
+    if (!this.appointmentId) return;
+    this.isSavingNotes = true;
+    this.notesSuccessMsg = '';
+
+    this.appointmentService.saveClinicalNotes(this.appointmentId, this.clinicalNotes).subscribe({
+      next: (res) => {
+        this.isSavingNotes = false;
+        if (res.success) {
+          this.notesSuccessMsg = '✅ Remarks & Dietary Advice saved & emailed to patient!';
+          setTimeout(() => { this.notesSuccessMsg = ''; this.cdr.detectChanges(); }, 4000);
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.isSavingNotes = false;
+        console.error('Save notes error:', err);
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   get doctorName(): string {

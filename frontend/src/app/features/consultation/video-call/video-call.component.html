@@ -288,6 +288,109 @@
             </div>
           </div>
 
+          <!-- 📝 Doctor Clinical Remarks & Dietary Advice Panel (Doctor & Patient View) -->
+          <div *ngIf="activeSidebarTab === 'notes'" class="sidebar-content notes-content">
+            <div class="panel-header">
+              <h6 class="m-0 text-light"><i class="bi bi-journal-medical me-2 text-info"></i> {{ userRole === 'doctor' ? 'Clinical Remarks & Dietary Advice' : 'Doctor Remarks & Dietary Advice' }}</h6>
+              <button class="btn-close btn-close-white btn-sm" (click)="activeSidebarTab = null"></button>
+            </div>
+
+            <div class="p-3 text-light sidebar-body-scroll">
+              <!-- Success Alert -->
+              <div *ngIf="notesSuccessMsg" class="alert alert-success py-2 px-3 mb-3 small shadow-sm">
+                <i class="bi bi-check-circle-fill me-1"></i> {{ notesSuccessMsg }}
+              </div>
+
+              <!-- DOCTOR EDIT MODE -->
+              <div *ngIf="userRole === 'doctor'">
+                <!-- Doctor Remarks -->
+                <div class="mb-3">
+                  <label class="form-label small text-secondary fw-semibold">📝 Doctor Remarks & Clinical Impression</label>
+                  <textarea class="form-control glass-input text-light" rows="3" placeholder="Type doctor remarks, impression, key advice..." [(ngModel)]="clinicalNotes.doctorRemarks"></textarea>
+                </div>
+
+                <!-- 1-Click Nutritional Presets -->
+                <div class="mb-3">
+                  <label class="form-label small text-secondary fw-semibold">🥗 Quick Dietary Focus Presets</label>
+                  <div class="d-flex flex-wrap gap-1 mb-2">
+                    <button class="btn btn-sm btn-outline-success" [class.active]="clinicalNotes.nutritionalTags.includes('High-Iron')" (click)="applyNutritionalPreset('iron')">🩸 High-Iron</button>
+                    <button class="btn btn-sm btn-outline-info" [class.active]="clinicalNotes.nutritionalTags.includes('High-Protein')" (click)="applyNutritionalPreset('protein')">💪 High-Protein</button>
+                    <button class="btn btn-sm btn-outline-warning" [class.active]="clinicalNotes.nutritionalTags.includes('Low-Sodium')" (click)="applyNutritionalPreset('sodium')">🧂 Low-Sodium</button>
+                    <button class="btn btn-sm btn-outline-primary" [class.active]="clinicalNotes.nutritionalTags.includes('Diabetic Friendly')" (click)="applyNutritionalPreset('diabetic')">🩺 Diabetic Low-GI</button>
+                    <button class="btn btn-sm btn-outline-light" [class.active]="clinicalNotes.nutritionalTags.includes('Calcium & Vit-D')" (click)="applyNutritionalPreset('calcium')">🥛 Calcium & Vit-D</button>
+                  </div>
+                </div>
+
+                <!-- Recommended Foods -->
+                <div class="mb-3">
+                  <label class="form-label small text-secondary fw-semibold">🥦 Recommended Foods to Eat</label>
+                  <textarea class="form-control glass-input text-light" rows="2" placeholder="e.g. Spinach, Pomegranate, Lentils, Eggs, Dates, Beetroot..." [(ngModel)]="clinicalNotes.recommendedFoods"></textarea>
+                </div>
+
+                <!-- Foods to Avoid -->
+                <div class="mb-3">
+                  <label class="form-label small text-danger fw-semibold">🚫 Foods to Avoid</label>
+                  <textarea class="form-control glass-input text-light" rows="2" placeholder="e.g. Processed sugars, Salt > 2g/day, Deep-fried items, Caffeine..." [(ngModel)]="clinicalNotes.foodsToAvoid"></textarea>
+                </div>
+
+                <!-- Hydration Target -->
+                <div class="mb-3">
+                  <label class="form-label small text-info fw-semibold">💧 Daily Hydration Target (Liters)</label>
+                  <div class="d-flex align-items-center gap-2">
+                    <input type="range" class="form-range flex-grow-1" min="1" max="5" step="0.5" [(ngModel)]="clinicalNotes.hydrationGoalLiters">
+                    <span class="badge bg-info text-dark fw-bold fs-6">{{ clinicalNotes.hydrationGoalLiters }} L/day</span>
+                  </div>
+                </div>
+
+                <!-- Save Action Button -->
+                <div class="mt-3">
+                  <button class="btn btn-success w-100 pill-btn fw-bold" [disabled]="isSavingNotes" (click)="saveClinicalNotes()">
+                    <span *ngIf="isSavingNotes" class="spinner-border spinner-border-sm me-2"></span>
+                    <i *ngIf="!isSavingNotes" class="bi bi-send-check-fill me-2"></i> Save & Send Advice to Patient Email
+                  </button>
+                </div>
+              </div>
+
+              <!-- PATIENT READ-ONLY VIEW -->
+              <div *ngIf="userRole !== 'doctor'">
+                <div *ngIf="!clinicalNotes.doctorRemarks && !clinicalNotes.recommendedFoods" class="text-center py-4 text-secondary glass-card p-3">
+                  <i class="bi bi-journal-medical display-6 text-muted"></i>
+                  <p class="small mt-2 mb-0">Doctor has not added remarks or dietary notes yet.</p>
+                </div>
+
+                <div *ngIf="clinicalNotes.doctorRemarks || clinicalNotes.recommendedFoods" class="glass-card p-3">
+                  <div *ngIf="clinicalNotes.doctorRemarks" class="mb-3">
+                    <h6 class="text-info small fw-bold text-uppercase">📝 Doctor Remarks</h6>
+                    <p class="small text-light mb-0" style="line-height: 1.5;">{{ clinicalNotes.doctorRemarks }}</p>
+                  </div>
+
+                  <div *ngIf="clinicalNotes.nutritionalTags && clinicalNotes.nutritionalTags.length > 0" class="mb-3">
+                    <h6 class="text-success small fw-bold text-uppercase">🥗 Dietary Focus</h6>
+                    <div class="d-flex flex-wrap gap-1">
+                      <span *ngFor="let tag of clinicalNotes.nutritionalTags" class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50 me-1 mb-1">{{ tag }}</span>
+                    </div>
+                  </div>
+
+                  <div *ngIf="clinicalNotes.recommendedFoods" class="mb-3">
+                    <h6 class="text-success small fw-bold text-uppercase">🥦 Recommended Foods</h6>
+                    <p class="small text-light mb-0">{{ clinicalNotes.recommendedFoods }}</p>
+                  </div>
+
+                  <div *ngIf="clinicalNotes.foodsToAvoid" class="mb-3">
+                    <h6 class="text-danger small fw-bold text-uppercase">🚫 Foods to Avoid</h6>
+                    <p class="small text-danger-subtle mb-0">{{ clinicalNotes.foodsToAvoid }}</p>
+                  </div>
+
+                  <div *ngIf="clinicalNotes.hydrationGoalLiters" class="mb-2">
+                    <h6 class="text-info small fw-bold text-uppercase">💧 Hydration Target</h6>
+                    <span class="badge bg-info text-dark fw-bold">{{ clinicalNotes.hydrationGoalLiters }} Liters Water / Day</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
           <!-- Consultation Info Panel -->
           <div *ngIf="activeSidebarTab === 'info'" class="sidebar-content info-content">
             <div class="panel-header">
@@ -337,6 +440,12 @@
           <button [class]="activeSidebarTab === 'rx' ? 'btn btn-success toolbar-btn' : 'btn btn-dark toolbar-btn'" (click)="toggleSidebar('rx')" title="E-Prescription">
             <i class="bi bi-capsule-pill"></i>
             <span class="btn-label">E-Prescription</span>
+          </button>
+
+          <!-- Clinical Remarks & Dietary Advice Toggle -->
+          <button [class]="activeSidebarTab === 'notes' ? 'btn btn-info toolbar-btn' : 'btn btn-dark toolbar-btn'" (click)="toggleSidebar('notes'); loadClinicalNotes();" title="Doctor Remarks & Dietary Advice">
+            <i class="bi bi-journal-medical"></i>
+            <span class="btn-label">Notes & Diet</span>
           </button>
 
           <!-- End Call Button -->

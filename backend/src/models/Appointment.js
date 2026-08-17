@@ -109,6 +109,15 @@ const AppointmentSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  // Clinical Consultation Notes & Dietary Suggestions
+  clinicalNotes: {
+    doctorRemarks: { type: String, trim: true, default: '' },
+    nutritionalTags: [{ type: String }],
+    recommendedFoods: { type: String, trim: true, default: '' },
+    foodsToAvoid: { type: String, trim: true, default: '' },
+    hydrationGoalLiters: { type: Number, default: 3 },
+    savedAt: { type: Date, default: null }
+  },
   // Emergency Triage & Queue Shift fields
   isEmergency: {
     type: Boolean,

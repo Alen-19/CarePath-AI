@@ -10,7 +10,9 @@ const {
   getDoctorAppointments,
   cancelAppointment,
   retryPayment,
-  addPrescription
+  addPrescription,
+  saveClinicalNotes,
+  getClinicalNotes
 } = require('../controllers/booking.controller');
 
 // Public: doctor listing and slot availability
@@ -27,5 +29,7 @@ router.post('/:id/retry-payment', authenticateJWT, authorizeRoles('patient'), re
 // Doctor only
 router.get('/doctor-appointments', authenticateJWT, authorizeRoles('doctor'), getDoctorAppointments);
 router.post('/:id/prescription', authenticateJWT, authorizeRoles('doctor'), addPrescription);
+router.post('/:id/clinical-notes', authenticateJWT, authorizeRoles('doctor'), saveClinicalNotes);
+router.get('/:id/clinical-notes', authenticateJWT, getClinicalNotes);
 
 module.exports = router;

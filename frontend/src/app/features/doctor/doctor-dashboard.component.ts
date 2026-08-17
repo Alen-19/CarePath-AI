@@ -8,7 +8,8 @@ import {
   DoctorScheduleData,
   DaySchedule,
   DoctorDateOverrideData,
-  DoctorAppointmentItem
+  DoctorAppointmentItem,
+  ClinicalNotesData
 } from '../../core/services/appointment.service';
 import { WebRtcService } from '../../core/services/webrtc.service';
 
@@ -900,6 +901,110 @@ export class DoctorDashboardComponent implements OnInit {
       },
       error: (err) => {
         this.scheduleErrMsg = err?.error?.message || 'Failed to remove date override.';
+      }
+    });
+  }
+
+  // Clinical Remarks & Dietary Advice Modal State
+  selectedNotesAppt: any = null;
+  modalNotesData: ClinicalNotesData = {
+    doctorRemarks: '',
+    nutritionalTags: [],
+    recommendedFoods: '',
+    foodsToAvoid: '',
+    hydrationGoalLiters: 3
+  };
+  isSavingNotesModal: boolean = false;
+  notesModalMsg: string = '';
+
+  openClinicalNotesModal(appt: any): void {
+    this.selectedNotesAppt = appt;
+    this.notesModalMsg = '';
+    this.modalNotesData = {
+      doctorRemarks: '',
+      nutritionalTags: [],
+      recommendedFoods: '',
+      foodsToAvoid: '',
+      hydrationGoalLiters: 3
+    };
+
+    if (appt && appt._id) {
+      this.appointmentService.getClinicalNotes(appt._id).subscribe({
+        next: (res) => {
+          if (res.success && res.clinicalNotes) {
+            this.modalNotesData = {
+              doctorRemarks: res.clinicalNotes.doctorRemarks || '',
+              nutritionalTags: res.clinicalNotes.nutritionalTags || [],
+              recommendedFoods: res.clinicalNotes.recommendedFoods || '',
+              foodsToAvoid: res.clinicalNotes.foodsToAvoid || '',
+              hydrationGoalLiters: res.clinicalNotes.hydrationGoalLiters || 3
+            };
+          }
+        }
+      });
+    }
+  }
+
+  closeClinicalNotesModal(): void {
+    this.selectedNotesAppt = null;
+    this.notesModalMsg = '';
+  }
+
+  toggleModalNutritionalTag(tag: string): void {
+    if (!this.modalNotesData.nutritionalTags) this.modalNotesData.nutritionalTags = [];
+    const idx = this.modalNotesData.nutritionalTags.indexOf(tag);
+    if (idx > -1) {
+      this.modalNotesData.nutritionalTags.splice(idx, 1);
+    } else {
+      this.modalNotesData.nutritionalTags.push(tag);
+    }
+  }
+
+  applyModalNutritionalPreset(presetType: 'iron' | 'protein' | 'sodium' | 'diabetic' | 'calcium'): void {
+    if (!this.modalNotesData.nutritionalTags) this.modalNotesData.nutritionalTags = [];
+    if (!this.modalNotesData.recommendedFoods) this.modalNotesData.recommendedFoods = '';
+    if (!this.modalNotesData.foodsToAvoid) this.modalNotesData.foodsToAvoid = '';
+
+    if (presetType === 'iron') {
+      this.toggleModalNutritionalTag('High-Iron');
+      if (!this.modalNotesData.recommendedFoods.includes('Spinach')) {
+        const foods = ['Palak (Spinach)', 'Pomegranate', 'Lentils/Dal', 'Dates', 'Beetroot', 'Eggs/Red Meat'];
+        this.modalNotesData.recommendedFoods += (this.modalNotesData.recommendedFoods ? ', ' : '') + foods.join(', ');
+      }
+    } else if (presetType === 'protein') {
+      this.toggleModalNutritionalTag('High-Protein');
+      if (!this.modalNotesData.recommendedFoods.includes('Paneer')) {
+        const foods = ['Paneer', 'Eggs', 'Chickpeas/Chana', 'Tofu/Soya', 'Greek Yogurt', 'Chicken/Fish'];
+        this.modalNotesData.recommendedFoods += (this.modalNotesData.recommendedFoods ? ', ' : '') + foods.join(', ');
+      }
+    } else if (presetType === 'sodium') {
+      this.toggleModalNutritionalTag('Low-Sodium');
+      this.modalNotesData.foodsToAvoid += (this.modalNotesData.foodsToAvoid ? ', ' : '') + 'Table Salt (> 2g/day), Canned soups, Processed chips, Pickles';
+    } else if (presetType === 'diabetic') {
+      this.toggleModalNutritionalTag('Diabetic Friendly');
+      this.modalNotesData.foodsToAvoid += (this.modalNotesData.foodsToAvoid ? ', ' : '') + 'Refined Sugars, Sweetened Beverages, White Bread, Deep-fried snacks';
+    } else if (presetType === 'calcium') {
+      this.toggleModalNutritionalTag('Calcium & Vit-D');
+      this.modalNotesData.recommendedFoods += (this.modalNotesData.recommendedFoods ? ', ' : '') + 'Milk/Yogurt, Ragi, Sesame Seeds, Almonds, Fortified Cereals';
+    }
+  }
+
+  saveClinicalNotesFromModal(): void {
+    if (!this.selectedNotesAppt || !this.selectedNotesAppt._id) return;
+    this.isSavingNotesModal = true;
+    this.notesModalMsg = '';
+
+    this.appointmentService.saveClinicalNotes(this.selectedNotesAppt._id, this.modalNotesData).subscribe({
+      next: (res) => {
+        this.isSavingNotesModal = false;
+        if (res.success) {
+          this.notesModalMsg = '✅ Remarks & Dietary Advice saved and emailed to patient!';
+          setTimeout(() => { this.closeClinicalNotesModal(); }, 1800);
+        }
+      },
+      error: (err) => {
+        this.isSavingNotesModal = false;
+        console.error('Save notes error:', err);
       }
     });
   }
