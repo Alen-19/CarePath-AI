@@ -726,8 +726,13 @@
           class="type-btn"
           [class.selected]="appointmentType === t"
           [class.emergency-btn]="t === 'Emergency Sync'"
-          (click)="appointmentType = t"
-        >{{ t }}</button>
+          [class.disabled-blur]="t === 'Follow-up' || t === 'Care Plan Review'"
+          [disabled]="t === 'Follow-up' || t === 'Care Plan Review'"
+          (click)="onSelectAppointmentType(t)"
+        >
+          {{ t }}
+          <span *ngIf="t === 'Follow-up' || t === 'Care Plan Review'" class="badge-coming-soon">Coming Soon</span>
+        </button>
       </div>
 
       <div *ngIf="appointmentType === 'Emergency Sync'" class="alert alert-danger border-0 p-3 shadow-sm rounded-3 mt-2 text-white" style="background: linear-gradient(135deg, #DC2626, #B91C1C);">
@@ -740,7 +745,7 @@
         </p>
       </div>
       <p *ngIf="appointmentType !== 'Emergency Sync'" class="field-hint text-muted">
-        Choose <strong>General Consultation</strong> for new visits, <strong>Follow-up</strong> for lab report checks, or <strong>Care Plan Review</strong> for chronic disease monitoring.
+        Choose <strong>General Consultation</strong> for new visits, or <strong>Emergency Sync</strong> for urgent triage.
       </p>
     </div>
 
@@ -810,10 +815,27 @@
           <span>Queue Status</span>
           <strong class="text-danger">🚨 Immediate Priority Queue (Next Available)</strong>
         </div>
-        <div class="summary-row fee-row">
+        <!-- Standard Consultation Fee Row -->
+        <div class="summary-row fee-row" *ngIf="appointmentType !== 'Emergency Sync'">
           <span>Consultation Fee</span>
-          <strong class="fee-highlight">₹{{ selectedDoctor?.consultationFee | number }}</strong>
+          <strong class="fee-highlight">₹{{ baseConsultationFee | number }}</strong>
         </div>
+
+        <!-- Emergency Sync Itemized Fee Breakdown -->
+        <ng-container *ngIf="appointmentType === 'Emergency Sync'">
+          <div class="summary-row">
+            <span>Base Consultation Fee</span>
+            <strong>₹{{ baseConsultationFee | number }}</strong>
+          </div>
+          <div class="summary-row text-danger">
+            <span class="d-flex align-items-center gap-1"><i class="bi bi-lightning-charge-fill"></i> Emergency Priority Surcharge (+10%)</span>
+            <strong>+ ₹{{ emergencySurcharge | number }}</strong>
+          </div>
+          <div class="summary-row fee-row pt-2" style="border-top: 1px dashed #CBD5E1;">
+            <span class="fw-bold">Total Amount Payable</span>
+            <strong class="fee-highlight text-danger">₹{{ totalBookingFee | number }}</strong>
+          </div>
+        </ng-container>
       </div>
 
       <div class="policy-box">
@@ -845,7 +867,7 @@
           (click)="proceedToPayment()"
           [disabled]="bookingInProgress"
         >
-          {{ bookingInProgress ? 'Processing…' : '💳 Pay ₹' + (selectedDoctor?.consultationFee | number) }}
+          {{ bookingInProgress ? 'Processing…' : '💳 Pay ₹' + (totalBookingFee | number) }}
         </button>
       </div>
     </div>

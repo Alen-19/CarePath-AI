@@ -24,6 +24,37 @@ export interface DoctorVerificationItem {
   createdAt?: string;
 }
 
+export interface PatientAdminItem {
+  _id: string;
+  userId?: {
+    _id: string;
+    email: string;
+    isActive: boolean;
+    createdAt?: string;
+  };
+  firstName: string;
+  lastName: string;
+  dateOfBirth?: string;
+  gender?: string;
+  phone?: string;
+  bloodGroup?: string;
+  emergencyContact?: {
+    name?: string;
+    phone?: string;
+    relation?: string;
+  };
+  address?: {
+    houseName?: string;
+    city?: string;
+    district?: string;
+    state?: string;
+    pincode?: string;
+  };
+  addressDisplay?: string;
+  profileImage?: string;
+  createdAt?: string;
+}
+
 export interface AdminStats {
   totalDoctors: number;
   pendingVerifications: number;
@@ -44,6 +75,12 @@ interface DoctorsResponse {
   doctors: DoctorVerificationItem[];
 }
 
+interface PatientsResponse {
+  success: boolean;
+  count: number;
+  patients: PatientAdminItem[];
+}
+
 interface ActionResponse {
   success: boolean;
   message: string;
@@ -60,6 +97,10 @@ export class AdminService {
 
   getStats(): Observable<StatsResponse> {
     return this.http.get<StatsResponse>(`${this.apiUrl}/stats`);
+  }
+
+  getPatients(): Observable<PatientsResponse> {
+    return this.http.get<PatientsResponse>(`${this.apiUrl}/patients`);
   }
 
   getDoctorRequests(status?: 'pending' | 'approved' | 'suspended' | 'rejected' | 'all'): Observable<DoctorsResponse> {

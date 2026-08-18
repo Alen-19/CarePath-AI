@@ -1265,3 +1265,23 @@
   padding: 12px;
 }
 
+/* Patient List Badges */
+.blood-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #FEE2E2;
+  border: 1px solid #FCA5A5;
+  color: #991B1B;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+.tab-count.indigo-count {
+  background: #6366F1 !important;
+  color: #FFFFFF !important;
+}
+

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
-import { AdminService, DoctorVerificationItem, AdminStats } from '../../core/services/admin.service';
+import { AdminService, DoctorVerificationItem, AdminStats, PatientAdminItem } from '../../core/services/admin.service';
 import { NmcService, MedicalCouncil, NMCDoctorSummary, NMCDoctorDetails } from '../../core/services/nmc.service';
 
 @Component({
@@ -28,7 +28,13 @@ export class AdminDashboardComponent implements OnInit {
   doctors: DoctorVerificationItem[] = [];
   filteredDoctors: DoctorVerificationItem[] = [];
 
-  activeTab: 'pending' | 'approved' | 'suspended' | 'rejected' | 'all' = 'pending';
+  // Patients Management State
+  patients: PatientAdminItem[] = [];
+  filteredPatients: PatientAdminItem[] = [];
+  isLoadingPatients = false;
+  patientSearchQuery: string = '';
+
+  activeTab: 'pending' | 'approved' | 'suspended' | 'rejected' | 'all' | 'patients' = 'pending';
   searchQuery: string = '';
   
   isLoadingStats = true;
@@ -110,6 +116,7 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   loadDoctors(): void {
+    if (this.activeTab === 'patients') return;
     this.isLoadingDoctors = true;
     this.adminService.getDoctorRequests(this.activeTab).subscribe({
       next: (res) => {
@@ -127,9 +134,50 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  setTab(tab: 'pending' | 'approved' | 'suspended' | 'rejected' | 'all'): void {
+  setTab(tab: 'pending' | 'approved' | 'suspended' | 'rejected' | 'all' | 'patients'): void {
     this.activeTab = tab;
-    this.loadDoctors();
+    if (tab === 'patients') {
+      this.loadPatients();
+    } else {
+      this.loadDoctors();
+    }
+  }
+
+  loadPatients(): void {
+    this.isLoadingPatients = true;
+    this.adminService.getPatients().subscribe({
+      next: (res) => {
+        this.isLoadingPatients = false;
+        if (res.success) {
+          this.patients = res.patients || [];
+          this.applyPatientFilter();
+        }
+      },
+      error: (err) => {
+        this.isLoadingPatients = false;
+        console.error('Error loading patients:', err);
+        this.showToast('Failed to load patient records.', 'error');
+      }
+    });
+  }
+
+  applyPatientFilter(): void {
+    const q = this.patientSearchQuery.toLowerCase().trim();
+    if (!q) {
+      this.filteredPatients = [...this.patients];
+      return;
+    }
+
+    this.filteredPatients = this.patients.filter(p => {
+      const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
+      const email = (p.userId?.email || '').toLowerCase();
+      const phone = (p.phone || '').toLowerCase();
+      const blood = (p.bloodGroup || '').toLowerCase();
+      const city = (p.address?.city || '').toLowerCase();
+      const state = (p.address?.state || '').toLowerCase();
+
+      return fullName.includes(q) || email.includes(q) || phone.includes(q) || blood.includes(q) || city.includes(q) || state.includes(q);
+    });
   }
 
   applyFilter(): void {

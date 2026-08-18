@@ -228,9 +228,47 @@ const unsuspendDoctor = async (req, res) => {
   }
 };
 
+// @desc    Get All Registered Patients (Basic Details)
+// @route   GET /api/admin/patients
+// @access  Private/Admin
+const getPatientsList = async (req, res) => {
+  try {
+    const patients = await Patient.find({})
+      .populate('userId', 'email isActive createdAt')
+      .sort({ createdAt: -1 });
+
+    const formatted = patients.map(p => {
+      const pObj = p.toObject();
+      let addressDisplay = 'Not specified';
+      if (pObj.address && typeof pObj.address === 'object') {
+        const parts = [
+          pObj.address.houseName,
+          pObj.address.city,
+          pObj.address.district,
+          pObj.address.state,
+          pObj.address.pincode
+        ].filter(Boolean);
+        addressDisplay = parts.join(', ');
+      }
+      pObj.addressDisplay = addressDisplay || 'Not specified';
+      return pObj;
+    });
+
+    res.json({
+      success: true,
+      count: formatted.length,
+      patients: formatted
+    });
+  } catch (error) {
+    console.error('Error fetching patients list:', error);
+    res.status(500).json({ message: 'Server error fetching patients.', error: error.message });
+  }
+};
+
 module.exports = {
   getAdminStats,
   getDoctorVerificationRequests,
+  getPatientsList,
   approveDoctor,
   rejectDoctor,
   suspendDoctor,

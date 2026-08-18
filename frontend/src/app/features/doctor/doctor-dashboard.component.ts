@@ -54,15 +54,18 @@ export class DoctorDashboardComponent implements OnInit {
     rating: 4.9
   };
 
+  ehrToastMsg = '';
+  carePlanToastMsg = '';
+
   todayAppointments = [
-    { patientName: 'John Doe', age: 42, time: '09:00 AM', type: 'Follow-up', status: 'Completed', symptoms: 'Hypertension, Mild Dizziness' },
-    { patientName: 'Demo Patient', age: 31, time: '10:30 AM', type: 'Care Plan Review', status: 'Confirmed', symptoms: 'Blood Pressure Monitoring' },
-    { patientName: 'Robert Vance', age: 58, time: '02:00 PM', type: 'Initial Consultation', status: 'Pending', symptoms: 'Chest tightness, Shortness of breath' }
+    { patientName: 'Joy Joseph', age: 42, time: '09:00 AM', type: 'Follow-up', status: 'Completed', symptoms: 'Hypertension, Mild Dizziness' },
+    { patientName: 'Evan Anil', age: 31, time: '10:30 AM', type: 'Care Plan Review', status: 'Confirmed', symptoms: 'Blood Pressure Monitoring' },
+    { patientName: 'Jithu Binet', age: 58, time: '02:00 PM', type: 'Initial Consultation', status: 'Pending', symptoms: 'Chest tightness, Shortness of breath' }
   ];
 
   activeCarePlans = [
-    { patientName: 'Demo Patient', planTitle: 'Hypertension Management Protocol', progress: '75%', nextReview: 'July 31, 2026' },
-    { patientName: 'John Doe', planTitle: 'Post-Cardiac Rehab Recovery', progress: '40%', nextReview: 'August 05, 2026' }
+    { patientName: 'Evan Anil', planTitle: 'Hypertension Management Protocol', progress: '75%', nextReview: 'July 31, 2026' },
+    { patientName: 'Joy Joseph', planTitle: 'Post-Cardiac Rehab Recovery', progress: '40%', nextReview: 'August 05, 2026' }
   ];
 
   // Schedule & Pricing Management State
@@ -920,13 +923,25 @@ export class DoctorDashboardComponent implements OnInit {
   openClinicalNotesModal(appt: any): void {
     this.selectedNotesAppt = appt;
     this.notesModalMsg = '';
-    this.modalNotesData = {
-      doctorRemarks: '',
-      nutritionalTags: [],
-      recommendedFoods: '',
-      foodsToAvoid: '',
-      hydrationGoalLiters: 3
-    };
+    
+    // Pre-fill from existing appt.clinicalNotes if available
+    if (appt && appt.clinicalNotes) {
+      this.modalNotesData = {
+        doctorRemarks: appt.clinicalNotes.doctorRemarks || '',
+        nutritionalTags: appt.clinicalNotes.nutritionalTags ? [...appt.clinicalNotes.nutritionalTags] : [],
+        recommendedFoods: appt.clinicalNotes.recommendedFoods || '',
+        foodsToAvoid: appt.clinicalNotes.foodsToAvoid || '',
+        hydrationGoalLiters: appt.clinicalNotes.hydrationGoalLiters || 3
+      };
+    } else {
+      this.modalNotesData = {
+        doctorRemarks: '',
+        nutritionalTags: [],
+        recommendedFoods: '',
+        foodsToAvoid: '',
+        hydrationGoalLiters: 3
+      };
+    }
 
     if (appt && appt._id) {
       this.appointmentService.getClinicalNotes(appt._id).subscribe({
@@ -939,6 +954,9 @@ export class DoctorDashboardComponent implements OnInit {
               foodsToAvoid: res.clinicalNotes.foodsToAvoid || '',
               hydrationGoalLiters: res.clinicalNotes.hydrationGoalLiters || 3
             };
+            if (this.selectedNotesAppt) {
+              this.selectedNotesAppt.clinicalNotes = res.clinicalNotes;
+            }
           }
         }
       });
@@ -999,6 +1017,9 @@ export class DoctorDashboardComponent implements OnInit {
         this.isSavingNotesModal = false;
         if (res.success) {
           this.notesModalMsg = '✅ Remarks & Dietary Advice saved and emailed to patient!';
+          if (this.selectedNotesAppt) {
+            this.selectedNotesAppt.clinicalNotes = res.clinicalNotes;
+          }
           setTimeout(() => { this.closeClinicalNotesModal(); }, 1800);
         }
       },
@@ -1007,6 +1028,22 @@ export class DoctorDashboardComponent implements OnInit {
         console.error('Save notes error:', err);
       }
     });
+  }
+
+  onViewEhr(patientName: string): void {
+    this.ehrToastMsg = `EHR Portal for ${patientName}: Full Longitudinal Health Records coming soon!`;
+    setTimeout(() => {
+      if (this.ehrToastMsg.includes(patientName)) {
+        this.ehrToastMsg = '';
+      }
+    }, 4000);
+  }
+
+  onCreateCarePlan(): void {
+    this.carePlanToastMsg = 'CarePath AI: Automated 7-Day Care Plan Protocol Builder coming soon!';
+    setTimeout(() => {
+      this.carePlanToastMsg = '';
+    }, 4000);
   }
 
   onLogout(): void {

@@ -356,6 +356,15 @@
           <span class="badge-count">{{ todayAppointments.length }} Active</span>
         </div>
 
+        <!-- Coming Soon EHR Toast Notification -->
+        <div *ngIf="ehrToastMsg" class="alert alert-info py-2 px-3 mb-3 small d-flex align-items-center justify-content-between shadow-sm animate-fade-in" style="background: #EFF6FF; border: 1px solid #93C5FD; color: #1E40AF; border-radius: 10px;">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-info-circle-fill fs-6 text-primary"></i>
+            <span>{{ ehrToastMsg }}</span>
+          </div>
+          <button type="button" class="btn-close btn-sm" (click)="ehrToastMsg = ''" style="font-size: 0.7rem;"></button>
+        </div>
+
         <div class="appointment-list">
           <div class="appointment-item" *ngFor="let apt of todayAppointments">
             <div class="apt-time-badge">
@@ -367,7 +376,7 @@
               <p class="apt-reason"><strong>Reason:</strong> {{ apt.symptoms }}</p>
             </div>
             <div class="apt-actions">
-              <button class="btn btn-primary btn-xs">View EHR</button>
+              <button class="btn btn-primary btn-xs" (click)="onViewEhr(apt.patientName)">View EHR</button>
             </div>
           </div>
         </div>
@@ -377,6 +386,15 @@
       <div class="grid-card glass-card">
         <div class="card-header">
           <h2>📋 Active Patient Care Plans</h2>
+        </div>
+
+        <!-- Coming Soon Care Plan Toast Notification -->
+        <div *ngIf="carePlanToastMsg" class="alert alert-info py-2 px-3 mb-3 small d-flex align-items-center justify-content-between shadow-sm animate-fade-in" style="background: #EFF6FF; border: 1px solid #93C5FD; color: #1E40AF; border-radius: 10px;">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-info-circle-fill fs-6 text-primary"></i>
+            <span>{{ carePlanToastMsg }}</span>
+          </div>
+          <button type="button" class="btn-close btn-sm" (click)="carePlanToastMsg = ''" style="font-size: 0.7rem;"></button>
         </div>
 
         <div class="careplan-list">
@@ -393,7 +411,7 @@
         </div>
 
         <div class="quick-action-box mt-3">
-          <button class="btn btn-secondary w-full">+ Create New Care Plan</button>
+          <button class="btn-create-careplan" (click)="onCreateCarePlan()">+ Create New Care Plan</button>
         </div>
       </div>
     </div>
@@ -998,8 +1016,8 @@
   </div>
 
   <!-- ══════════════ PAST CONSULTATION RECORD MODAL ══════════════ -->
-  <div class="modal-backdrop-custom animate-fade-in" *ngIf="selectedPastAppointment">
-    <div class="modal-card glass-card shadow-2xl" style="max-width: 620px; width: 100%;">
+  <div class="modal-backdrop-custom animate-fade-in" *ngIf="selectedPastAppointment" (click)="selectedPastAppointment = null">
+    <div class="modal-card glass-card shadow-2xl" style="max-width: 620px; width: 100%;" (click)="$event.stopPropagation()">
       <div class="modal-header d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-2">
           <span class="fs-4">📜</span>
@@ -1030,6 +1048,31 @@
           <label class="form-label fw-bold small text-muted text-uppercase">Reported Symptoms & Reason</label>
           <div class="p-2.5 bg-white border rounded small text-dark">
             {{ selectedPastAppointment.symptoms || 'No specific symptoms entered at time of booking.' }}
+          </div>
+        </div>
+
+        <!-- Doctor Remarks & Dietary Advice (if recorded) -->
+        <div class="mb-3" *ngIf="selectedPastAppointment.clinicalNotes && (selectedPastAppointment.clinicalNotes.doctorRemarks || selectedPastAppointment.clinicalNotes.recommendedFoods || selectedPastAppointment.clinicalNotes.foodsToAvoid)">
+          <label class="form-label fw-bold small text-success text-uppercase">🥗 Doctor Remarks & Dietary Plan</label>
+          <div class="p-3 bg-light rounded border border-success border-opacity-25 small">
+            <div class="mb-2" *ngIf="selectedPastAppointment.clinicalNotes.doctorRemarks">
+              <strong class="text-dark">Remarks:</strong>
+              <p class="mb-0 text-secondary fst-italic">"{{ selectedPastAppointment.clinicalNotes.doctorRemarks }}"</p>
+            </div>
+            <div class="mb-2" *ngIf="selectedPastAppointment.clinicalNotes.nutritionalTags && selectedPastAppointment.clinicalNotes.nutritionalTags.length > 0">
+              <div class="d-flex flex-wrap gap-1">
+                <span *ngFor="let tag of selectedPastAppointment.clinicalNotes.nutritionalTags" class="badge bg-success text-white small px-2 py-0.5">{{ tag }}</span>
+              </div>
+            </div>
+            <div class="mb-1" *ngIf="selectedPastAppointment.clinicalNotes.recommendedFoods">
+              <strong class="text-success">🥦 Recommended:</strong> {{ selectedPastAppointment.clinicalNotes.recommendedFoods }}
+            </div>
+            <div class="mb-1" *ngIf="selectedPastAppointment.clinicalNotes.foodsToAvoid">
+              <strong class="text-danger">🚫 Avoid:</strong> {{ selectedPastAppointment.clinicalNotes.foodsToAvoid }}
+            </div>
+            <div *ngIf="selectedPastAppointment.clinicalNotes.hydrationGoalLiters">
+              <strong class="text-info">💧 Hydration Target:</strong> {{ selectedPastAppointment.clinicalNotes.hydrationGoalLiters }} Liters / Day
+            </div>
           </div>
         </div>
 
@@ -1067,8 +1110,8 @@
   </div>
 
   <!-- ══════════════ CLINICAL REMARKS & DIETARY ADVICE EDIT MODAL ══════════════ -->
-  <div class="modal-backdrop-custom animate-fade-in" *ngIf="selectedNotesAppt">
-    <div class="modal-card glass-card shadow-2xl" style="max-width: 620px; width: 100%;">
+  <div class="modal-backdrop-custom animate-fade-in" *ngIf="selectedNotesAppt" (click)="closeClinicalNotesModal()">
+    <div class="modal-card glass-card shadow-2xl" style="max-width: 620px; width: 100%;" (click)="$event.stopPropagation()">
       <div class="modal-header d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-2">
           <span class="fs-4">🥗</span>

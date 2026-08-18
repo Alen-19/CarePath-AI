@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getAdminStats,
   getDoctorVerificationRequests,
+  getPatientsList,
   approveDoctor,
   rejectDoctor,
   suspendDoctor,
@@ -21,6 +22,7 @@ router.use(authenticateJWT, authorizeRoles('admin'));
 // Admin Dashboard Endpoints
 router.get('/stats', getAdminStats);
 router.get('/doctors', getDoctorVerificationRequests);
+router.get('/patients', getPatientsList);
 router.put('/doctors/:id/approve', approveDoctor);
 router.put('/doctors/:id/reject', rejectDoctor);
 router.put('/doctors/:id/suspend', suspendDoctor);

@@ -28,9 +28,6 @@
           <li class="nav-item">
             <a class="nav-link fw-semibold text-muted" (click)="scrollToSection('how-it-works')" style="cursor: pointer;">How it Works</a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link fw-semibold text-muted" (click)="scrollToSection('capabilities')" style="cursor: pointer;">AI Tech</a>
-          </li>
         </ul>
 
         <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
@@ -121,7 +118,7 @@
               <div class="glass-card-light p-3 p-md-4 rounded-4 shadow-lg position-relative z-2">
                 <!-- Video Container -->
                 <div class="hero-video-frame bg-navy-dark position-relative">
-                  <video #heroVideo autoplay loop muted playsinline preload="metadata" class="w-100 h-auto d-block rounded-3">
+                  <video #heroVideo autoplay loop muted [muted]="true" playsinline preload="metadata" class="w-100 h-auto d-block rounded-3">
                     <source src="assets/videos/animated_logo.mp4" type="video/mp4">
                     Your browser does not support the video tag.
                   </video>
@@ -373,7 +370,6 @@
           <h6 class="font-headline text-cyan-accent fw-bold text-uppercase small mb-3">Product</h6>
           <ul class="list-unstyled small opacity-75 d-flex flex-column gap-2 mb-0">
             <li><a (click)="scrollToSection('features')" class="text-white text-decoration-none" style="cursor: pointer;">Features</a></li>
-            <li><a (click)="scrollToSection('capabilities')" class="text-white text-decoration-none" style="cursor: pointer;">AI Tech</a></li>
             <li><a (click)="scrollToSection('how-it-works')" class="text-white text-decoration-none" style="cursor: pointer;">How it Works</a></li>
           </ul>
         </div>
@@ -398,10 +394,6 @@
 
       <div class="d-flex flex-column flex-md-row justify-between align-items-center gap-3 small text-light opacity-75">
         <p class="mb-0">© 2026 CarePath AI. All rights reserved.</p>
-        <div class="d-flex gap-3">
-          <a class="text-white text-decoration-none" href="#">Privacy Policy</a>
-          <a class="text-white text-decoration-none" href="#">Terms of Service</a>
-        </div>
       </div>
     </div>
   </footer>

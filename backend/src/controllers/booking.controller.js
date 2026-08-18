@@ -349,9 +349,8 @@ const bookAppointment = async (req, res) => {
     }
 
     const doctorSchedule = await DoctorSchedule.findOne({ doctorId });
-    const fee = isEmergencySync 
-      ? Math.round((doctorSchedule?.consultationFee || doctor.consultationFee || 500) * 1.2) // Emergency priority fee
-      : (doctorSchedule?.consultationFee || doctor.consultationFee || 500);
+    const baseFee = doctorSchedule?.consultationFee || doctor.consultationFee || 500;
+    const fee = isEmergencySync ? Math.round(baseFee * 1.1) : baseFee; // Emergency priority fee (+10%)
 
     // Create Razorpay order (amount in paise = fee * 100)
     const razorpayOrder = await getRazorpay().orders.create({

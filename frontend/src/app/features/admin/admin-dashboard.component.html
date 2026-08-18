@@ -99,7 +99,7 @@
           </div>
         </div>
 
-        <div class="stat-card">
+        <div class="stat-card" (click)="setTab('patients')" style="cursor: pointer;">
           <div class="stat-icon-wrapper indigo">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -109,13 +109,13 @@
             </svg>
           </div>
           <div class="stat-details">
-            <span class="stat-label">Total Doctors</span>
-            <span class="stat-value">{{ stats.totalDoctors }}</span>
+            <span class="stat-label">Registered Patients</span>
+            <span class="stat-value">{{ stats.totalPatients || 0 }}</span>
           </div>
         </div>
       </section>
 
-      <!-- Verification Management Table Section -->
+      <!-- Verification & User Management Table Section -->
       <section class="table-card-section">
         <div class="table-controls-header">
           <div class="filter-tabs">
@@ -150,11 +150,19 @@
               class="tab-btn" 
               [class.active]="activeTab === 'all'" 
               (click)="setTab('all')">
-              All Records
+              All Doctors
+            </button>
+            <button 
+              class="tab-btn" 
+              [class.active]="activeTab === 'patients'" 
+              (click)="setTab('patients')">
+              👤 Registered Patients
+              <span class="tab-count indigo-count" *ngIf="stats.totalPatients">{{ stats.totalPatients }}</span>
             </button>
           </div>
 
-          <div class="search-box">
+          <!-- Search Box for Doctors -->
+          <div class="search-box" *ngIf="activeTab !== 'patients'">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -165,38 +173,149 @@
               [(ngModel)]="searchQuery" 
               (input)="applyFilter()" />
           </div>
+
+          <!-- Search Box for Patients -->
+          <div class="search-box" *ngIf="activeTab === 'patients'">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="text" 
+              placeholder="Search patients by name, email, phone, city..." 
+              [(ngModel)]="patientSearchQuery" 
+              (input)="applyPatientFilter()" />
+          </div>
         </div>
 
-        <!-- Loading State -->
-        <div *ngIf="isLoadingDoctors" class="loading-state">
-          <div class="spinner"></div>
-          <p>Fetching doctor account records...</p>
-        </div>
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <!-- PATIENTS LIST TAB CONTENT                                     -->
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <ng-container *ngIf="activeTab === 'patients'">
+          <!-- Loading State Patients -->
+          <div *ngIf="isLoadingPatients" class="loading-state">
+            <div class="spinner"></div>
+            <p>Fetching registered patient profiles...</p>
+          </div>
 
-        <!-- Empty State -->
-        <div *ngIf="!isLoadingDoctors && filteredDoctors.length === 0" class="empty-state">
-          <div class="empty-icon">🩺</div>
-          <h3>No records found</h3>
-          <p *ngIf="activeTab === 'pending'">There are currently no doctor verification requests awaiting approval.</p>
-          <p *ngIf="activeTab === 'approved'">No verified doctors found matching your criteria.</p>
-          <p *ngIf="activeTab === 'suspended'">No doctor accounts are currently suspended.</p>
-          <p *ngIf="activeTab === 'all'">No doctor profiles registered in the system yet.</p>
-        </div>
+          <!-- Empty State Patients -->
+          <div *ngIf="!isLoadingPatients && filteredPatients.length === 0" class="empty-state">
+            <div class="empty-icon">👤</div>
+            <h3>No patient records found</h3>
+            <p>No registered patients match your search criteria.</p>
+          </div>
 
-        <!-- Doctor Requests Table -->
-        <div *ngIf="!isLoadingDoctors && filteredDoctors.length > 0" class="table-responsive">
-          <table class="doctors-table">
-            <thead>
-              <tr>
-                <th>Doctor Details</th>
-                <th>Specialization</th>
-                <th>License Number</th>
-                <th>Experience & Location</th>
-                <th>Account Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          <!-- Patients Table -->
+          <div *ngIf="!isLoadingPatients && filteredPatients.length > 0" class="table-responsive">
+            <table class="doctors-table">
+              <thead>
+                <tr>
+                  <th>Patient Details</th>
+                  <th>Contact & Email</th>
+                  <th>Blood Group</th>
+                  <th>Location</th>
+                  <th>Emergency Contact</th>
+                  <th>Account Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let p of filteredPatients" class="doctor-row" style="cursor: default;">
+                  <!-- Patient Details -->
+                  <td>
+                    <div class="doctor-profile-cell">
+                      <div class="avatar-circle" style="background: linear-gradient(135deg, #E0E7FF, #C7D2FE); color: #3730A3;">
+                        {{ p.firstName.charAt(0) }}{{ p.lastName ? p.lastName.charAt(0) : '' }}
+                      </div>
+                      <div class="doc-info">
+                        <span class="doc-name">{{ p.firstName }} {{ p.lastName }}</span>
+                        <span class="doc-email" *ngIf="p.gender || p.dateOfBirth">
+                          {{ p.gender || 'Patient' }} {{ p.dateOfBirth ? ' • ' + (p.dateOfBirth | date:'mediumDate') : '' }}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Contact Details -->
+                  <td>
+                    <div class="exp-cell">
+                      <span class="doc-name" style="font-size: 0.88rem;">{{ p.userId?.email || 'No email' }}</span>
+                      <span class="clinic-addr">📞 {{ p.phone || 'No phone provided' }}</span>
+                    </div>
+                  </td>
+
+                  <!-- Blood Group -->
+                  <td>
+                    <span class="blood-badge" *ngIf="p.bloodGroup">
+                      🩸 {{ p.bloodGroup }}
+                    </span>
+                    <span class="text-muted small" *ngIf="!p.bloodGroup">Not provided</span>
+                  </td>
+
+                  <!-- Location -->
+                  <td>
+                    <div class="exp-cell">
+                      <span class="exp-years" *ngIf="p.address?.city">{{ p.address?.city }}, {{ p.address?.state }}</span>
+                      <span class="clinic-addr" *ngIf="p.address?.pincode">PIN: {{ p.address?.pincode }}</span>
+                      <span class="text-muted small" *ngIf="!p.address?.city">Address not provided</span>
+                    </div>
+                  </td>
+
+                  <!-- Emergency Contact -->
+                  <td>
+                    <div class="exp-cell" *ngIf="p.emergencyContact?.name">
+                      <span class="exp-years">{{ p.emergencyContact?.name }} <small class="text-muted">({{ p.emergencyContact?.relation || 'Contact' }})</small></span>
+                      <span class="clinic-addr">📞 {{ p.emergencyContact?.phone }}</span>
+                    </div>
+                    <span class="text-muted small" *ngIf="!p.emergencyContact?.name">None listed</span>
+                  </td>
+
+                  <!-- Account Status -->
+                  <td>
+                    <span class="status-badge status-verified">
+                      <span class="dot"></span>
+                      Active Patient
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </ng-container>
+
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <!-- DOCTORS VERIFICATION TAB CONTENT (Pending, Approved, etc)     -->
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <ng-container *ngIf="activeTab !== 'patients'">
+          <!-- Loading State Doctors -->
+          <div *ngIf="isLoadingDoctors" class="loading-state">
+            <div class="spinner"></div>
+            <p>Fetching doctor account records...</p>
+          </div>
+
+          <!-- Empty State Doctors -->
+          <div *ngIf="!isLoadingDoctors && filteredDoctors.length === 0" class="empty-state">
+            <div class="empty-icon">🩺</div>
+            <h3>No records found</h3>
+            <p *ngIf="activeTab === 'pending'">There are currently no doctor verification requests awaiting approval.</p>
+            <p *ngIf="activeTab === 'approved'">No verified doctors found matching your criteria.</p>
+            <p *ngIf="activeTab === 'suspended'">No doctor accounts are currently suspended.</p>
+            <p *ngIf="activeTab === 'all'">No doctor profiles registered in the system yet.</p>
+          </div>
+
+          <!-- Doctor Requests Table -->
+          <div *ngIf="!isLoadingDoctors && filteredDoctors.length > 0" class="table-responsive">
+            <table class="doctors-table">
+              <thead>
+                <tr>
+                  <th>Doctor Details</th>
+                  <th>Specialization</th>
+                  <th>License Number</th>
+                  <th>Experience & Location</th>
+                  <th>Account Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
               <tr *ngFor="let doc of filteredDoctors" class="doctor-row" (click)="openDetailsModal(doc)">
                 
                 <!-- Doctor Name & Email -->
@@ -317,6 +436,7 @@
             </tbody>
           </table>
         </div>
+      </ng-container>
 
       </section>
 

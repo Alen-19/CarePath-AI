@@ -32,6 +32,7 @@ export class LandingComponent implements AfterViewInit {
     const video = this.heroVideo?.nativeElement;
     if (video) {
       video.muted = true;
+      video.volume = 0;
       video.play().catch(() => {
         // Autoplay was blocked — video will stay paused until user interacts
       });

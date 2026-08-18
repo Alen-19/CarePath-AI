@@ -210,6 +210,18 @@ export class PatientDashboardComponent implements OnInit {
     return this.isProfilePhoneValid && this.isProfileDobValid;
   }
 
+  get baseConsultationFee(): number {
+    return this.selectedDoctor?.consultationFee || 500;
+  }
+
+  get emergencySurcharge(): number {
+    return this.appointmentType === 'Emergency Sync' ? Math.round(this.baseConsultationFee * 0.1) : 0;
+  }
+
+  get totalBookingFee(): number {
+    return this.appointmentType === 'Emergency Sync' ? Math.round(this.baseConsultationFee * 1.1) : this.baseConsultationFee;
+  }
+
   constructor(
     private authService: AuthService,
     private appointmentService: AppointmentService,
@@ -666,6 +678,13 @@ export class PatientDashboardComponent implements OnInit {
     this.symptoms = '';
     this.isOffDay = false;
     this.showBookingModal = true;
+  }
+
+  onSelectAppointmentType(t: string): void {
+    if (t === 'Follow-up' || t === 'Care Plan Review') {
+      return;
+    }
+    this.appointmentType = t;
   }
 
   closeBookingModal() {

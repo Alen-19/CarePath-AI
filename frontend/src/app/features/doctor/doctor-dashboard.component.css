@@ -456,12 +456,53 @@
 
 .btn-secondary {
   background: var(--bg-tertiary, #F1F5F9);
-  color: var(--text-primary, #0F172A);
+  color: var(--text-primary, #0F172A) !important;
   border: 1px solid var(--border-color, #E2E8F0);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: #E2E8F0;
+  color: #0F172A !important;
+}
+
+.btn-secondary:focus,
+.btn-secondary:active {
+  background: #E2E8F0 !important;
+  color: #0F172A !important;
+  outline: none;
+}
+
+.btn-create-careplan {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: #F8FAFC;
+  color: #0F172A !important;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.btn-create-careplan:hover {
+  background: #EFF6FF;
+  border-color: #93C5FD;
+  color: #1E40AF !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.btn-create-careplan:focus,
+.btn-create-careplan:active {
+  background: #DBEAFE !important;
+  border-color: #3B82F6 !important;
+  color: #1D4ED8 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
 }
 
 .btn-primary {
@@ -793,8 +834,23 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   user-select: none;
+  color: #F8FAFC !important;
+}
+
+.checkbox-container strong {
+  color: #FFFFFF !important;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.checkbox-container input {
+  accent-color: #00b4d8;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .time-picker-group {

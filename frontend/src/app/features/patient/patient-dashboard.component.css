@@ -319,6 +319,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 1.25rem;
+  align-items: start;
 }
 
 .appointment-grid-card {
@@ -328,11 +329,12 @@
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 1rem;
+  justify-content: flex-start;
+  gap: 0.85rem;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
   transition: all 0.25s ease;
   position: relative;
+  height: fit-content;
 }
 
 .appointment-grid-card:hover {
@@ -682,9 +684,39 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 .type-btn.selected { background: var(--primary, #2563EB); border-color: var(--primary, #2563EB); color: #FFFFFF; }
-.type-btn:hover:not(.selected) { border-color: var(--primary, #2563EB); color: var(--primary, #2563EB); }
+.type-btn:hover:not(.selected):not(.disabled-blur) { border-color: var(--primary, #2563EB); color: var(--primary, #2563EB); }
+
+.type-btn.disabled-blur {
+  opacity: 0.45;
+  filter: blur(0.4px);
+  background: #F1F5F9;
+  border: 1px dashed #CBD5E1;
+  color: #94A3B8 !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+  user-select: none;
+}
+
+.type-btn.disabled-blur:hover {
+  border-color: #CBD5E1 !important;
+  color: #94A3B8 !important;
+}
+
+.badge-coming-soon {
+  font-size: 0.62rem;
+  background: #E2E8F0;
+  color: #64748B;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
 
 /* Symptoms */
 .symptoms-input {
