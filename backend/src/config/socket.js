@@ -124,6 +124,30 @@ function initSocket(server) {
       });
     });
 
+    // Relay In-Call Live E-Prescription Updates
+    socket.on('sync-prescription', (data) => {
+      const { appointmentId, prescriptionList } = data || {};
+      if (!appointmentId) return;
+      const roomName = `room_${appointmentId}`;
+      socket.to(roomName).emit('prescription-updated', {
+        prescriptionList: prescriptionList || [],
+        doctorName: socket.data.userName || 'Doctor',
+        timestamp: new Date()
+      });
+    });
+
+    // Relay In-Call Live Clinical Remarks & Dietary Advice Updates
+    socket.on('sync-clinical-notes', (data) => {
+      const { appointmentId, clinicalNotes } = data || {};
+      if (!appointmentId) return;
+      const roomName = `room_${appointmentId}`;
+      socket.to(roomName).emit('clinical-notes-updated', {
+        clinicalNotes: clinicalNotes || null,
+        doctorName: socket.data.userName || 'Doctor',
+        timestamp: new Date()
+      });
+    });
+
     // End Call Handler
     socket.on('end-call', async (data) => {
       const { appointmentId } = data || {};

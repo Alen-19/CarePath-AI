@@ -40,6 +40,7 @@ const adminRoutes = require('./routes/admin.routes');
 const appointmentRoutes = require('./routes/appointment.routes');
 const bookingRoutes = require('./routes/booking.routes');
 const medicineRoutes = require('./routes/medicine.routes');
+const nutritionRoutes = require('./routes/nutrition.routes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -47,6 +48,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/medicines', medicineRoutes);
+app.use('/api/nutrition', nutritionRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

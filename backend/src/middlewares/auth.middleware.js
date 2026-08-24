@@ -68,5 +68,6 @@ const authorizeRoles = (roles = []) => {
 
 module.exports = {
   authenticateJWT,
+  protect: authenticateJWT,
   authorizeRoles
 };

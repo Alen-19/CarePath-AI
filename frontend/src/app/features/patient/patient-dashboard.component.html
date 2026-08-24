@@ -22,6 +22,9 @@
       <button class="nav-tab" [class.active]="activeTab === 'my-appointments'" (click)="setTab('my-appointments')">
         📅 My Appointments
       </button>
+      <button class="nav-tab" [class.active]="activeTab === 'food-tracker'" (click)="setTab('food-tracker')">
+        🥗 AI Food Tracker
+      </button>
     </div>
     <div class="pd-nav-right">
       <div class="user-menu-container position-relative">
@@ -278,44 +281,23 @@
               <p class="symptoms-text text-muted" *ngIf="!appt.symptoms">Regular consultation appointment</p>
             </div>
 
-            <!-- 🥗 DOCTOR CLINICAL REMARKS & DIETARY GUIDANCE DISPLAY -->
-            <div class="clinical-notes-card mt-3 p-3 bg-light rounded border border-success border-opacity-25" *ngIf="appt.clinicalNotes && (appt.clinicalNotes.doctorRemarks || appt.clinicalNotes.recommendedFoods)">
-              <div class="d-flex align-items-center justify-content-between mb-2">
-                <h6 class="m-0 text-success fw-bold small"><i class="bi bi-journal-medical me-1"></i> Doctor Remarks & Dietary Guidance</h6>
-                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 small" *ngIf="appt.clinicalNotes.savedAt">Verified Clinical Note</span>
+            <!-- 🥗 Sleek Compact Clinical CarePath & Prescription Summary Trigger -->
+            <div class="carepath-summary-pill mt-2 p-2 rounded d-flex flex-column gap-1 bg-light border border-success border-opacity-25" *ngIf="appt.clinicalNotes && (appt.clinicalNotes.doctorRemarks || appt.clinicalNotes.recommendedFoods)">
+              <div class="d-flex align-items-center justify-content-between">
+                <span class="small text-success fw-bold"><i class="bi bi-journal-medical me-1"></i> CarePath Prescribed</span>
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25" style="font-size: 0.7rem;">Verified</span>
               </div>
-
-              <!-- Doctor Remarks -->
-              <div class="mb-2" *ngIf="appt.clinicalNotes.doctorRemarks">
-                <strong class="small text-muted d-block text-uppercase">📝 Doctor Remarks:</strong>
-                <p class="small text-dark mb-0 fst-italic" style="line-height: 1.4;">"{{ appt.clinicalNotes.doctorRemarks }}"</p>
+              <!-- Prescribed Tags Preview -->
+              <div class="d-flex flex-wrap gap-1" *ngIf="appt.clinicalNotes.nutritionalTags && appt.clinicalNotes.nutritionalTags.length > 0">
+                <span *ngFor="let tag of appt.clinicalNotes.nutritionalTags" class="badge bg-success text-white px-2 py-0" style="font-size: 0.72rem;">{{ tag }}</span>
               </div>
-
-              <!-- Prescribed Dietary Focus Badges -->
-              <div class="mb-2" *ngIf="appt.clinicalNotes.nutritionalTags && appt.clinicalNotes.nutritionalTags.length > 0">
-                <strong class="small text-muted d-block text-uppercase mb-1">🥗 Prescribed Dietary Focus:</strong>
-                <div class="d-flex flex-wrap gap-1">
-                  <span *ngFor="let tag of appt.clinicalNotes.nutritionalTags" class="badge bg-success text-white small px-2 py-1">{{ tag }}</span>
-                </div>
-              </div>
-
-              <!-- Recommended Foods -->
-              <div class="mb-2" *ngIf="appt.clinicalNotes.recommendedFoods">
-                <strong class="small text-muted d-block text-uppercase">🥦 Recommended Foods to Eat:</strong>
-                <span class="small text-dark fw-medium">{{ appt.clinicalNotes.recommendedFoods }}</span>
-              </div>
-
-              <!-- Foods to Avoid -->
-              <div class="mb-2" *ngIf="appt.clinicalNotes.foodsToAvoid">
-                <strong class="small text-danger d-block text-uppercase">🚫 Foods to Avoid:</strong>
-                <span class="small text-danger">{{ appt.clinicalNotes.foodsToAvoid }}</span>
-              </div>
-
-              <!-- Hydration Target -->
-              <div *ngIf="appt.clinicalNotes.hydrationGoalLiters">
-                <strong class="small text-info d-block text-uppercase">💧 Daily Hydration Target:</strong>
-                <span class="badge bg-info text-dark fw-bold small">{{ appt.clinicalNotes.hydrationGoalLiters }} Liters Water / Day</span>
-              </div>
+              <!-- Doctor Remarks Preview (1-line) -->
+              <p class="small text-muted mb-0 text-truncate fst-italic" *ngIf="appt.clinicalNotes.doctorRemarks">"{{ appt.clinicalNotes.doctorRemarks }}"</p>
+              
+              <!-- Open Full CarePath & Edamam Meal Planner Modal Button -->
+              <button type="button" class="btn btn-sm btn-outline-success w-100 fw-semibold mt-1 py-1" (click)="openCarePathModal(appt)">
+                <i class="bi bi-journal-text me-1"></i> View Full CarePath & Rx
+              </button>
             </div>
           </div>
 
@@ -341,6 +323,239 @@
             >
               Cancel Consultation
             </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 🥗 AI FOOD & MACRO TRACKER TAB ══════════════ -->
+    <section class="pd-section animate-fade-in" *ngIf="activeTab === 'food-tracker'">
+      <div class="row g-4">
+        <!-- Hero Header -->
+        <div class="col-12">
+          <div class="glass-card p-4 rounded-4 bg-gradient d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 border border-success border-opacity-25" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.08));">
+            <div>
+              <span class="badge px-3 py-1 mb-2 fw-semibold" style="background: #ECFDF5; color: #047857; border: 1px solid #10B981;">
+                <i class="bi bi-stars me-1"></i> Gemini Vision Multi-Modal AI & Edamam Database Engine
+              </span>
+              <h2 class="fw-bold text-dark mb-1">🥗 AI Food & Macronutrient Tracker</h2>
+              <p class="text-secondary small mb-0">Snap or upload a photo of your meal plate. Google Gemini Vision identifies the dish, allowing you to edit portions before Edamam computes exact macronutrients.</p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-white shadow-sm text-dark px-3 py-2 border rounded-pill small fw-bold">
+                <i class="bi bi-camera-fill text-success me-1"></i> Instant Photo Recognition
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Left Column: Food Photo Uploader, Gemini Recognition, & Edamam Analyzer -->
+        <div class="col-lg-7">
+          <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
+            <h5 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+              <i class="bi bi-camera-fill text-success"></i> 1. Snap or Upload Meal Plate Photo
+            </h5>
+
+            <!-- Photo Upload Dropzone / Preview -->
+            <div class="mb-4">
+              <!-- Upload Box when no image is selected -->
+              <div 
+                *ngIf="!foodImagePreview && !isRecognizingImage"
+                class="p-4 border border-2 border-dashed rounded-4 text-center cursor-pointer transition-all"
+                style="border-color: #CBD5E1 !important; background: #F8FAFC;"
+                (click)="foodPhotoInput.click()"
+              >
+                <input 
+                  type="file" 
+                  #foodPhotoInput 
+                  accept="image/jpeg,image/png,image/webp" 
+                  (change)="onFoodImageSelected($event)" 
+                  style="display: none;"
+                />
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 d-inline-flex text-success fs-3 mb-2">
+                  <i class="bi bi-cloud-arrow-up-fill"></i>
+                </div>
+                <h6 class="fw-bold text-dark mb-1">Click to Upload or Drag & Drop Meal Photo</h6>
+                <p class="text-muted small mb-2">Supports JPG, PNG, WEBP (Max 10MB)</p>
+                <button type="button" class="btn btn-sm btn-outline-success fw-bold px-3 py-1 rounded-pill">
+                  <i class="bi bi-camera-fill me-1"></i> Choose Food Photo
+                </button>
+              </div>
+
+              <!-- Gemini Vision Analyzing State -->
+              <div *ngIf="isRecognizingImage" class="p-4 rounded-4 text-center border border-success border-opacity-50" style="background: #F0FDF4;">
+                <div class="spinner-grow text-success mb-3" style="width: 2.5rem; height: 2.5rem;" role="status"></div>
+                <h6 class="fw-bold text-success mb-1">🤖 Google Gemini Vision is analyzing your meal plate...</h6>
+                <p class="text-secondary small mb-0">Detecting dishes, ingredients, and portion sizes</p>
+              </div>
+
+              <!-- Image Preview & Gemini Recognition Summary -->
+              <div *ngIf="foodImagePreview && !isRecognizingImage" class="p-3 bg-light rounded-4 border border-success border-opacity-50 d-flex flex-column flex-sm-row align-items-center gap-3 animate-fade-in">
+                <img [src]="foodImagePreview" alt="Food Plate Preview" class="rounded-3 shadow-sm" style="width: 110px; height: 110px; object-fit: cover;">
+                <div class="flex-grow-1">
+                  <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge" style="background: #ECFDF5; color: #047857; border: 1px solid #10B981; font-size: 0.72rem; font-weight: 700;">
+                      <i class="bi bi-stars me-1"></i> Gemini Vision Identified
+                    </span>
+                    <span class="badge bg-secondary text-white" style="font-size: 0.7rem;" *ngIf="geminiConfidence">
+                      {{ (geminiConfidence * 100) | number:'1.0-0' }}% Match
+                    </span>
+                  </div>
+                  <strong class="text-dark d-block fs-6 mb-1">{{ geminiRecognizedDish }}</strong>
+                  <div class="d-flex flex-wrap gap-1" *ngIf="geminiIngredients.length > 0">
+                    <span *ngFor="let ing of geminiIngredients" class="badge bg-white text-muted border small" style="font-size: 0.7rem;">{{ ing }}</span>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger align-self-sm-start" (click)="removeFoodImage()" title="Remove image">
+                  ✕ Remove
+                </button>
+              </div>
+            </div>
+
+            <!-- Meal Type Selector -->
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary text-uppercase">2. Select Meal Type</label>
+              <div class="btn-group w-100" role="group">
+                <input type="radio" class="btn-check" name="trackerMealType" id="mealBreakfast" [(ngModel)]="foodTrackerMealType" value="Breakfast">
+                <label class="btn btn-outline-secondary btn-sm fw-semibold" for="mealBreakfast">🌅 Breakfast</label>
+
+                <input type="radio" class="btn-check" name="trackerMealType" id="mealLunch" [(ngModel)]="foodTrackerMealType" value="Lunch">
+                <label class="btn btn-outline-secondary btn-sm fw-semibold" for="mealLunch">☀️ Lunch</label>
+
+                <input type="radio" class="btn-check" name="trackerMealType" id="mealSnack" [(ngModel)]="foodTrackerMealType" value="Snack">
+                <label class="btn btn-outline-secondary btn-sm fw-semibold" for="mealSnack">🍵 Snack</label>
+
+                <input type="radio" class="btn-check" name="trackerMealType" id="mealDinner" [(ngModel)]="foodTrackerMealType" value="Dinner">
+                <label class="btn btn-outline-secondary btn-sm fw-semibold" for="mealDinner">🌙 Dinner</label>
+              </div>
+            </div>
+
+            <!-- Editable Food Name Input & Analyze Button -->
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label small fw-bold text-secondary text-uppercase m-0">3. Food Dish Name (Editable)</label>
+                <small class="text-success fw-semibold" *ngIf="geminiRecognizedDish">
+                  <i class="bi bi-pencil-square me-1"></i> You can freely edit or adjust the dish name
+                </small>
+              </div>
+              <div class="input-group">
+                <input 
+                  type="text" 
+                  class="form-control form-control-lg fs-6" 
+                  [class.is-invalid]="foodInputError"
+                  placeholder="e.g. 2 Palak Paneer Rotis, Masala Dosa, Oatmeal with Almonds..." 
+                  [(ngModel)]="foodTrackerInput"
+                  (input)="onFoodInputChange()"
+                  (keyup.enter)="analyzeFoodItem()"
+                />
+                <button class="btn btn-success px-4 fw-bold" [disabled]="isAnalyzingFood || !foodTrackerInput.trim()" (click)="analyzeFoodItem()">
+                  <span *ngIf="isAnalyzingFood" class="spinner-border spinner-border-sm me-2"></span>
+                  <i *ngIf="!isAnalyzingFood" class="bi bi-calculator me-1"></i> Calculate Macros
+                </button>
+              </div>
+              <div *ngIf="foodInputError" class="text-danger small mt-1 d-flex align-items-center gap-1 animate-fade-in">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>{{ foodInputError }}</span>
+              </div>
+            </div>
+
+            <!-- Quick Popular Sample Prompts -->
+            <div class="mb-4">
+              <span class="small text-muted me-2">Or try quick dish:</span>
+              <div class="d-inline-flex flex-wrap gap-1 mt-1">
+                <button class="btn btn-sm btn-light border text-secondary px-2 py-0" style="font-size: 0.75rem;" (click)="quickAnalyzeFood('Paneer Bhurji with Multigrain Toast')">🍳 Paneer Bhurji</button>
+                <button class="btn btn-sm btn-light border text-secondary px-2 py-0" style="font-size: 0.75rem;" (click)="quickAnalyzeFood('Palak Dal with Brown Rice')">🥗 Palak Dal & Rice</button>
+                <button class="btn btn-sm btn-light border text-secondary px-2 py-0" style="font-size: 0.75rem;" (click)="quickAnalyzeFood('Sprouted Moong Dosa')">🌱 Moong Dosa</button>
+                <button class="btn btn-sm btn-light border text-secondary px-2 py-0" style="font-size: 0.75rem;" (click)="quickAnalyzeFood('Zero-Salt Lauki Khichdi')">🥣 Lauki Khichdi</button>
+              </div>
+            </div>
+
+            <!-- Analyzed Results Card -->
+            <div *ngIf="analyzedFoodResult" class="p-3 bg-light rounded-4 border border-success border-opacity-50 animate-fade-in">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <span class="badge bg-success text-white px-2 py-1 small text-uppercase">{{ foodTrackerMealType }}</span>
+                  <h5 class="fw-bold text-dark mt-1 mb-0">{{ analyzedFoodResult.foodItem }}</h5>
+                </div>
+                <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #93C5FD; font-size: 1.1rem; font-weight: 800; padding: 0.5rem 1rem;">
+                  🔥 {{ analyzedFoodResult.calories }} kcal
+                </span>
+              </div>
+
+              <!-- Macronutrient Grid -->
+              <div class="row g-2 text-center mb-3">
+                <div class="col-3">
+                  <div class="p-2 bg-white rounded-3 shadow-sm border">
+                    <span class="d-block small text-muted">Protein</span>
+                    <strong class="text-primary fs-5">{{ analyzedFoodResult.protein }}g</strong>
+                  </div>
+                </div>
+                <div class="col-3">
+                  <div class="p-2 bg-white rounded-3 shadow-sm border">
+                    <span class="d-block small text-muted">Carbs</span>
+                    <strong class="text-success fs-5">{{ analyzedFoodResult.carbs }}g</strong>
+                  </div>
+                </div>
+                <div class="col-3">
+                  <div class="p-2 bg-white rounded-3 shadow-sm border">
+                    <span class="d-block small text-muted">Fats</span>
+                    <strong class="text-warning fs-5">{{ analyzedFoodResult.fat }}g</strong>
+                  </div>
+                </div>
+                <div class="col-3">
+                  <div class="p-2 bg-white rounded-3 shadow-sm border">
+                    <span class="d-block small text-muted">Sodium</span>
+                    <strong class="text-danger fs-5">{{ analyzedFoodResult.sodium }}mg</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Save Log Button -->
+              <button class="btn btn-success w-100 py-2 fw-bold shadow-sm" [disabled]="isLoggingFood" (click)="confirmAndLogMeal()">
+                <span *ngIf="isLoggingFood" class="spinner-border spinner-border-sm me-2"></span>
+                <i *ngIf="!isLoggingFood" class="bi bi-cloud-arrow-up-fill me-2"></i> Log Meal to CarePath Health Diary
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Today's Logged Meal Timeline -->
+        <div class="col-lg-5">
+          <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-clock-history me-2 text-info"></i>Today's Logged Meals</h5>
+
+            <div *ngIf="loggedMeals.length === 0" class="text-center py-5 text-muted">
+              <i class="bi bi-card-checklist display-4 text-secondary opacity-50 mb-3 d-block"></i>
+              <p class="small mb-0">No meals logged today yet.<br>Snap a photo or analyze a dish and click <strong>Log Meal</strong> to build your daily macro record!</p>
+            </div>
+
+            <div *ngIf="loggedMeals.length > 0" class="d-flex flex-column gap-2">
+              <div *ngFor="let meal of loggedMeals" class="p-3 bg-light rounded-3 shadow-sm border border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                  <img 
+                    *ngIf="meal.imageUrl" 
+                    [src]="'http://localhost:5000' + meal.imageUrl" 
+                    alt="Meal Thumbnail" 
+                    class="rounded-3" 
+                    style="width: 48px; height: 48px; object-fit: cover;"
+                  />
+                  <div *ngIf="!meal.imageUrl" class="rounded-3 bg-white p-2 text-center border" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                    🍽️
+                  </div>
+                  <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                      <span class="badge bg-secondary text-white small" style="font-size: 0.7rem;">{{ meal.mealType }}</span>
+                      <small class="text-muted">{{ meal.time }}</small>
+                    </div>
+                    <strong class="text-dark d-block small">{{ meal.foodItemName }}</strong>
+                  </div>
+                </div>
+                <div class="text-end">
+                  <span class="badge bg-success text-white fw-bold">{{ meal.calories }} kcal</span>
+                  <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">{{ meal.protein }}g Protein</small>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -793,6 +1008,12 @@
 
     <!-- Step 4: Policy + Pay -->
     <div class="step-content" *ngIf="bookingStep === 4">
+      <!-- Schedule Conflict Warning Alert -->
+      <div *ngIf="bookingConflictError" class="alert alert-danger py-2.5 px-3 mb-3 small d-flex align-items-center gap-2 animate-fade-in shadow-sm rounded-3">
+        <i class="bi bi-exclamation-octagon-fill fs-5 text-danger flex-shrink-0"></i>
+        <div class="lh-sm"><strong>Cannot Confirm Slot:</strong> {{ bookingConflictError }}</div>
+      </div>
+
       <div class="booking-summary-box">
         <h4>Booking Summary</h4>
         <div class="summary-row">
@@ -1145,6 +1366,201 @@
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ══════════════ 🥗 CLINICAL CAREPATH & EDAMAM MEAL PLANNER MODAL ══════════════ -->
+<div class="modal-overlay" *ngIf="showCarePathModal && selectedCarePathAppt" (click)="closeCarePathModal()">
+  <div class="carepath-modal-dialog" (click)="$event.stopPropagation()">
+    
+    <!-- Modal Header -->
+    <div class="carepath-modal-header">
+      <div class="d-flex align-items-center gap-3">
+        <div class="rounded-circle bg-white bg-opacity-20 p-2 text-white fs-4 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+          🥗
+        </div>
+        <div>
+          <h5 class="fw-bold m-0 text-white fs-5">Clinical CarePath & Dietary Guidance</h5>
+          <small class="text-white-50">Prescribed by Dr. {{ selectedCarePathAppt.doctorId.firstName }} {{ selectedCarePathAppt.doctorId.lastName }} ({{ selectedCarePathAppt.doctorId.specialization }})</small>
+        </div>
+      </div>
+      <button type="button" class="btn-close btn-close-white" (click)="closeCarePathModal()"></button>
+    </div>
+
+    <!-- Modal Navigation Tabs -->
+    <div class="carepath-modal-tabs">
+      <button 
+        type="button" 
+        class="carepath-tab-btn"
+        [class.active]="activeCarePathTab === 'careplan'"
+        (click)="activeCarePathTab = 'careplan'"
+      >
+        <i class="bi bi-journal-medical"></i> Doctor CarePath & Remarks
+      </button>
+
+      <button 
+        type="button" 
+        class="carepath-tab-btn"
+        [class.active]="activeCarePathTab === 'edamam-recipes'"
+        (click)="activeCarePathTab = 'edamam-recipes'"
+      >
+        <i class="bi bi-magic"></i> Live Edamam Recipe Cards
+      </button>
+    </div>
+
+    <!-- Modal Body Content Scroll -->
+    <div class="carepath-modal-body">
+
+      <!-- TAB 1: Clinical Remarks & Day-Parted Meals -->
+      <div *ngIf="activeCarePathTab === 'careplan'" class="d-flex flex-column gap-3">
+        
+        <!-- Doctor Clinical Impression -->
+        <div class="carepath-section-card" *ngIf="selectedCarePathAppt.clinicalNotes?.doctorRemarks">
+          <div class="carepath-section-title">
+            <i class="bi bi-chat-left-quote-fill text-primary"></i> Doctor Remarks & Clinical Impression
+          </div>
+          <p class="text-dark fst-italic mb-0" style="line-height: 1.5; font-size: 0.92rem;">"{{ selectedCarePathAppt.clinicalNotes?.doctorRemarks }}"</p>
+        </div>
+
+        <!-- Prescribed Dietary Focus Badges -->
+        <div class="carepath-section-card" *ngIf="selectedCarePathAppt.clinicalNotes?.nutritionalTags && selectedCarePathAppt.clinicalNotes!.nutritionalTags!.length > 0">
+          <div class="carepath-section-title">
+            <i class="bi bi-tags-fill text-success"></i> Prescribed Nutritional Focus
+          </div>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <span *ngFor="let tag of selectedCarePathAppt.clinicalNotes?.nutritionalTags" class="nutritional-focus-badge">
+              {{ tag }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Structured Day-Parted Meal Menu -->
+        <div class="carepath-section-card" *ngIf="selectedCarePathAppt.clinicalNotes?.recommendedFoods">
+          <div class="carepath-section-title text-success">
+            <i class="bi bi-calendar-range-fill text-success"></i> Structured Day-Parted Meal Schedule
+          </div>
+          <div class="carepath-meal-schedule-box mt-2">
+            {{ selectedCarePathAppt.clinicalNotes?.recommendedFoods }}
+          </div>
+        </div>
+
+        <!-- Clinical Restrictions (Foods to Avoid) -->
+        <div class="p-3 bg-danger bg-opacity-10 rounded-3 border border-danger border-opacity-25" *ngIf="selectedCarePathAppt.clinicalNotes?.foodsToAvoid">
+          <strong class="text-danger small d-block text-uppercase mb-1 fw-bold"><i class="bi bi-x-octagon-fill me-1"></i> Clinically Contraindicated Foods (To Avoid):</strong>
+          <p class="text-danger mb-0 small fw-semibold">{{ selectedCarePathAppt.clinicalNotes?.foodsToAvoid }}</p>
+        </div>
+
+        <!-- Hydration Target -->
+        <div class="carepath-section-card d-flex justify-content-between align-items-center" *ngIf="selectedCarePathAppt.clinicalNotes?.hydrationGoalLiters">
+          <div>
+            <div class="carepath-section-title text-info mb-1">
+              <i class="bi bi-droplet-fill text-info"></i> Daily Hydration Target
+            </div>
+            <small class="text-muted">Maintain adequate fluid balance as prescribed by doctor.</small>
+          </div>
+          <span class="badge bg-info text-dark px-3 py-2 fs-6 fw-bold shadow-sm">
+            💧 {{ selectedCarePathAppt.clinicalNotes?.hydrationGoalLiters }} L / day
+          </span>
+        </div>
+
+      </div>
+
+      <!-- TAB 2: Dynamic Edamam Recipe Cards -->
+      <div *ngIf="activeCarePathTab === 'edamam-recipes'">
+        
+        <div *ngIf="loadingEdamamPlan" class="text-center py-5">
+          <div class="spinner-border text-success mb-3" role="status"></div>
+          <p class="text-muted small">Querying Edamam Nutrition Engine for dynamic recipe cards...</p>
+        </div>
+
+        <div *ngIf="!loadingEdamamPlan && edamamMealPlan" class="d-flex flex-column gap-4">
+          
+          <!-- Breakfast Section -->
+          <div *ngIf="edamamMealPlan.breakfast && edamamMealPlan.breakfast.length > 0">
+            <h6 class="fw-bold text-dark text-uppercase mb-3 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
+              <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-1">🌅 Breakfast Options</span>
+            </h6>
+            <div class="row g-3">
+              <div *ngFor="let recipe of edamamMealPlan.breakfast" class="col-md-6">
+                <div class="carepath-recipe-card h-100">
+                  <img [src]="recipe.image" class="carepath-recipe-img" [alt]="recipe.title">
+                  <div class="p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <strong class="text-dark small d-block text-truncate" style="max-width: 70%;">{{ recipe.title }}</strong>
+                      <span class="badge bg-success text-white small">{{ recipe.calories }} kcal</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted small border-top pt-2 mt-2" style="font-size: 0.75rem;">
+                      <span>💪 {{ recipe.protein }}g Protein</span>
+                      <span>🌾 {{ recipe.carbs }}g Carbs</span>
+                      <span>🧂 {{ recipe.sodium }}mg Sodium</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lunch Section -->
+          <div *ngIf="edamamMealPlan.lunch && edamamMealPlan.lunch.length > 0">
+            <h6 class="fw-bold text-dark text-uppercase mb-3 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
+              <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-1">☀️ Lunch Options</span>
+            </h6>
+            <div class="row g-3">
+              <div *ngFor="let recipe of edamamMealPlan.lunch" class="col-md-6">
+                <div class="carepath-recipe-card h-100">
+                  <img [src]="recipe.image" class="carepath-recipe-img" [alt]="recipe.title">
+                  <div class="p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <strong class="text-dark small d-block text-truncate" style="max-width: 70%;">{{ recipe.title }}</strong>
+                      <span class="badge bg-success text-white small">{{ recipe.calories }} kcal</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted small border-top pt-2 mt-2" style="font-size: 0.75rem;">
+                      <span>💪 {{ recipe.protein }}g Protein</span>
+                      <span>🌾 {{ recipe.carbs }}g Carbs</span>
+                      <span>🧂 {{ recipe.sodium }}mg Sodium</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dinner Section -->
+          <div *ngIf="edamamMealPlan.dinner && edamamMealPlan.dinner.length > 0">
+            <h6 class="fw-bold text-dark text-uppercase mb-3 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
+              <span class="badge bg-primary bg-opacity-25 text-dark border border-primary px-2 py-1">🌙 Dinner Options</span>
+            </h6>
+            <div class="row g-3">
+              <div *ngFor="let recipe of edamamMealPlan.dinner" class="col-md-6">
+                <div class="carepath-recipe-card h-100">
+                  <img [src]="recipe.image" class="carepath-recipe-img" [alt]="recipe.title">
+                  <div class="p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <strong class="text-dark small d-block text-truncate" style="max-width: 70%;">{{ recipe.title }}</strong>
+                      <span class="badge bg-success text-white small">{{ recipe.calories }} kcal</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted small border-top pt-2 mt-2" style="font-size: 0.75rem;">
+                      <span>💪 {{ recipe.protein }}g Protein</span>
+                      <span>🌾 {{ recipe.carbs }}g Carbs</span>
+                      <span>🧂 {{ recipe.sodium }}mg Sodium</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="carepath-modal-footer">
+      <button type="button" class="btn-carepath-close" (click)="closeCarePathModal()">Close</button>
+    </div>
+
   </div>
 </div>
 

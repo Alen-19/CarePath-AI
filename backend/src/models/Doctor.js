@@ -86,6 +86,11 @@ const DoctorSchema = new mongoose.Schema({
   profileImage: {
     type: String,
     default: null
+  },
+  razorpayAccountId: {
+    type: String,
+    default: null,
+    trim: true
   }
 }, { 
   timestamps: true,

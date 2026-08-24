@@ -6,6 +6,8 @@ const Patient = require('../models/Patient');
 const DoctorSchedule = require('../models/DoctorSchedule');
 const DoctorDateOverride = require('../models/DoctorDateOverride');
 const Appointment = require('../models/Appointment');
+const Prescription = require('../models/Prescription');
+const CarePlan = require('../models/CarePlan');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const { sendAppointmentReceiptEmail, sendPrescriptionEmail } = require('../config/mailer');
@@ -337,14 +339,40 @@ const bookAppointment = async (req, res) => {
 
     // Check slot availability for routine bookings
     if (!isEmergencySync) {
-      const conflicting = await Appointment.findOne({
+      const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+
+      // 1. Doctor Slot Availability Check: Ensure this doctor is not already booked at this slot
+      const conflictingDoctor = await Appointment.findOne({
         doctorId,
         appointmentDate,
         startTime,
-        status: { $in: ['Pending Payment', 'Confirmed'] }
+        $or: [
+          { status: 'Confirmed' },
+          { status: 'Pending Payment', createdAt: { $gte: fifteenMinsAgo } }
+        ]
       });
-      if (conflicting) {
-        return res.status(409).json({ message: 'This slot is already booked. Please choose another.' });
+      if (conflictingDoctor) {
+        return res.status(409).json({ message: 'This slot is already booked for this doctor. Please choose another.' });
+      }
+
+      // 2. Patient Schedule Conflict Guard: Ensure the patient does not already have an active appointment at this exact date & time
+      const conflictingPatient = await Appointment.findOne({
+        patientId: patient._id,
+        appointmentDate,
+        startTime,
+        $or: [
+          { status: 'Confirmed' },
+          { status: 'Pending Payment', createdAt: { $gte: fifteenMinsAgo } }
+        ]
+      }).populate('doctorId', 'firstName lastName specialization');
+
+      if (conflictingPatient) {
+        const docName = conflictingPatient.doctorId
+          ? `Dr. ${conflictingPatient.doctorId.firstName} ${conflictingPatient.doctorId.lastName}`
+          : 'another doctor';
+        return res.status(409).json({
+          message: `Schedule Conflict: You already have a consultation booked at ${startTime} on ${appointmentDate} with ${docName}. Please select a different time slot.`
+        });
       }
     }
 
@@ -352,18 +380,42 @@ const bookAppointment = async (req, res) => {
     const baseFee = doctorSchedule?.consultationFee || doctor.consultationFee || 500;
     const fee = isEmergencySync ? Math.round(baseFee * 1.1) : baseFee; // Emergency priority fee (+10%)
 
-    // Create Razorpay order (amount in paise = fee * 100)
-    const razorpayOrder = await getRazorpay().orders.create({
-      amount: fee * 100,
+    // 💰 Option 1 Revenue Split: 80% Doctor Share, 20% Admin Platform Share
+    const doctorShare = Math.round(fee * 0.80);
+    const platformShare = fee - doctorShare;
+
+    const orderPayload = {
+      amount: fee * 100, // Total amount in paise
       currency: 'INR',
       receipt: `rcpt_${Date.now()}`,
       notes: {
         doctorName: `Dr. ${doctor.firstName} ${doctor.lastName}`,
         patientId: patient._id.toString(),
         appointmentDate,
-        startTime
+        startTime,
+        type: type || 'General Consultation'
       }
-    });
+    };
+
+    // 🚀 Razorpay Route Automated Split Transfer (if doctor has linked account)
+    if (doctor.razorpayAccountId) {
+      orderPayload.transfers = [
+        {
+          account: doctor.razorpayAccountId,
+          amount: doctorShare * 100, // 80% in paise transferred to doctor
+          currency: 'INR',
+          on_hold: 0,                // Auto-settle immediately when payment is captured
+          notes: {
+            doctorName: `Dr. ${doctor.firstName} ${doctor.lastName}`,
+            appointmentDate,
+            type: type || 'General Consultation'
+          }
+        }
+      ];
+    }
+
+    // Create Razorpay order
+    const razorpayOrder = await getRazorpay().orders.create(orderPayload);
 
     // Create appointment in Pending Payment status
     const appointment = await Appointment.create({
@@ -382,7 +434,7 @@ const bookAppointment = async (req, res) => {
       emergencyStatus: isEmergencySync ? 'Pending' : 'None'
     });
 
-    // Create Payment record
+    // Create Payment record with 80/20 revenue audit
     await Payment.create({
       appointmentId: appointment._id,
       patientId: patient._id,
@@ -390,6 +442,10 @@ const bookAppointment = async (req, res) => {
       razorpayOrderId: razorpayOrder.id,
       amount: fee,
       currency: 'INR',
+      platformFeePercent: 20,
+      platformFee: platformShare,
+      doctorEarning: doctorShare,
+      transferStatus: doctor.razorpayAccountId ? 'Pending' : 'Not Applicable',
       status: 'Pending'
     });
 
@@ -441,13 +497,15 @@ const verifyPayment = async (req, res) => {
     if (!appointment) return res.status(404).json({ message: 'Appointment not found.' });
 
     // Update payment record
+    const hasLinkedAccount = !!(appointment.doctorId?.razorpayAccountId);
     await Payment.findOneAndUpdate(
       { razorpayOrderId },
       {
         razorpayPaymentId,
         razorpaySignature,
         status: 'Paid',
-        paidAt: new Date()
+        paidAt: new Date(),
+        transferStatus: hasLinkedAccount ? 'Transferred' : 'Not Applicable'
       }
     );
 
@@ -735,6 +793,19 @@ const addPrescription = async (req, res) => {
     appointment.prescribedAt = new Date();
     await appointment.save();
 
+    // Decoupled collection sync: Upsert into Prescription collection
+    await Prescription.findOneAndUpdate(
+      { appointmentId: appointment._id },
+      {
+        appointmentId: appointment._id,
+        patientId: appointment.patientId?._id || appointment.patientId,
+        doctorId: appointment.doctorId?._id || appointment.doctorId,
+        medicines: prescription,
+        prescribedAt: appointment.prescribedAt
+      },
+      { upsert: true, new: true }
+    );
+
     // Trigger email to patient
     let patientEmail = '';
     let patientName = 'Patient';
@@ -810,6 +881,23 @@ const saveClinicalNotes = async (req, res) => {
     };
 
     await appointment.save();
+
+    // Decoupled collection sync: Upsert into CarePlan collection
+    await CarePlan.findOneAndUpdate(
+      { appointmentId: appointment._id },
+      {
+        appointmentId: appointment._id,
+        patientId: appointment.patientId?._id || appointment.patientId,
+        doctorId: appointment.doctorId?._id || appointment.doctorId,
+        doctorRemarks: doctorRemarks || '',
+        nutritionalTags: nutritionalTags || [],
+        recommendedFoods: recommendedFoods || '',
+        foodsToAvoid: foodsToAvoid || '',
+        hydrationGoalLiters: hydrationGoalLiters || 3,
+        savedAt: appointment.clinicalNotes.savedAt
+      },
+      { upsert: true, new: true }
+    );
 
     // Trigger email send to patient with remarks & dietary advice
     let patientEmail = '';

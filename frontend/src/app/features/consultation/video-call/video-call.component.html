@@ -123,6 +123,20 @@
           </div>
         </div>
       </div>
+
+      <!-- ⚡ DOCTOR "EMERGENCY TRIAGE ACTIVE / RESUME" BANNER -->
+      <div *ngIf="userRole === 'doctor' && (isEmergencyTriageMode || isCallPaused)" class="alert alert-warning border-0 m-3 d-flex align-items-center justify-content-between py-2.5 px-3 shadow-sm rounded-3">
+        <div class="d-flex align-items-center gap-2.5">
+          <span class="spinner-grow spinner-grow-sm text-warning" role="status"></span>
+          <div>
+            <strong class="text-dark d-block">Patient Consultation is currently on hold (Paused for Emergency)</strong>
+            <div class="small text-muted">Patient is waiting on the line. Once you finish the emergency triage in the other tab, click to resume this call.</div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-success fw-bold px-3 py-1.5 shadow-sm" (click)="resumeCurrentConsultation()">
+          <i class="bi bi-play-circle-fill me-1"></i> Resume Patient Call
+        </button>
+      </div>
       
       <!-- Video Streams Area -->
       <div class="video-grid" [class.with-sidebar]="activeSidebarTab !== null">
@@ -231,7 +245,7 @@
                   <div class="row g-2">
                     <div class="col-6">
                       <label class="small text-secondary">Dosage</label>
-                      <select class="form-select form-select-sm glass-input text-light" [(ngModel)]="item.dosage">
+                      <select class="form-select form-select-sm glass-input text-light" [(ngModel)]="item.dosage" (ngModelChange)="onPrescriptionItemChange()">
                         <option value="1-0-1">1-0-1 (Morning & Night)</option>
                         <option value="1-1-1">1-1-1 (Thrice daily)</option>
                         <option value="1-0-0">1-0-0 (Morning only)</option>
@@ -241,7 +255,7 @@
                     </div>
                     <div class="col-6">
                       <label class="small text-secondary">Duration</label>
-                      <select class="form-select form-select-sm glass-input text-light" [(ngModel)]="item.duration">
+                      <select class="form-select form-select-sm glass-input text-light" [(ngModel)]="item.duration" (ngModelChange)="onPrescriptionItemChange()">
                         <option value="3 Days">3 Days</option>
                         <option value="5 Days">5 Days</option>
                         <option value="7 Days">7 Days</option>
@@ -251,7 +265,7 @@
                       </select>
                     </div>
                     <div class="col-12 mt-2">
-                      <input type="text" class="form-control form-control-sm glass-input text-light" [(ngModel)]="item.instructions" placeholder="Instructions (e.g. After food with water)...">
+                      <input type="text" class="form-control form-control-sm glass-input text-light" [(ngModel)]="item.instructions" (ngModelChange)="onPrescriptionItemChange()" placeholder="Instructions (e.g. After food with water)...">
                     </div>
                   </div>
                 </div>
@@ -259,30 +273,59 @@
                 <!-- Auto-Send on End Call Notification Box -->
                 <div *ngIf="prescriptionList.length > 0" class="sticky-rx-footer mt-3 pt-2">
                   <div class="alert alert-success border-0 py-2.5 px-3 m-0 d-flex align-items-center gap-2 text-white shadow-sm" style="background: linear-gradient(135deg, #059669, #10B981);">
-                    <i class="bi bi-magic fs-5"></i>
+                    <i class="bi bi-broadcast fs-5 text-warning"></i>
                     <div class="small lh-sm">
-                      <strong>Auto-Send Enabled:</strong> This E-Prescription will be automatically sealed & emailed to the patient when you click <strong>"End Call"</strong>.
+                      <strong>Live Sync Active:</strong> Prescriptions are synced live to the patient's screen and will be emailed when you click <strong>"End Call"</strong>.
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- PATIENT MODE: View Prescribed Medicines -->
+              <!-- PATIENT MODE: Live Prescribed Medicines Stream -->
               <div *ngIf="userRole === 'patient'">
-                <div *ngIf="!appointmentDetails?.prescription || appointmentDetails?.prescription.length === 0" class="text-center py-5 text-secondary">
-                  <i class="bi bi-hourglass-split display-6 text-muted"></i>
-                  <p class="mt-2 small">Your doctor has not issued an E-Prescription yet during this call.</p>
+                <!-- Live In-Call Prescription Card Stack -->
+                <div *ngIf="livePrescriptionList.length > 0 || (appointmentDetails?.prescription && appointmentDetails?.prescription.length > 0)">
+                  <div class="d-flex align-items-center justify-content-between mb-3 p-2 px-3 rounded glass-panel-sm border border-success border-opacity-50" style="background: rgba(16, 185, 129, 0.15);">
+                    <span class="badge bg-success text-white d-flex align-items-center gap-1.5 py-1 px-2">
+                      <span class="spinner-grow spinner-grow-sm text-white" style="width: 0.55rem; height: 0.55rem;"></span>
+                      🔴 LIVE FROM {{ doctorName | uppercase }}
+                    </span>
+                    <small class="text-success-subtle fw-semibold" style="font-size: 0.75rem;">
+                      {{ (livePrescriptionList.length > 0 ? livePrescriptionList : appointmentDetails.prescription).length }} Medicine(s)
+                    </small>
+                  </div>
+
+                  <div *ngFor="let item of (livePrescriptionList.length > 0 ? livePrescriptionList : appointmentDetails.prescription); let i = index" class="glass-card p-3 mb-2 border border-success border-opacity-25 animate-fade-in shadow-sm">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                      <strong class="text-success d-block fs-6"><i class="bi bi-capsule me-1"></i> {{ i + 1 }}. {{ item.medicineName }}</strong>
+                      <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50 px-2 py-0.5" style="font-size: 0.7rem;">Active Rx</span>
+                    </div>
+
+                    <div *ngIf="item.composition && item.composition.length > 0" class="mb-2">
+                      <span *ngFor="let comp of item.composition" class="badge bg-secondary bg-opacity-50 text-light me-1" style="font-size: 0.65rem;">{{ comp }}</span>
+                    </div>
+
+                    <div class="row g-1 small mt-1 py-1 px-2 rounded bg-black bg-opacity-25">
+                      <div class="col-6"><span class="text-secondary">Dosage:</span> <strong class="text-light">{{ item.dosage }}</strong></div>
+                      <div class="col-6"><span class="text-secondary">Duration:</span> <strong class="text-light">{{ item.duration }}</strong></div>
+                    </div>
+
+                    <div class="small text-warning mt-2 d-flex align-items-center gap-1" *ngIf="item.instructions">
+                      <i class="bi bi-info-circle-fill"></i>
+                      <span><em>{{ item.instructions }}</em></span>
+                    </div>
+                  </div>
+
+                  <div class="alert alert-info py-2 px-3 small mt-3 border-0 bg-info bg-opacity-10 text-info">
+                    <i class="bi bi-shield-check me-1"></i> A sealed copy of this prescription will be emailed to you upon call completion.
+                  </div>
                 </div>
 
-                <div *ngIf="appointmentDetails?.prescription && appointmentDetails?.prescription.length > 0">
-                  <div *ngFor="let item of appointmentDetails.prescription; let i = index" class="glass-card p-3 mb-2">
-                    <strong class="text-success d-block mb-1">{{ i + 1 }}. {{ item.medicineName }}</strong>
-                    <div class="small text-light"><strong>Dosage:</strong> {{ item.dosage }} • <strong>Duration:</strong> {{ item.duration }}</div>
-                    <div class="small text-secondary mt-1"><em>{{ item.instructions }}</em></div>
-                  </div>
-                  <div class="alert alert-info py-2 px-3 small mt-3">
-                    <i class="bi bi-envelope-check-fill me-1"></i> A copy of this prescription has been emailed to your registered address.
-                  </div>
+                <!-- Empty State (Waiting for Doctor) -->
+                <div *ngIf="livePrescriptionList.length === 0 && (!appointmentDetails?.prescription || appointmentDetails?.prescription.length === 0)" class="text-center py-5 text-secondary glass-card p-4">
+                  <div class="spinner-grow text-success mb-3" style="width: 2rem; height: 2rem;" role="status"></div>
+                  <h6 class="text-light fw-bold">Live Prescription Sync Active</h6>
+                  <p class="small text-secondary mt-2 mb-0">Your doctor is evaluating your consultation. Prescribed medications will appear here live in real time as they are added.</p>
                 </div>
               </div>
             </div>
@@ -306,38 +349,65 @@
                 <!-- Doctor Remarks -->
                 <div class="mb-3">
                   <label class="form-label small text-secondary fw-semibold">📝 Doctor Remarks & Clinical Impression</label>
-                  <textarea class="form-control glass-input text-light" rows="3" placeholder="Type doctor remarks, impression, key advice..." [(ngModel)]="clinicalNotes.doctorRemarks"></textarea>
+                  <textarea class="form-control glass-input text-light" rows="3" placeholder="Type doctor remarks, impression, key advice..." [(ngModel)]="clinicalNotes.doctorRemarks" (ngModelChange)="onClinicalNotesChange()"></textarea>
                 </div>
 
-                <!-- 1-Click Nutritional Presets -->
-                <div class="mb-3">
-                  <label class="form-label small text-secondary fw-semibold">🥗 Quick Dietary Focus Presets</label>
-                  <div class="d-flex flex-wrap gap-1 mb-2">
-                    <button class="btn btn-sm btn-outline-success" [class.active]="clinicalNotes.nutritionalTags.includes('High-Iron')" (click)="applyNutritionalPreset('iron')">🩸 High-Iron</button>
-                    <button class="btn btn-sm btn-outline-info" [class.active]="clinicalNotes.nutritionalTags.includes('High-Protein')" (click)="applyNutritionalPreset('protein')">💪 High-Protein</button>
-                    <button class="btn btn-sm btn-outline-warning" [class.active]="clinicalNotes.nutritionalTags.includes('Low-Sodium')" (click)="applyNutritionalPreset('sodium')">🧂 Low-Sodium</button>
-                    <button class="btn btn-sm btn-outline-primary" [class.active]="clinicalNotes.nutritionalTags.includes('Diabetic Friendly')" (click)="applyNutritionalPreset('diabetic')">🩺 Diabetic Low-GI</button>
-                    <button class="btn btn-sm btn-outline-light" [class.active]="clinicalNotes.nutritionalTags.includes('Calcium & Vit-D')" (click)="applyNutritionalPreset('calcium')">🥛 Calcium & Vit-D</button>
+                <!-- 🥗 Dynamic Dual-Dropdown Clinical Nutrition Builder -->
+                <div class="mb-3 p-2 rounded glass-panel-sm border border-secondary border-opacity-25">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label small text-info fw-bold m-0"><i class="bi bi-sliders me-1"></i> Clinical Nutrition Builder</label>
+                    <button *ngIf="clinicalNotes.nutritionalTags.length > 0 || clinicalNotes.recommendedFoods" class="btn btn-link btn-sm text-danger text-decoration-none p-0" (click)="clearDietaryNotes()">
+                      <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+                    </button>
+                  </div>
+
+                  <!-- Two Dropdowns: Level + Nutrient Category -->
+                  <div class="row g-2 mb-2">
+                    <div class="col-5">
+                      <label class="form-label text-secondary small mb-1" style="font-size: 0.75rem;">Target Level</label>
+                      <select class="form-select form-select-sm glass-input text-light" [(ngModel)]="selectedNutrientLevel">
+                        <option *ngFor="let lvl of availableLevels" [value]="lvl.value" class="bg-dark text-light">{{ lvl.label }}</option>
+                      </select>
+                    </div>
+                    <div class="col-7">
+                      <label class="form-label text-secondary small mb-1" style="font-size: 0.75rem;">Nutrient / Clinical Focus</label>
+                      <select class="form-select form-select-sm glass-input text-light" [(ngModel)]="selectedNutrientCategory">
+                        <option *ngFor="let cat of availableCategories" [value]="cat.value" class="bg-dark text-light">{{ cat.label }}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Generate Action Button -->
+                  <button class="btn btn-sm btn-outline-info w-100 fw-semibold mb-2" (click)="addDietaryFocus()">
+                    <i class="bi bi-magic me-1"></i> Generate & Apply Meal Focus
+                  </button>
+
+                  <!-- Active Focus Badges -->
+                  <div *ngIf="clinicalNotes.nutritionalTags.length > 0" class="d-flex flex-wrap gap-1 mt-1">
+                    <span *ngFor="let tag of clinicalNotes.nutritionalTags" class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-50 d-inline-flex align-items-center gap-1 small py-1 px-2">
+                      {{ tag }}
+                      <i class="bi bi-x-circle-fill ms-1 text-danger cursor-pointer" (click)="removeNutritionalTag(tag)"></i>
+                    </span>
                   </div>
                 </div>
 
-                <!-- Recommended Foods -->
+                <!-- Structured Day-Parted Recommended Foods -->
                 <div class="mb-3">
-                  <label class="form-label small text-secondary fw-semibold">🥦 Recommended Foods to Eat</label>
-                  <textarea class="form-control glass-input text-light" rows="2" placeholder="e.g. Spinach, Pomegranate, Lentils, Eggs, Dates, Beetroot..." [(ngModel)]="clinicalNotes.recommendedFoods"></textarea>
+                  <label class="form-label small text-success fw-semibold">🥦 Structured Day-Parted Meal Menu (Breakfast, Lunch, Dinner)</label>
+                  <textarea class="form-control glass-input text-light" rows="4" placeholder="🌅 Breakfast: ...&#10;☀️ Lunch: ...&#10;🍵 Snacks: ...&#10;🌙 Dinner: ..." [(ngModel)]="clinicalNotes.recommendedFoods" (ngModelChange)="onClinicalNotesChange()"></textarea>
                 </div>
 
                 <!-- Foods to Avoid -->
                 <div class="mb-3">
-                  <label class="form-label small text-danger fw-semibold">🚫 Foods to Avoid</label>
-                  <textarea class="form-control glass-input text-light" rows="2" placeholder="e.g. Processed sugars, Salt > 2g/day, Deep-fried items, Caffeine..." [(ngModel)]="clinicalNotes.foodsToAvoid"></textarea>
+                  <label class="form-label small text-danger fw-semibold">🚫 Foods to Avoid (Clinical Restrictions)</label>
+                  <textarea class="form-control glass-input text-light" rows="2" placeholder="e.g. Table salt > 2g/day, Pickles, Sugary sodas..." [(ngModel)]="clinicalNotes.foodsToAvoid" (ngModelChange)="onClinicalNotesChange()"></textarea>
                 </div>
 
                 <!-- Hydration Target -->
                 <div class="mb-3">
                   <label class="form-label small text-info fw-semibold">💧 Daily Hydration Target (Liters)</label>
                   <div class="d-flex align-items-center gap-2">
-                    <input type="range" class="form-range flex-grow-1" min="1" max="5" step="0.5" [(ngModel)]="clinicalNotes.hydrationGoalLiters">
+                    <input type="range" class="form-range flex-grow-1" min="1" max="5" step="0.5" [(ngModel)]="clinicalNotes.hydrationGoalLiters" (ngModelChange)="onClinicalNotesChange()">
                     <span class="badge bg-info text-dark fw-bold fs-6">{{ clinicalNotes.hydrationGoalLiters }} L/day</span>
                   </div>
                 </div>
@@ -351,40 +421,60 @@
                 </div>
               </div>
 
-              <!-- PATIENT READ-ONLY VIEW -->
+              <!-- PATIENT READ-ONLY / LIVE SYNC VIEW -->
               <div *ngIf="userRole !== 'doctor'">
-                <div *ngIf="!clinicalNotes.doctorRemarks && !clinicalNotes.recommendedFoods" class="text-center py-4 text-secondary glass-card p-3">
-                  <i class="bi bi-journal-medical display-6 text-muted"></i>
-                  <p class="small mt-2 mb-0">Doctor has not added remarks or dietary notes yet.</p>
-                </div>
-
-                <div *ngIf="clinicalNotes.doctorRemarks || clinicalNotes.recommendedFoods" class="glass-card p-3">
-                  <div *ngIf="clinicalNotes.doctorRemarks" class="mb-3">
-                    <h6 class="text-info small fw-bold text-uppercase">📝 Doctor Remarks</h6>
-                    <p class="small text-light mb-0" style="line-height: 1.5;">{{ clinicalNotes.doctorRemarks }}</p>
+                <!-- Live Notes & Dietary Stream -->
+                <ng-container *ngIf="(liveClinicalNotes?.doctorRemarks || liveClinicalNotes?.recommendedFoods || liveClinicalNotes?.nutritionalTags?.length || clinicalNotes.doctorRemarks || clinicalNotes.recommendedFoods || clinicalNotes.nutritionalTags.length)">
+                  <div class="d-flex align-items-center justify-content-between mb-3 p-2 px-3 rounded glass-panel-sm border border-info border-opacity-50" style="background: rgba(14, 165, 233, 0.15);">
+                    <span class="badge bg-info text-dark fw-bold d-flex align-items-center gap-1.5 py-1 px-2">
+                      <span class="spinner-grow spinner-grow-sm text-dark" style="width: 0.55rem; height: 0.55rem;"></span>
+                      🔴 LIVE CLINICAL ADVICE
+                    </span>
+                    <small class="text-info-subtle fw-semibold" style="font-size: 0.75rem;">
+                      {{ doctorName }}
+                    </small>
                   </div>
 
-                  <div *ngIf="clinicalNotes.nutritionalTags && clinicalNotes.nutritionalTags.length > 0" class="mb-3">
-                    <h6 class="text-success small fw-bold text-uppercase">🥗 Dietary Focus</h6>
-                    <div class="d-flex flex-wrap gap-1">
-                      <span *ngFor="let tag of clinicalNotes.nutritionalTags" class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50 me-1 mb-1">{{ tag }}</span>
+                  <div class="glass-card p-3 border border-info border-opacity-25 animate-fade-in shadow-sm">
+                    <!-- Doctor Remarks -->
+                    <div *ngIf="(liveClinicalNotes?.doctorRemarks || clinicalNotes.doctorRemarks)" class="mb-3">
+                      <h6 class="text-info small fw-bold text-uppercase d-flex align-items-center gap-1"><i class="bi bi-chat-quote-fill"></i> Doctor Remarks</h6>
+                      <p class="small text-light mb-0 py-2 px-2.5 rounded bg-black bg-opacity-25" style="line-height: 1.5;">{{ liveClinicalNotes?.doctorRemarks || clinicalNotes.doctorRemarks }}</p>
+                    </div>
+
+                    <!-- Dietary Tags -->
+                    <div *ngIf="(liveClinicalNotes?.nutritionalTags?.length || clinicalNotes.nutritionalTags.length)" class="mb-3">
+                      <h6 class="text-success small fw-bold text-uppercase d-flex align-items-center gap-1"><i class="bi bi-tag-fill"></i> Prescribed Dietary Focus</h6>
+                      <div class="d-flex flex-wrap gap-1">
+                        <span *ngFor="let tag of (liveClinicalNotes?.nutritionalTags || clinicalNotes.nutritionalTags)" class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50 me-1 mb-1 px-2 py-1">{{ tag }}</span>
+                      </div>
+                    </div>
+
+                    <!-- Day-Parted Recommendations -->
+                    <div *ngIf="(liveClinicalNotes?.recommendedFoods || clinicalNotes.recommendedFoods)" class="mb-3">
+                      <h6 class="text-success small fw-bold text-uppercase d-flex align-items-center gap-1"><i class="bi bi-egg-fried"></i> Day-Parted Meal Recommendations</h6>
+                      <p class="small text-light mb-0 py-2 px-2.5 rounded bg-black bg-opacity-25" style="white-space: pre-line; line-height: 1.6;">{{ liveClinicalNotes?.recommendedFoods || clinicalNotes.recommendedFoods }}</p>
+                    </div>
+
+                    <!-- Foods to Avoid -->
+                    <div *ngIf="(liveClinicalNotes?.foodsToAvoid || clinicalNotes.foodsToAvoid)" class="mb-3">
+                      <h6 class="text-danger small fw-bold text-uppercase d-flex align-items-center gap-1"><i class="bi bi-slash-circle-fill"></i> Foods to Avoid</h6>
+                      <p class="small text-danger-subtle mb-0 py-2 px-2.5 rounded bg-black bg-opacity-25">{{ liveClinicalNotes?.foodsToAvoid || clinicalNotes.foodsToAvoid }}</p>
+                    </div>
+
+                    <!-- Hydration Target -->
+                    <div *ngIf="(liveClinicalNotes?.hydrationGoalLiters || clinicalNotes.hydrationGoalLiters)" class="mb-2">
+                      <h6 class="text-info small fw-bold text-uppercase d-flex align-items-center gap-1"><i class="bi bi-droplet-fill"></i> Hydration Target</h6>
+                      <span class="badge bg-info text-dark fw-bold px-2.5 py-1.5">{{ liveClinicalNotes?.hydrationGoalLiters || clinicalNotes.hydrationGoalLiters }} Liters Water / Day</span>
                     </div>
                   </div>
+                </ng-container>
 
-                  <div *ngIf="clinicalNotes.recommendedFoods" class="mb-3">
-                    <h6 class="text-success small fw-bold text-uppercase">🥦 Recommended Foods</h6>
-                    <p class="small text-light mb-0">{{ clinicalNotes.recommendedFoods }}</p>
-                  </div>
-
-                  <div *ngIf="clinicalNotes.foodsToAvoid" class="mb-3">
-                    <h6 class="text-danger small fw-bold text-uppercase">🚫 Foods to Avoid</h6>
-                    <p class="small text-danger-subtle mb-0">{{ clinicalNotes.foodsToAvoid }}</p>
-                  </div>
-
-                  <div *ngIf="clinicalNotes.hydrationGoalLiters" class="mb-2">
-                    <h6 class="text-info small fw-bold text-uppercase">💧 Hydration Target</h6>
-                    <span class="badge bg-info text-dark fw-bold">{{ clinicalNotes.hydrationGoalLiters }} Liters Water / Day</span>
-                  </div>
+                <!-- Empty State (Waiting for Doctor) -->
+                <div *ngIf="!(liveClinicalNotes?.doctorRemarks || liveClinicalNotes?.recommendedFoods || liveClinicalNotes?.nutritionalTags?.length || clinicalNotes.doctorRemarks || clinicalNotes.recommendedFoods || clinicalNotes.nutritionalTags.length)" class="text-center py-5 text-secondary glass-card p-4">
+                  <div class="spinner-grow text-info mb-3" style="width: 2rem; height: 2rem;" role="status"></div>
+                  <h6 class="text-light fw-bold">Live Clinical Notes Sync Active</h6>
+                  <p class="small text-secondary mt-2 mb-0">Doctor remarks, clinical impression, and dietary rules will stream live here as your doctor writes them.</p>
                 </div>
               </div>
 
@@ -437,15 +527,21 @@
           </button>
 
           <!-- E-Prescription Toggle -->
-          <button [class]="activeSidebarTab === 'rx' ? 'btn btn-success toolbar-btn' : 'btn btn-dark toolbar-btn'" (click)="toggleSidebar('rx')" title="E-Prescription">
+          <button [class]="activeSidebarTab === 'rx' ? 'btn btn-success toolbar-btn position-relative' : 'btn btn-dark toolbar-btn position-relative'" (click)="toggleSidebar('rx')" title="E-Prescription">
             <i class="bi bi-capsule-pill"></i>
             <span class="btn-label">E-Prescription</span>
+            <span *ngIf="unreadRxCount > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success border border-dark">
+              {{ unreadRxCount }}
+            </span>
           </button>
 
           <!-- Clinical Remarks & Dietary Advice Toggle -->
-          <button [class]="activeSidebarTab === 'notes' ? 'btn btn-info toolbar-btn' : 'btn btn-dark toolbar-btn'" (click)="toggleSidebar('notes'); loadClinicalNotes();" title="Doctor Remarks & Dietary Advice">
+          <button [class]="activeSidebarTab === 'notes' ? 'btn btn-info toolbar-btn position-relative' : 'btn btn-dark toolbar-btn position-relative'" (click)="toggleSidebar('notes'); loadClinicalNotes();" title="Doctor Remarks & Dietary Advice">
             <i class="bi bi-journal-medical"></i>
             <span class="btn-label">Notes & Diet</span>
+            <span *ngIf="unreadNotesCount > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-info text-dark border border-dark">
+              1
+            </span>
           </button>
 
           <!-- End Call Button -->

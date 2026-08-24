@@ -10,6 +10,7 @@ import {
   BookingSlot,
   AppointmentItem
 } from '../../core/services/appointment.service';
+import { NutritionService, EdamamRecipe } from '../../core/services/nutrition.service';
 
 declare var Razorpay: any;
 
@@ -24,8 +25,48 @@ export class PatientDashboardComponent implements OnInit {
   patientName = '';
   patientId = '';
   patientEmail = '';
-  activeTab: 'find-doctors' | 'my-appointments' | 'profile' = 'find-doctors';
+  activeTab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'profile' = 'find-doctors';
   showUserDropdown = false;
+
+  // ─── Dietary CarePath & Edamam Modal State ─────────────────────────────────
+  showCarePathModal = false;
+  selectedCarePathAppt: AppointmentItem | null = null;
+  activeCarePathTab: 'careplan' | 'edamam-recipes' = 'careplan';
+  edamamMealPlan: { breakfast: EdamamRecipe[]; lunch: EdamamRecipe[]; dinner: EdamamRecipe[] } | null = null;
+  loadingEdamamPlan = false;
+
+  // ─── AI Food & Macro Tracker State ─────────────────────────────────────────
+  foodTrackerInput = '';
+  foodTrackerMealType: 'Breakfast' | 'Lunch' | 'Snack' | 'Dinner' = 'Lunch';
+  selectedFoodFile: File | null = null;
+  foodImagePreview: string | null = null;
+  uploadedFoodImageUrl: string | null = null;
+  isRecognizingImage = false;
+  geminiRecognizedDish = '';
+  geminiConfidence = 0;
+  geminiIngredients: string[] = [];
+  analyzedFoodResult: {
+    foodItem: string;
+    category?: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+    sodium: number;
+  } | null = null;
+  isAnalyzingFood = false;
+  isLoggingFood = false;
+  loggedMeals: Array<{
+    mealType: string;
+    foodItemName: string;
+    imageUrl?: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    sodium: number;
+    time: string;
+  }> = [];
 
   // ─── Toast ─────────────────────────────────────────────────────────────────
   toastMessage = '';
@@ -225,6 +266,7 @@ export class PatientDashboardComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private appointmentService: AppointmentService,
+    private nutritionService: NutritionService,
     private http: HttpClient,
     private router: Router,
     private ngZone: NgZone
@@ -595,7 +637,7 @@ export class PatientDashboardComponent implements OnInit {
   }
 
   // ─── Tab ───────────────────────────────────────────────────────────────────
-  setTab(tab: 'find-doctors' | 'my-appointments' | 'profile') {
+  setTab(tab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'profile') {
     this.activeTab = tab;
     this.closeUserDropdown();
     if (tab === 'my-appointments') {
@@ -717,9 +759,11 @@ export class PatientDashboardComponent implements OnInit {
 
   selectSlot(slot: BookingSlot) {
     this.selectedSlot = slot;
+    this.bookingConflictError = '';
   }
 
   nextStep() {
+    this.bookingConflictError = '';
     if (this.bookingStep === 1) {
       if (this.appointmentType === 'Emergency Sync') {
         // Emergency Sync bypasses date and slot selection -> jumps directly to Payment
@@ -737,6 +781,7 @@ export class PatientDashboardComponent implements OnInit {
   }
 
   prevStep() {
+    this.bookingConflictError = '';
     if (this.bookingStep === 4 && this.appointmentType === 'Emergency Sync') {
       this.bookingStep = 1;
     } else if (this.bookingStep > 1) {
@@ -744,12 +789,15 @@ export class PatientDashboardComponent implements OnInit {
     }
   }
 
+  bookingConflictError: string = '';
+
   proceedToPayment() {
     if (!this.selectedDoctor) return;
     const isEmergency = this.appointmentType === 'Emergency Sync';
     if (!isEmergency && (!this.selectedDate || !this.selectedSlot)) return;
 
     this.bookingInProgress = true;
+    this.bookingConflictError = '';
 
     const todayStr = this.getTodayDateString();
     const payload = {
@@ -764,12 +812,15 @@ export class PatientDashboardComponent implements OnInit {
     this.appointmentService.bookAppointment(payload).subscribe({
       next: (res) => {
         this.bookingInProgress = false;
+        this.bookingConflictError = '';
         this.closeBookingModal();
         this.openRazorpayCheckout(res);
       },
       error: (err) => {
         this.bookingInProgress = false;
-        this.showToast(err.error?.message || 'Booking failed. Please try again.', 'error');
+        const msg = err.error?.message || 'Booking failed. Please try again.';
+        this.bookingConflictError = msg;
+        this.showToast(msg, 'error');
       }
     });
   }
@@ -979,6 +1030,193 @@ export class PatientDashboardComponent implements OnInit {
   formatDate(dateStr: string): string {
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  // ─── 🥗 Dietary CarePath & Edamam Modal Handlers ──────────────────────────
+  openCarePathModal(appt: AppointmentItem): void {
+    this.selectedCarePathAppt = appt;
+    this.showCarePathModal = true;
+    this.activeCarePathTab = 'careplan';
+    this.loadEdamamMealPlan(appt._id);
+  }
+
+  closeCarePathModal(): void {
+    this.showCarePathModal = false;
+    this.selectedCarePathAppt = null;
+  }
+
+  loadEdamamMealPlan(appointmentId?: string): void {
+    this.loadingEdamamPlan = true;
+    this.nutritionService.getDynamicMealPlan(appointmentId).subscribe({
+      next: (res) => {
+        this.loadingEdamamPlan = false;
+        if (res && res.success) {
+          this.edamamMealPlan = res.mealPlan;
+        }
+      },
+      error: (err) => {
+        this.loadingEdamamPlan = false;
+        console.error('Failed to load Edamam meal plan:', err);
+      }
+    });
+  }
+
+  // ─── 📸 AI Food & Macro Tracker Handlers ──────────────────────────────────
+  onFoodImageSelected(event: any): void {
+    const file = event.target?.files?.[0];
+    if (file) {
+      this.uploadAndRecognizeFood(file);
+    }
+  }
+
+  uploadAndRecognizeFood(file: File): void {
+    if (!file.type.startsWith('image/')) {
+      this.showToast('Please select a valid food image (JPEG, PNG, WEBP).', 'error');
+      return;
+    }
+
+    this.selectedFoodFile = file;
+    this.isRecognizingImage = true;
+    this.analyzedFoodResult = null;
+
+    // Create local image preview
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      this.foodImagePreview = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    this.nutritionService.recognizeFoodImage(formData).subscribe({
+      next: (res) => {
+        this.isRecognizingImage = false;
+        if (res && res.success) {
+          this.geminiRecognizedDish = res.dishName;
+          this.geminiConfidence = res.confidence;
+          this.geminiIngredients = res.ingredients || [];
+          this.uploadedFoodImageUrl = res.imageUrl || null;
+          
+          // Auto-populate editable input box
+          this.foodTrackerInput = res.dishName;
+          if (res.suggestedMealType) {
+            this.foodTrackerMealType = res.suggestedMealType;
+          }
+          this.showToast(`✨ Gemini Vision identified: "${res.dishName}"!`, 'success');
+
+          // Automatically trigger Edamam macro analysis
+          this.analyzeFoodItem();
+        }
+      },
+      error: (err) => {
+        this.isRecognizingImage = false;
+        this.showToast(err.error?.message || 'Food image recognition failed.', 'error');
+      }
+    });
+  }
+
+  removeFoodImage(): void {
+    this.selectedFoodFile = null;
+    this.foodImagePreview = null;
+    this.uploadedFoodImageUrl = null;
+    this.geminiRecognizedDish = '';
+    this.geminiConfidence = 0;
+    this.geminiIngredients = [];
+  }
+
+  foodInputError: string = '';
+
+  onFoodInputChange(): void {
+    this.foodInputError = '';
+  }
+
+  analyzeFoodItem(): void {
+    const query = (this.foodTrackerInput || '').trim();
+    this.foodInputError = '';
+
+    if (!query) {
+      this.foodInputError = 'Please enter a dish name to analyze macros.';
+      this.showToast('Please enter or verify the dish name to analyze macros.', 'error');
+      return;
+    }
+
+    // Validation: Must contain at least 2 alphabetic characters (rejects pure numbers like "3333333000" or random symbols)
+    const hasLetters = /[a-zA-Z]{2,}/.test(query);
+    const validCharsRegex = /^[a-zA-Z0-9\s,.\-()'&/]+$/;
+
+    if (!hasLetters || !validCharsRegex.test(query)) {
+      this.foodInputError = 'Please enter a recognizable food dish name (e.g. "Vegetable Hakka Noodles", "2 Rotis").';
+      this.showToast('Invalid dish name: please enter an edible food name, not pure numbers or random symbols.', 'error');
+      return;
+    }
+
+    this.isAnalyzingFood = true;
+    this.analyzedFoodResult = null;
+
+    this.nutritionService.analyzeFood(query).subscribe({
+      next: (res) => {
+        this.isAnalyzingFood = false;
+        if (res && res.success && res.data) {
+          this.analyzedFoodResult = res.data;
+          this.showToast(`✅ Macros calculated for ${res.data.foodItem}!`, 'success');
+        }
+      },
+      error: (err) => {
+        this.isAnalyzingFood = false;
+        const msg = err.error?.message || 'Could not calculate macros. Please verify the food dish name.';
+        this.foodInputError = msg;
+        this.showToast(msg, 'error');
+      }
+    });
+  }
+
+  quickAnalyzeFood(sampleName: string): void {
+    this.foodTrackerInput = sampleName;
+    this.analyzeFoodItem();
+  }
+
+  confirmAndLogMeal(): void {
+    if (!this.analyzedFoodResult) return;
+
+    this.isLoggingFood = true;
+    const payload = {
+      mealType: this.foodTrackerMealType,
+      foodItemName: this.analyzedFoodResult.foodItem,
+      imageUrl: this.uploadedFoodImageUrl || undefined,
+      nutritionalData: {
+        calories: this.analyzedFoodResult.calories,
+        proteinGrams: this.analyzedFoodResult.protein,
+        carbsGrams: this.analyzedFoodResult.carbs,
+        fatGrams: this.analyzedFoodResult.fat,
+        sodiumMg: this.analyzedFoodResult.sodium,
+        fiberGrams: this.analyzedFoodResult.fiber
+      }
+    };
+
+    this.nutritionService.logMeal(payload).subscribe({
+      next: (res) => {
+        this.isLoggingFood = false;
+        this.loggedMeals.unshift({
+          mealType: this.foodTrackerMealType,
+          foodItemName: this.analyzedFoodResult!.foodItem,
+          imageUrl: this.uploadedFoodImageUrl || undefined,
+          calories: this.analyzedFoodResult!.calories,
+          protein: this.analyzedFoodResult!.protein,
+          carbs: this.analyzedFoodResult!.carbs,
+          sodium: this.analyzedFoodResult!.sodium,
+          time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        });
+        this.showToast(`🎉 ${this.analyzedFoodResult!.foodItem} logged to your CarePath history!`, 'success');
+        this.analyzedFoodResult = null;
+        this.foodTrackerInput = '';
+        this.removeFoodImage();
+      },
+      error: (err) => {
+        this.isLoggingFood = false;
+        this.showToast(err.error?.message || 'Failed to log meal.', 'error');
+      }
+    });
   }
 
   onLogout() {

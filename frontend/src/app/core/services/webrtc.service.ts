@@ -40,6 +40,8 @@ export class WebRtcService {
   public emergencyAlert$ = new BehaviorSubject<{ appointmentId: string; patientName: string; symptomSummary: string } | null>(null);
   public consultationPaused$ = new Subject<{ reason: string }>();
   public consultationResumed$ = new Subject<void>();
+  public livePrescription$ = new BehaviorSubject<{ prescriptionList: any[]; doctorName?: string; timestamp?: string | Date }>({ prescriptionList: [] });
+  public liveClinicalNotes$ = new BehaviorSubject<{ clinicalNotes: any; doctorName?: string; timestamp?: string | Date } | null>(null);
 
   private currentAppointmentId: string | null = null;
   private currentTargetSocketId: string | null = null;
@@ -195,6 +197,30 @@ export class WebRtcService {
       console.log('[WebRtcService] Consultation resumed');
       this.consultationResumed$.next();
     });
+
+    // Live Prescription Updated
+    this.socket.on('prescription-updated', (data: { prescriptionList: any[]; doctorName?: string; timestamp?: string | Date }) => {
+      console.log('[WebRtcService] 💊 Received Live Prescription Update:', data);
+      this.livePrescription$.next(data);
+    });
+
+    // Live Clinical Remarks & Dietary Advice Updated
+    this.socket.on('clinical-notes-updated', (data: { clinicalNotes: any; doctorName?: string; timestamp?: string | Date }) => {
+      console.log('[WebRtcService] 📝 Received Live Clinical Notes Update:', data);
+      this.liveClinicalNotes$.next(data);
+    });
+  }
+
+  public syncLivePrescription(appointmentId: string, prescriptionList: any[]): void {
+    if (this.socket && appointmentId) {
+      this.socket.emit('sync-prescription', { appointmentId, prescriptionList });
+    }
+  }
+
+  public syncLiveClinicalNotes(appointmentId: string, clinicalNotes: any): void {
+    if (this.socket && appointmentId) {
+      this.socket.emit('sync-clinical-notes', { appointmentId, clinicalNotes });
+    }
   }
 
   public registerDoctorDashboard(doctorId: string): void {
@@ -438,6 +464,8 @@ export class WebRtcService {
     this.remoteStream$.next(null);
     this.peerUsers$.next([]);
     this.chatMessages$.next([]);
+    this.livePrescription$.next({ prescriptionList: [] });
+    this.liveClinicalNotes$.next(null);
     this.isScreenSharing$.next(false);
 
     if (this.socket) {

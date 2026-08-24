@@ -41,6 +41,29 @@ const PaymentSchema = new mongoose.Schema({
     default: 'INR'
   },
 
+  // 💰 80/20 Razorpay Route Revenue Split Tracking
+  platformFeePercent: {
+    type: Number,
+    default: 20 // 20%
+  },
+  platformFee: {
+    type: Number,
+    default: 0 // e.g. ₹100
+  },
+  doctorEarning: {
+    type: Number,
+    default: 0 // e.g. ₹400
+  },
+  razorpayTransferId: {
+    type: String,
+    default: null
+  },
+  transferStatus: {
+    type: String,
+    enum: ['Pending', 'Transferred', 'Not Applicable', 'Failed'],
+    default: 'Pending'
+  },
+
   // Payment status
   status: {
     type: String,
