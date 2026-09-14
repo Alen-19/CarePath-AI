@@ -46,60 +46,25 @@ function mapTagsToEdamamNutrients(tags = []) {
   return nutrients;
 }
 
+const { generateClinicalRecipesWithGemini } = require('./gemini.service');
+
 /**
- * Fetch dynamic recipes from Edamam API based on clinical tags and meal type
+ * Fetch condition-tailored clinical recipes using Gemini AI Clinical Recipe Engine
+ * with hyper-local regional customization and instant fallback.
  */
-async function fetchMealRecipes(mealType = 'Breakfast', tags = [], cuisineType = 'Indian') {
-  const appId = process.env.EDAMAM_APP_ID;
-  const appKey = process.env.EDAMAM_APP_KEY;
-
-  if (!appId || !appKey) {
-    console.warn('[EDAMAM] EDAMAM_APP_ID or EDAMAM_APP_KEY missing in .env. Returning curated clinical recipes.');
-    return getClinicalFallbackRecipes(mealType, tags);
-  }
-
+async function fetchMealRecipes(mealType = 'Breakfast', tags = [], doctorRemarks = '', patientRegion = 'Kerala, India') {
   try {
-    const nutrientParams = mapTagsToEdamamNutrients(tags);
-    const params = {
-      type: 'public',
-      app_id: appId,
-      app_key: appKey,
-      mealType: mealType,
-      cuisineType: cuisineType,
-      random: true
-    };
-
-    // Add mapped nutrient limits
-    for (const [key, val] of Object.entries(nutrientParams)) {
-      params[`nutrients[${key}]`] = val;
+    // 1. Synthesize smart therapeutic clinical recipes using Gemini AI with local regional adaptation
+    const aiRecipes = await generateClinicalRecipesWithGemini(mealType, tags, doctorRemarks, patientRegion);
+    if (aiRecipes && aiRecipes.length > 0) {
+      return aiRecipes;
     }
-
-    const response = await axios.get(EDAMAM_BASE_URL, { params, timeout: 5000 });
-
-    if (response.data && response.data.hits && response.data.hits.length > 0) {
-      return response.data.hits.slice(0, 3).map(hit => {
-        const r = hit.recipe;
-        return {
-          title: r.label,
-          image: r.image,
-          source: r.source,
-          url: r.url,
-          yield: r.yield,
-          calories: Math.round(r.calories / (r.yield || 1)),
-          protein: Math.round(r.totalNutrients?.PROCNT?.quantity / (r.yield || 1)) || 0,
-          carbs: Math.round(r.totalNutrients?.CHOCDF?.quantity / (r.yield || 1)) || 0,
-          fat: Math.round(r.totalNutrients?.FAT?.quantity / (r.yield || 1)) || 0,
-          sodium: Math.round(r.totalNutrients?.NA?.quantity / (r.yield || 1)) || 0,
-          ingredients: r.ingredientLines || []
-        };
-      });
-    }
-
-    return getClinicalFallbackRecipes(mealType, tags);
   } catch (err) {
-    console.error(`[EDAMAM] Recipe fetch failed for ${mealType}:`, err.message);
-    return getClinicalFallbackRecipes(mealType, tags);
+    console.warn(`[CLINICAL RECIPES] AI generation fallback for ${mealType}:`, err.message);
   }
+
+  // 2. Curated condition-specific fallback dictionary
+  return getClinicalFallbackRecipes(mealType, tags);
 }
 
 /**

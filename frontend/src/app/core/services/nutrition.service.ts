@@ -12,12 +12,14 @@ export interface EdamamRecipe {
   carbs: number;
   fat: number;
   sodium: number;
+  clinicalReason?: string;
   ingredients: string[];
 }
 
 export interface DynamicMealPlanResponse {
   success: boolean;
   prescribedTags: string[];
+  patientRegion?: string;
   doctorNotes?: {
     doctorRemarks?: string;
     nutritionalTags?: string[];
@@ -102,5 +104,9 @@ export class NutritionService {
 
   logMeal(payload: FoodLogPayload): Observable<{ success: boolean; message: string; log: any }> {
     return this.http.post<{ success: boolean; message: string; log: any }>(`${this.apiUrl}/log-meal`, payload);
+  }
+
+  getTodayFoodLogs(): Observable<{ success: boolean; logs: any[] }> {
+    return this.http.get<{ success: boolean; logs: any[] }>(`${this.apiUrl}/today-logs`);
   }
 }

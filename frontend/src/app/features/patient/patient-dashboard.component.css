@@ -1686,6 +1686,25 @@ select.form-select option {
   white-space: pre-line;
 }
 
+.carepath-minimal-card {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+.carepath-minimal-card:hover {
+  border-color: #10B981;
+  background: #F8FAFC !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.1);
+}
+
 .carepath-recipe-card {
   background: #FFFFFF !important;
   border: 1px solid #E2E8F0;
@@ -1731,6 +1750,102 @@ select.form-select option {
   border-color: #94A3B8 !important;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
 }
+
+/* ─── 🌟 Apple Health-Style Multi-Ring Visualizer ────────────────────────── */
+.carepath-macro-rings-svg {
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.04));
+}
+
+.carepath-ring-circle-bg {
+  fill: none;
+  opacity: 0.25;
+}
+
+.carepath-ring-circle-val {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── 📅 Polished Appointment Grid Alignment ────────────────────────────── */
+.appointments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.appointment-grid-card {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  justify-content: space-between !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.appointment-grid-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.appointment-grid-card .card-meta-block {
+  flex-grow: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+
+/* ─── 🌿 Sleek 1-Line Prescribed CarePath Trigger ─────────────────────────── */
+.btn-carepath-trigger {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  color: #15803D;
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-carepath-trigger:hover {
+  background: #DCFCE7;
+  border-color: #86EFAC;
+  color: #166534;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22, 101, 52, 0.1);
+}
+
+.btn-carepath-trigger .trigger-icon {
+  font-size: 1rem;
+  color: #16A34A;
+}
+
+.btn-carepath-trigger .trigger-label {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.btn-carepath-trigger .verified-tag {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803D;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+.btn-carepath-trigger .trigger-action i {
+  font-size: 0.85rem;
+  transition: transform 0.2s ease;
+}
+
+.btn-carepath-trigger:hover .trigger-action i {
+  transform: translateX(3px);
+}
+
 
 
 

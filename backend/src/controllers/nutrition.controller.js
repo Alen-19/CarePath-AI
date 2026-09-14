@@ -1,13 +1,14 @@
 const Appointment = require('../models/Appointment');
 const CarePlan = require('../models/CarePlan');
 const FoodLog = require('../models/FoodLog');
+const Patient = require('../models/Patient');
 const { fetchMealRecipes, analyzeFoodItemNutrition } = require('../services/edamam.service');
 const { identifyFoodFromImage } = require('../services/gemini.service');
 const fs = require('fs');
 
 /**
  * GET /api/nutrition/meal-plan?appointmentId=...
- * Generates an Edamam-powered dynamic meal plan based on doctor's prescribed tags
+ * Generates an AI-powered dynamic meal plan adapted to doctor's prescribed tags and patient's home region
  */
 const getDynamicMealPlan = async (req, res) => {
   try {
@@ -15,28 +16,52 @@ const getDynamicMealPlan = async (req, res) => {
 
     let tags = ['High-Protein', 'Balanced'];
     let doctorNotes = null;
+    let patientRegion = 'Kerala, India';
 
-    if (appointmentId) {
-      const appt = await Appointment.findById(appointmentId);
-      if (appt && appt.clinicalNotes) {
-        doctorNotes = appt.clinicalNotes;
-        if (appt.clinicalNotes.nutritionalTags && appt.clinicalNotes.nutritionalTags.length > 0) {
-          tags = appt.clinicalNotes.nutritionalTags;
+    // 1. Resolve Patient Regional Location (State & Country only)
+    if (req.user && req.user._id) {
+      const patient = await Patient.findOne({ userId: req.user._id });
+      if (patient && patient.address) {
+        const state = patient.address.state ? patient.address.state.trim() : '';
+        const country = patient.address.country ? patient.address.country.trim() : 'India';
+        if (state) {
+          patientRegion = `${state}, ${country}`;
         }
       }
     }
 
-    // Fetch recipes for Breakfast, Lunch, and Dinner
+    if (appointmentId) {
+      const appt = await Appointment.findById(appointmentId).populate('patientId');
+      if (appt) {
+        if (appt.patientId && appt.patientId.address) {
+          const state = appt.patientId.address.state ? appt.patientId.address.state.trim() : '';
+          const country = appt.patientId.address.country ? appt.patientId.address.country.trim() : 'India';
+          if (state) {
+            patientRegion = `${state}, ${country}`;
+          }
+        }
+        if (appt.clinicalNotes) {
+          doctorNotes = appt.clinicalNotes;
+          if (appt.clinicalNotes.nutritionalTags && appt.clinicalNotes.nutritionalTags.length > 0) {
+            tags = appt.clinicalNotes.nutritionalTags;
+          }
+        }
+      }
+    }
+
+    // Fetch therapeutic recipes for Breakfast, Lunch, and Dinner using Gemini AI tailored for patient's region
+    const doctorRemarks = doctorNotes?.doctorRemarks || '';
     const [breakfasts, lunches, dinners] = await Promise.all([
-      fetchMealRecipes('Breakfast', tags),
-      fetchMealRecipes('Lunch', tags),
-      fetchMealRecipes('Dinner', tags)
+      fetchMealRecipes('Breakfast', tags, doctorRemarks, patientRegion),
+      fetchMealRecipes('Lunch', tags, doctorRemarks, patientRegion),
+      fetchMealRecipes('Dinner', tags, doctorRemarks, patientRegion)
     ]);
 
     res.json({
       success: true,
       prescribedTags: tags,
       doctorNotes,
+      patientRegion,
       mealPlan: {
         breakfast: breakfasts,
         lunch: lunches,
@@ -137,9 +162,32 @@ const analyzeFood = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/nutrition/today-logs
+ * Retrieves all meals logged by the patient for today
+ */
+const getTodayLogs = async (req, res) => {
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const logs = await FoodLog.find({
+      patientId: req.user._id,
+      loggedDate: todayStr
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      logs
+    });
+  } catch (err) {
+    console.error('Get today food logs error:', err);
+    res.status(500).json({ message: 'Failed to fetch today food logs.', error: err.message });
+  }
+};
+
 module.exports = {
   getDynamicMealPlan,
   recognizeFoodImage,
   logMeal,
-  analyzeFood
+  analyzeFood,
+  getTodayLogs
 };

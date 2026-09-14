@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { getDynamicMealPlan, recognizeFoodImage, logMeal, analyzeFood } = require('../controllers/nutrition.controller');
+const { getDynamicMealPlan, recognizeFoodImage, logMeal, analyzeFood, getTodayLogs } = require('../controllers/nutrition.controller');
 const { authenticateJWT } = require('../middlewares/auth.middleware');
 
 // Configure multer storage for meal plate images
@@ -22,6 +22,7 @@ const upload = multer({
 });
 
 router.get('/meal-plan', authenticateJWT, getDynamicMealPlan);
+router.get('/today-logs', authenticateJWT, getTodayLogs);
 router.post('/recognize-food', authenticateJWT, upload.single('image'), recognizeFoodImage);
 router.post('/log-meal', authenticateJWT, logMeal);
 router.post('/analyze-food', authenticateJWT, analyzeFood);

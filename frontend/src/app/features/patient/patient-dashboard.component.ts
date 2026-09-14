@@ -28,11 +28,18 @@ export class PatientDashboardComponent implements OnInit {
   activeTab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'profile' = 'find-doctors';
   showUserDropdown = false;
 
+  // ─── 🌟 Daily CarePath & Lifestyle Goal Center State ────────────────────────
+  todayWaterMl: number = 0;
+  isExerciseDone: boolean = false;
+  dailyExerciseMinutes: number = 30;
+  mealChecklistState: { [key: string]: boolean } = {};
+
   // ─── Dietary CarePath & Edamam Modal State ─────────────────────────────────
   showCarePathModal = false;
   selectedCarePathAppt: AppointmentItem | null = null;
   activeCarePathTab: 'careplan' | 'edamam-recipes' = 'careplan';
   edamamMealPlan: { breakfast: EdamamRecipe[]; lunch: EdamamRecipe[]; dinner: EdamamRecipe[] } | null = null;
+  edamamMealPlanRegion: string = '';
   loadingEdamamPlan = false;
 
   // ─── AI Food & Macro Tracker State ─────────────────────────────────────────
@@ -261,6 +268,157 @@ export class PatientDashboardComponent implements OnInit {
 
   get totalBookingFee(): number {
     return this.appointmentType === 'Emergency Sync' ? Math.round(this.baseConsultationFee * 1.1) : this.baseConsultationFee;
+  }
+
+  // ─── 🌟 Active Doctor-Prescribed CarePath & Macro Ring Getters ──────────────
+  get activeCarePathAppt(): AppointmentItem | null {
+    if (!this.myAppointments || this.myAppointments.length === 0) return null;
+    const sorted = [...this.myAppointments]
+      .filter(a => a.status === 'Completed' && a.clinicalNotes && (a.clinicalNotes.doctorRemarks || a.clinicalNotes.nutritionalTags?.length || a.clinicalNotes.recommendedFoods))
+      .sort((a, b) => new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime());
+    return sorted[0] || null;
+  }
+
+  get todayCalories(): number {
+    return this.loggedMeals.reduce((sum, m) => sum + (m.calories || 0), 0);
+  }
+
+  get todayProtein(): number {
+    return this.loggedMeals.reduce((sum, m) => sum + (m.protein || 0), 0);
+  }
+
+  get todayCarbs(): number {
+    return this.loggedMeals.reduce((sum, m) => sum + (m.carbs || 0), 0);
+  }
+
+  get todaySodium(): number {
+    return this.loggedMeals.reduce((sum, m) => sum + (m.sodium || 0), 0);
+  }
+
+  get targetCalories(): number {
+    return 2000;
+  }
+
+  get targetProtein(): number {
+    const isHigh = this.activeCarePathAppt?.clinicalNotes?.nutritionalTags?.some(t => t.toLowerCase().includes('protein'));
+    return isHigh ? 85 : 70;
+  }
+
+  get targetCarbs(): number {
+    const isLow = this.activeCarePathAppt?.clinicalNotes?.nutritionalTags?.some(t => t.toLowerCase().includes('carb') || t.toLowerCase().includes('diabetic'));
+    return isLow ? 160 : 230;
+  }
+
+  get targetWaterMl(): number {
+    const liters = this.activeCarePathAppt?.clinicalNotes?.hydrationGoalLiters || 2.5;
+    return Math.round(liters * 1000);
+  }
+
+  get caloriePct(): number {
+    return Math.min(100, Math.round((this.todayCalories / this.targetCalories) * 100));
+  }
+
+  get proteinPct(): number {
+    return Math.min(100, Math.round((this.todayProtein / this.targetProtein) * 100));
+  }
+
+  get carbPct(): number {
+    return Math.min(100, Math.round((this.todayCarbs / this.targetCarbs) * 100));
+  }
+
+  get waterPct(): number {
+    return Math.min(100, Math.round((this.todayWaterMl / this.targetWaterMl) * 100));
+  }
+
+  // ─── 💧 Interactive Hydration & Wellness Tracker Handlers ──────────────────
+  loadTodayWellnessTracker(): void {
+    const todayStr = this.getTodayDateString();
+    const savedWater = localStorage.getItem(`carepath_water_${todayStr}`);
+    this.todayWaterMl = savedWater ? parseInt(savedWater, 10) || 0 : 0;
+
+    const savedExercise = localStorage.getItem(`carepath_exercise_${todayStr}`);
+    this.isExerciseDone = savedExercise === 'true';
+
+    const savedMeals = localStorage.getItem(`carepath_meals_${todayStr}`);
+    this.mealChecklistState = savedMeals ? JSON.parse(savedMeals) : {};
+  }
+
+  loadTodayNutritionLogs(): void {
+    const todayStr = this.getTodayDateString();
+    
+    // 1. Instant local restore from cache
+    const cachedLogs = localStorage.getItem(`carepath_logged_meals_${todayStr}`);
+    if (cachedLogs) {
+      try {
+        const parsed = JSON.parse(cachedLogs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.loggedMeals = parsed;
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fetch authoritative records from backend MongoDB Atlas
+    this.nutritionService.getTodayFoodLogs().subscribe({
+      next: (res) => {
+        if (res && res.success && res.logs && res.logs.length > 0) {
+          this.loggedMeals = res.logs.map(log => ({
+            mealType: log.mealType,
+            foodItemName: log.foodItemName,
+            imageUrl: log.imageUrl || undefined,
+            calories: log.nutritionalData?.calories || 0,
+            protein: log.nutritionalData?.proteinGrams || 0,
+            carbs: log.nutritionalData?.carbsGrams || 0,
+            sodium: log.nutritionalData?.sodiumMg || 0,
+            time: log.createdAt 
+              ? new Date(log.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) 
+              : new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+          }));
+
+          // Automatically mark checklist items as eaten for any logged meal categories
+          res.logs.forEach(log => {
+            if (log.mealType) {
+              this.mealChecklistState[log.mealType.toLowerCase()] = true;
+            }
+          });
+
+          // Cache updated list and checklist
+          localStorage.setItem(`carepath_logged_meals_${todayStr}`, JSON.stringify(this.loggedMeals));
+          localStorage.setItem(`carepath_meals_${todayStr}`, JSON.stringify(this.mealChecklistState));
+        }
+      },
+      error: (err) => {
+        console.warn('Could not fetch today nutrition logs from server:', err);
+      }
+    });
+  }
+
+  addWater(ml: number): void {
+    this.todayWaterMl = Math.min(6000, this.todayWaterMl + ml);
+    const todayStr = this.getTodayDateString();
+    localStorage.setItem(`carepath_water_${todayStr}`, this.todayWaterMl.toString());
+    this.showToast(`💧 Added ${ml}ml water! Today's intake: ${(this.todayWaterMl / 1000).toFixed(2)}L / ${(this.targetWaterMl / 1000).toFixed(1)}L`, 'success');
+  }
+
+  resetWater(): void {
+    this.todayWaterMl = 0;
+    const todayStr = this.getTodayDateString();
+    localStorage.setItem(`carepath_water_${todayStr}`, '0');
+    this.showToast('💧 Water intake reset for today.', 'success');
+  }
+
+  toggleExercise(): void {
+    this.isExerciseDone = !this.isExerciseDone;
+    const todayStr = this.getTodayDateString();
+    localStorage.setItem(`carepath_exercise_${todayStr}`, this.isExerciseDone.toString());
+    if (this.isExerciseDone) {
+      this.showToast('🎉 Awesome! Daily activity goal completed.', 'success');
+    }
+  }
+
+  toggleMealCheck(mealKey: string): void {
+    this.mealChecklistState[mealKey] = !this.mealChecklistState[mealKey];
+    const todayStr = this.getTodayDateString();
+    localStorage.setItem(`carepath_meals_${todayStr}`, JSON.stringify(this.mealChecklistState));
   }
 
   constructor(
@@ -597,6 +755,9 @@ export class PatientDashboardComponent implements OnInit {
     this.minDate = this.getTodayDateString();
     this.maxDate = this.getLocalDateString(max);
     this.loadDoctors();
+    this.loadMyAppointments();
+    this.loadTodayWellnessTracker();
+    this.loadTodayNutritionLogs();
 
     if (this.isProfileIncomplete()) {
       setTimeout(() => {
@@ -642,6 +803,9 @@ export class PatientDashboardComponent implements OnInit {
     this.closeUserDropdown();
     if (tab === 'my-appointments') {
       this.loadMyAppointments();
+    } else if (tab === 'food-tracker') {
+      this.loadTodayNutritionLogs();
+      this.loadTodayWellnessTracker();
     } else if (tab === 'profile') {
       this.syncPatientInfo();
     }
@@ -1052,6 +1216,7 @@ export class PatientDashboardComponent implements OnInit {
         this.loadingEdamamPlan = false;
         if (res && res.success) {
           this.edamamMealPlan = res.mealPlan;
+          this.edamamMealPlanRegion = res.patientRegion || 'Kerala, India';
         }
       },
       error: (err) => {
@@ -1176,12 +1341,32 @@ export class PatientDashboardComponent implements OnInit {
     this.analyzeFoodItem();
   }
 
+  triggerMealPhotoUpload(mealType: 'Breakfast' | 'Lunch' | 'Dinner', dishName: string): void {
+    this.foodTrackerMealType = mealType;
+    this.foodTrackerInput = dishName;
+    this.showToast(`📸 Opening camera / photo upload for ${mealType}...`, 'success');
+    
+    // Smooth scroll down to photo uploader section
+    const el = document.getElementById('ai-food-uploader-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    setTimeout(() => {
+      const inputEl = document.getElementById('carepath-food-photo-file-input') as HTMLInputElement;
+      if (inputEl) {
+        inputEl.click();
+      }
+    }, 250);
+  }
+
   confirmAndLogMeal(): void {
     if (!this.analyzedFoodResult) return;
 
     this.isLoggingFood = true;
+    const currentMealType = this.foodTrackerMealType;
     const payload = {
-      mealType: this.foodTrackerMealType,
+      mealType: currentMealType,
       foodItemName: this.analyzedFoodResult.foodItem,
       imageUrl: this.uploadedFoodImageUrl || undefined,
       nutritionalData: {
@@ -1198,7 +1383,7 @@ export class PatientDashboardComponent implements OnInit {
       next: (res) => {
         this.isLoggingFood = false;
         this.loggedMeals.unshift({
-          mealType: this.foodTrackerMealType,
+          mealType: currentMealType,
           foodItemName: this.analyzedFoodResult!.foodItem,
           imageUrl: this.uploadedFoodImageUrl || undefined,
           calories: this.analyzedFoodResult!.calories,
@@ -1207,6 +1392,13 @@ export class PatientDashboardComponent implements OnInit {
           sodium: this.analyzedFoodResult!.sodium,
           time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
         });
+
+        // Automatically mark this meal category as eaten in today's checklist
+        const mealKey = currentMealType.toLowerCase();
+        this.mealChecklistState[mealKey] = true;
+        const todayStr = this.getTodayDateString();
+        localStorage.setItem(`carepath_meals_${todayStr}`, JSON.stringify(this.mealChecklistState));
+
         this.showToast(`🎉 ${this.analyzedFoodResult!.foodItem} logged to your CarePath history!`, 'success');
         this.analyzedFoodResult = null;
         this.foodTrackerInput = '';

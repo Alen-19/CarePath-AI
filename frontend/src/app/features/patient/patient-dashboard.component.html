@@ -23,7 +23,7 @@
         📅 My Appointments
       </button>
       <button class="nav-tab" [class.active]="activeTab === 'food-tracker'" (click)="setTab('food-tracker')">
-        🥗 AI Food Tracker
+        🥗 Daily CarePath & Health Tracker
       </button>
     </div>
     <div class="pd-nav-right">
@@ -66,7 +66,7 @@
 
           <div class="dropdown-divider"></div>
 
-          <button type="button" class="dropdown-item logout-item" (click)="onLogout()">
+          <button type="button" class="dropdown-item logout-item text-danger" (click)="onLogout()">
             <i class="bi bi-box-arrow-right item-icon text-danger"></i>
             <span>Sign Out</span>
           </button>
@@ -75,6 +75,7 @@
     </div>
   </header>
 
+  <!-- ─── Main Content Area ────────────────────────────────────────────────── -->
   <main class="pd-main">
 
     <!-- Profile Completion Alert Banner (Option B) -->
@@ -89,45 +90,6 @@
       <button class="btn-complete-profile-sm" (click)="setTab('profile')">
         Complete Profile Now
       </button>
-    </div>
-
-    <!-- ══════════════ TODAY'S CONSULTATION VIP HERO BANNER ══════════════ -->
-    <div *ngIf="todayAppointments.length > 0" class="today-vip-banner glass-card-glow">
-      <div class="today-vip-header">
-        <div class="today-live-badge">
-          <span class="live-pulse-dot"></span>
-          <span>🚨 TODAY'S CONSULTATION</span>
-        </div>
-        <span class="today-count-pill">{{ todayAppointments.length }} Scheduled Today</span>
-      </div>
-
-      <div class="today-vip-card" *ngFor="let appt of todayAppointments">
-        <div class="today-doc-avatar">👨‍⚕️</div>
-        <div class="today-doc-info">
-          <div class="today-doc-meta">
-            <h3 class="today-doc-name">Dr. {{ appt.doctorId ? appt.doctorId.firstName + ' ' + appt.doctorId.lastName : 'Doctor' }}</h3>
-            <span class="today-doc-spec">{{ appt.doctorId ? appt.doctorId.specialization : '' }}</span>
-          </div>
-          <div class="today-time-badge">
-            <span class="clock-icon">🕐</span>
-            <span class="time-text">Time Slot: <strong>{{ appt.startTime }} – {{ appt.endTime }} IST</strong></span>
-          </div>
-          <p class="today-symptoms" *ngIf="appt.symptoms">📝 Symptoms: <em>{{ appt.symptoms }}</em></p>
-        </div>
-        <div class="today-actions">
-          <span class="appt-badge" [ngClass]="getStatusClass(appt.status)">{{ appt.status }}</span>
-          <button
-            *ngIf="appt.status === 'Pending Payment'"
-            class="btn-pay-now-vip"
-            (click)="onRetryPayment(appt._id)"
-          >💳 Complete Payment (₹{{ appt.amount | number }})</button>
-          <a
-            *ngIf="appt.status === 'Confirmed'"
-            [routerLink]="['/consultation', appt._id]"
-            class="btn-join-vip text-decoration-none"
-          >💬 Join Consultation</a>
-        </div>
-      </div>
     </div>
 
     <!-- ══════════════ FIND DOCTORS TAB ══════════════ -->
@@ -233,9 +195,9 @@
         </div>
       </div>
 
-      <div *ngIf="loadingAppointments" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading appointments…</p>
+      <div *ngIf="loadingAppointments" class="loading-state text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted">Loading appointments...</p>
       </div>
 
       <div *ngIf="!loadingAppointments && filteredAppointments.length === 0" class="empty-state">
@@ -245,7 +207,7 @@
       </div>
 
       <div class="appointments-grid" *ngIf="!loadingAppointments && filteredAppointments.length > 0">
-        <div class="appointment-grid-card glass-card" [class.today-highlight-card]="isTodayAppt(appt)" *ngFor="let appt of filteredAppointments">
+        <div class="appointment-grid-card glass-card h-100 d-flex flex-column" [class.today-highlight-card]="isTodayAppt(appt)" *ngFor="let appt of filteredAppointments">
           <div class="card-top-bar">
             <div class="doc-profile-group">
               <div class="doc-avatar-circle">
@@ -262,46 +224,53 @@
             </div>
           </div>
 
-          <div class="card-meta-block">
-            <div class="meta-row">
-              <span class="date-tag">
-                <i class="bi bi-calendar-event me-1"></i> {{ formatDate(appt.appointmentDate) }}
-              </span>
-              <span class="time-tag" [class.text-danger]="appt.type === 'Emergency Sync' || appt.isEmergency">
-                <i class="bi bi-clock me-1"></i> {{ appt.startTime === 'Immediate Queue' ? '⚡ Immediate Queue' : (appt.startTime + ' – ' + appt.endTime) }}
-              </span>
+          <div class="card-meta-block flex-grow-1 d-flex flex-column justify-content-between">
+            <div>
+              <div class="meta-row">
+                <span class="date-tag">
+                  <i class="bi bi-calendar-event me-1"></i> {{ formatDate(appt.appointmentDate) }}
+                </span>
+                <span class="time-tag" [class.text-danger]="appt.type === 'Emergency Sync' || appt.isEmergency">
+                  <i class="bi bi-clock me-1"></i> {{ appt.startTime === 'Immediate Queue' ? '⚡ Immediate Queue' : (appt.startTime + ' – ' + appt.endTime) }}
+                </span>
+              </div>
+
+              <div class="type-symptoms-box">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <strong class="type-label">{{ appt.type }}</strong>
+                  <span *ngIf="appt.type === 'Emergency Sync' || appt.isEmergency" class="badge bg-danger text-white px-2 py-1 small">🚨 EMERGENCY</span>
+                </div>
+                <p class="symptoms-text" *ngIf="appt.symptoms">📝 {{ appt.symptoms }}</p>
+                <p class="symptoms-text text-muted" *ngIf="!appt.symptoms">Regular consultation appointment</p>
+              </div>
             </div>
 
-            <div class="type-symptoms-box">
-              <div class="d-flex align-items-center justify-content-between mb-1">
-                <strong class="type-label">{{ appt.type }}</strong>
-                <span *ngIf="appt.type === 'Emergency Sync' || appt.isEmergency" class="badge bg-danger text-white px-2 py-1 small">🚨 EMERGENCY</span>
-              </div>
-              <p class="symptoms-text" *ngIf="appt.symptoms">📝 {{ appt.symptoms }}</p>
-              <p class="symptoms-text text-muted" *ngIf="!appt.symptoms">Regular consultation appointment</p>
-            </div>
+            <!-- 🌿 Option 1: Sleek 1-Line CarePath & Rx Action Button -->
+            <button 
+              type="button" 
+              class="btn-carepath-trigger mt-3 w-100 d-flex align-items-center justify-content-between text-decoration-none"
+              *ngIf="appt.clinicalNotes && (appt.clinicalNotes.doctorRemarks || appt.clinicalNotes.recommendedFoods)"
+              (click)="openCarePathModal(appt)"
+            >
+              <span class="d-flex align-items-center gap-2">
+                <i class="bi bi-journal-medical trigger-icon"></i>
+                <span class="trigger-label">View Prescribed CarePath & Rx</span>
+              </span>
+              <span class="d-flex align-items-center gap-1.5 trigger-action">
+                <span class="verified-tag">Verified</span>
+                <i class="bi bi-arrow-right"></i>
+              </span>
+            </button>
 
-            <!-- 🥗 Sleek Compact Clinical CarePath & Prescription Summary Trigger -->
-            <div class="carepath-summary-pill mt-2 p-2 rounded d-flex flex-column gap-1 bg-light border border-success border-opacity-25" *ngIf="appt.clinicalNotes && (appt.clinicalNotes.doctorRemarks || appt.clinicalNotes.recommendedFoods)">
-              <div class="d-flex align-items-center justify-content-between">
-                <span class="small text-success fw-bold"><i class="bi bi-journal-medical me-1"></i> CarePath Prescribed</span>
-                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25" style="font-size: 0.7rem;">Verified</span>
-              </div>
-              <!-- Prescribed Tags Preview -->
-              <div class="d-flex flex-wrap gap-1" *ngIf="appt.clinicalNotes.nutritionalTags && appt.clinicalNotes.nutritionalTags.length > 0">
-                <span *ngFor="let tag of appt.clinicalNotes.nutritionalTags" class="badge bg-success text-white px-2 py-0" style="font-size: 0.72rem;">{{ tag }}</span>
-              </div>
-              <!-- Doctor Remarks Preview (1-line) -->
-              <p class="small text-muted mb-0 text-truncate fst-italic" *ngIf="appt.clinicalNotes.doctorRemarks">"{{ appt.clinicalNotes.doctorRemarks }}"</p>
-              
-              <!-- Open Full CarePath & Edamam Meal Planner Modal Button -->
-              <button type="button" class="btn btn-sm btn-outline-success w-100 fw-semibold mt-1 py-1" (click)="openCarePathModal(appt)">
-                <i class="bi bi-journal-text me-1"></i> View Full CarePath & Rx
-              </button>
+            <!-- Subtle Completed Badge when no CarePath is attached -->
+            <div class="mt-3 p-2 rounded-3 d-flex align-items-center justify-content-between bg-light border border-secondary border-opacity-10" *ngIf="appt.status === 'Completed' && (!appt.clinicalNotes || (!appt.clinicalNotes.doctorRemarks && !appt.clinicalNotes.recommendedFoods))">
+              <span class="small text-muted"><i class="bi bi-check2-circle text-success me-1"></i> Consultation Completed</span>
+              <span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-0.5" style="font-size: 0.7rem;">Completed</span>
             </div>
           </div>
 
-          <div class="card-action-bar">
+          <!-- Card Action Bar only when action buttons exist -->
+          <div class="card-action-bar" *ngIf="canJoinCall(appt) || appt.status === 'Pending Payment' || canCancel(appt)">
             <a
               *ngIf="canJoinCall(appt)"
               [routerLink]="['/consultation', appt._id]"
@@ -328,8 +297,302 @@
       </div>
     </section>
 
-    <!-- ══════════════ 🥗 AI FOOD & MACRO TRACKER TAB ══════════════ -->
+    <!-- ══════════════ 🥗 DAILY CAREPATH & HEALTH TRACKER TAB ══════════════ -->
     <section class="pd-section animate-fade-in" *ngIf="activeTab === 'food-tracker'">
+      
+      <!-- 🌟 TOP HERO: Active Doctor Prescribed CarePath Banner -->
+      <div class="glass-card p-4 rounded-4 mb-4 border border-success border-opacity-30 position-relative overflow-hidden" 
+           style="background: linear-gradient(135deg, rgba(5, 150, 105, 0.08) 0%, rgba(13, 148, 136, 0.08) 100%);">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+          <div>
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <span class="badge bg-success text-white px-3 py-1.5 fw-bold" style="font-size: 0.8rem; letter-spacing: 0.03em;">
+                <i class="bi bi-patch-check-fill me-1"></i> ACTIVE CLINICAL CAREPATH
+              </span>
+              <span class="badge bg-white text-dark border px-2.5 py-1 small fw-semibold" *ngIf="activeCarePathAppt">
+                👨‍⚕️ Prescribed by Dr. {{ activeCarePathAppt.doctorId ? activeCarePathAppt.doctorId.firstName + ' ' + activeCarePathAppt.doctorId.lastName : 'Doctor' }} ({{ activeCarePathAppt.doctorId ? activeCarePathAppt.doctorId.specialization : 'Clinical Specialist' }})
+              </span>
+              <span class="badge bg-white text-dark border px-2.5 py-1 small fw-semibold" *ngIf="!activeCarePathAppt">
+                🌿 General Wellness & Longevity CarePlan
+              </span>
+            </div>
+
+            <h2 class="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+              🥗 Today's CarePath & Nutritional Goals
+            </h2>
+            <p class="text-secondary small mb-2" *ngIf="activeCarePathAppt?.clinicalNotes?.doctorRemarks">
+              <i class="bi bi-chat-square-quote-fill text-success me-1"></i>
+              Doctor's Directive: <em>"{{ activeCarePathAppt?.clinicalNotes?.doctorRemarks }}"</em>
+            </p>
+            <p class="text-secondary small mb-2" *ngIf="!activeCarePathAppt?.clinicalNotes?.doctorRemarks">
+              Track your daily macros, log your hydration, and complete your prescribed meals and activity habits.
+            </p>
+
+            <!-- Prescribed Dietary Focus Badges -->
+            <div class="d-flex flex-wrap gap-1 mt-2" *ngIf="activeCarePathAppt?.clinicalNotes?.nutritionalTags?.length">
+              <span *ngFor="let tag of activeCarePathAppt?.clinicalNotes?.nutritionalTags" class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 small fw-bold">
+                🎯 {{ tag }}
+              </span>
+              <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 small fw-bold">
+                🌴 Kerala, India Diet
+              </span>
+            </div>
+          </div>
+
+          <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 flex-shrink-0" *ngIf="activeCarePathAppt">
+            <button type="button" class="btn btn-success fw-bold px-3 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2" (click)="openCarePathModal(activeCarePathAppt)">
+              <i class="bi bi-book-half fs-6"></i>
+              <span>View Full CarePath & Recipes</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🎯 THREE DAILY HEALTH GOAL CARDS -->
+      <div class="row g-4 mb-4">
+        
+        <!-- CARD 1: Apple Health-Style Animated Macro & Calorie Rings -->
+        <div class="col-lg-4 col-md-6">
+          <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white d-flex flex-column justify-content-between">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
+                <i class="bi bi-pie-chart-fill text-warning fs-5"></i>
+                <span>Daily Macro Rings</span>
+              </h6>
+              <span class="badge bg-light text-muted border px-2 py-1 small">Today</span>
+            </div>
+
+            <!-- SVG Multi-Ring Visualizer -->
+            <div class="d-flex align-items-center justify-content-center my-2 position-relative">
+              <svg width="170" height="170" viewBox="0 0 170 170" class="carepath-macro-rings-svg">
+                <!-- Calories Ring (Outer, r=70, C=439.8) -->
+                <circle cx="85" cy="85" r="70" class="carepath-ring-circle-bg" stroke="#FDE68A" stroke-width="9"></circle>
+                <circle cx="85" cy="85" r="70" class="carepath-ring-circle-val" stroke="#F59E0B" stroke-width="9"
+                        [style.strokeDasharray]="439.8"
+                        [style.strokeDashoffset]="439.8 - (caloriePct / 100 * 439.8)"></circle>
+
+                <!-- Protein Ring (Middle, r=53, C=333.0) -->
+                <circle cx="85" cy="85" r="53" class="carepath-ring-circle-bg" stroke="#A7F3D0" stroke-width="9"></circle>
+                <circle cx="85" cy="85" r="53" class="carepath-ring-circle-val" stroke="#10B981" stroke-width="9"
+                        [style.strokeDasharray]="333.0"
+                        [style.strokeDashoffset]="333.0 - (proteinPct / 100 * 333.0)"></circle>
+
+                <!-- Water Ring (Inner, r=36, C=226.2) -->
+                <circle cx="85" cy="85" r="36" class="carepath-ring-circle-bg" stroke="#BAE6FD" stroke-width="9"></circle>
+                <circle cx="85" cy="85" r="36" class="carepath-ring-circle-val" stroke="#0284C7" stroke-width="9"
+                        [style.strokeDasharray]="226.2"
+                        [style.strokeDashoffset]="226.2 - (waterPct / 100 * 226.2)"></circle>
+              </svg>
+
+              <!-- Center Summary -->
+              <div class="position-absolute text-center" style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                <span class="fs-4 fw-bold text-dark d-block" style="line-height: 1;">{{ todayCalories }}</span>
+                <small class="text-muted" style="font-size: 0.7rem;">/ {{ targetCalories }} kcal</small>
+              </div>
+            </div>
+
+            <!-- Ring Legend & Numbers -->
+            <div class="d-flex flex-column gap-2 mt-3 pt-2 border-top">
+              <div class="d-flex justify-content-between align-items-center small">
+                <span class="d-flex align-items-center gap-1 text-secondary">
+                  <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background: #F59E0B;"></span>
+                  <strong>Calories</strong>
+                </span>
+                <span class="fw-bold text-dark">{{ todayCalories }} / {{ targetCalories }} kcal <span class="text-warning small">({{ caloriePct }}%)</span></span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center small">
+                <span class="d-flex align-items-center gap-1 text-secondary">
+                  <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background: #10B981;"></span>
+                  <strong>Protein</strong>
+                </span>
+                <span class="fw-bold text-dark">{{ todayProtein }}g / {{ targetProtein }}g <span class="text-success small">({{ proteinPct }}%)</span></span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center small">
+                <span class="d-flex align-items-center gap-1 text-secondary">
+                  <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background: #0284C7;"></span>
+                  <strong>Hydration</strong>
+                </span>
+                <span class="fw-bold text-dark">{{ (todayWaterMl / 1000).toFixed(2) }}L / {{ (targetWaterMl / 1000).toFixed(1) }}L <span class="text-primary small">({{ waterPct }}%)</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 2: Interactive Quick-Hydration Tracker -->
+        <div class="col-lg-4 col-md-6">
+          <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white d-flex flex-column justify-content-between">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
+                <i class="bi bi-droplet-half text-primary fs-5"></i>
+                <span>Daily Hydration Goal</span>
+              </h6>
+              <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 small fw-bold">
+                {{ waterPct }}% Drunk
+              </span>
+            </div>
+
+            <!-- Water Gauge Graphic Box -->
+            <div class="p-3 rounded-4 bg-light my-2 text-center border border-info border-opacity-25 position-relative overflow-hidden" style="background: linear-gradient(180deg, #F0F9FF 0%, #E0F2FE 100%);">
+              <div class="display-5 fw-bold text-primary mb-1">
+                💧 {{ (todayWaterMl / 1000).toFixed(2) }} <span class="fs-6 text-secondary fw-normal">Liters</span>
+              </div>
+              <p class="small text-muted mb-2">Doctor's Target: <strong>{{ (targetWaterMl / 1000).toFixed(1) }}L / day</strong> ({{ targetWaterMl }} ml)</p>
+              
+              <!-- Progress Bar -->
+              <div class="progress" style="height: 12px; border-radius: 999px; background: #BAE6FD;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                     role="progressbar" 
+                     [style.width.%]="waterPct" 
+                     [attr.aria-valuenow]="waterPct" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100"></div>
+              </div>
+            </div>
+
+            <!-- Quick Action Log Buttons -->
+            <div>
+              <span class="d-block small text-muted mb-2 fw-semibold">Quick-Log Water Intake:</span>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary btn-sm flex-fill fw-bold py-2 rounded-3 shadow-xs" (click)="addWater(250)">
+                  🥛 +250ml
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm flex-fill fw-bold py-2 rounded-3 shadow-xs" (click)="addWater(500)">
+                  💧 +500ml
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm px-2.5 py-2 rounded-3" title="Reset Today's Water" (click)="resetWater()">
+                  <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 3: Daily Activity & Exercise Habits -->
+        <div class="col-lg-4 col-md-12">
+          <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white d-flex flex-column justify-content-between">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
+                <i class="bi bi-activity text-danger fs-5"></i>
+                <span>Daily Physical Habit</span>
+              </h6>
+              <span class="badge" [ngClass]="isExerciseDone ? 'bg-success text-white' : 'bg-warning bg-opacity-25 text-dark border border-warning'">
+                {{ isExerciseDone ? '✓ Completed' : '⏳ Pending' }}
+              </span>
+            </div>
+
+            <div class="p-3 rounded-4 my-2 border d-flex align-items-center gap-3" [style.background]="isExerciseDone ? '#F0FDF4' : '#FFFBEB'" [style.borderColor]="isExerciseDone ? '#86EFAC' : '#FDE68A'">
+              <div class="rounded-circle p-3 d-flex align-items-center justify-content-center fs-4 flex-shrink-0" [style.background]="isExerciseDone ? '#DCFCE7' : '#FEF3C7'">
+                {{ isExerciseDone ? '🏅' : '👟' }}
+              </div>
+              <div>
+                <strong class="text-dark d-block">30-Min Brisk Walk / Mobility</strong>
+                <p class="small text-muted mb-0" *ngIf="!isExerciseDone">Promotes blood flow, joint mobility & glucose stability.</p>
+                <p class="small text-success mb-0 fw-semibold" *ngIf="isExerciseDone">Great job! Daily exercise goal fulfilled for today.</p>
+              </div>
+            </div>
+
+            <button type="button" 
+                    class="btn w-100 py-2 fw-bold rounded-3 transition-all" 
+                    [ngClass]="isExerciseDone ? 'btn-outline-success' : 'btn-success shadow-sm'"
+                    (click)="toggleExercise()">
+              <i class="bi me-1" [ngClass]="isExerciseDone ? 'bi-check-circle-fill' : 'bi-play-circle-fill'"></i>
+              <span>{{ isExerciseDone ? 'Completed Today! (Click to undo)' : 'Mark Activity as Done' }}</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 📋 TODAY'S PRESCRIBED MEAL ROUTINE CHECKLIST -->
+      <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white" *ngIf="activeCarePathAppt">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h5 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+              <i class="bi bi-journal-check text-success"></i>
+              <span>Today's Prescribed Food Routine</span>
+            </h5>
+            <p class="text-muted small mb-0">Follow your doctor's meal guidance or snap a photo below to log exact calories.</p>
+          </div>
+          <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1.5 fw-semibold small">
+            🌴 Tailored for Kerala, India
+          </span>
+        </div>
+
+        <div class="row g-3">
+          <!-- Breakfast Item -->
+          <div class="col-md-4">
+            <div class="p-3 rounded-3 border bg-light h-100 d-flex flex-column justify-content-between">
+              <div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-0.5 small fw-bold">🌅 Breakfast</span>
+                  <span class="badge bg-white text-muted border small">~380 kcal</span>
+                </div>
+                <strong class="text-dark small d-block mb-1">Ragi / Chemba Steamed Puttu & Kadala Curry</strong>
+                <p class="text-muted small mb-0" style="font-size: 0.75rem; line-height: 1.35;">High-calcium millet pairing with plant protein.</p>
+              </div>
+              <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top">
+                <button type="button" class="btn btn-sm" [ngClass]="mealChecklistState['breakfast'] ? 'btn-success' : 'btn-outline-secondary'" (click)="toggleMealCheck('breakfast')">
+                  <i class="bi me-1" [ngClass]="mealChecklistState['breakfast'] ? 'bi-check-circle-fill' : 'bi-circle'"></i>
+                  <span>{{ mealChecklistState['breakfast'] ? 'Eaten' : 'Mark Eaten' }}</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success fw-bold d-flex align-items-center gap-1 shadow-xs" (click)="triggerMealPhotoUpload('Breakfast', 'Ragi Puttu with Kadala Curry')">
+                  <i class="bi bi-camera-fill"></i>
+                  <span>Snap & Log Photo</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lunch Item -->
+          <div class="col-md-4">
+            <div class="p-3 rounded-3 border bg-light h-100 d-flex flex-column justify-content-between">
+              <div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-0.5 small fw-bold">☀️ Lunch</span>
+                  <span class="badge bg-white text-muted border small">~460 kcal</span>
+                </div>
+                <strong class="text-dark small d-block mb-1">Kerala Matta Red Rice, Muringa Thoran & Fish / Dal</strong>
+                <p class="text-muted small mb-0" style="font-size: 0.75rem; line-height: 1.35;">Unpolished red rice with antioxidant moringa leaves.</p>
+              </div>
+              <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top">
+                <button type="button" class="btn btn-sm" [ngClass]="mealChecklistState['lunch'] ? 'btn-success' : 'btn-outline-secondary'" (click)="toggleMealCheck('lunch')">
+                  <i class="bi me-1" [ngClass]="mealChecklistState['lunch'] ? 'bi-check-circle-fill' : 'bi-circle'"></i>
+                  <span>{{ mealChecklistState['lunch'] ? 'Eaten' : 'Mark Eaten' }}</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success fw-bold d-flex align-items-center gap-1 shadow-xs" (click)="triggerMealPhotoUpload('Lunch', 'Kerala Matta Rice with Muringa Thoran')">
+                  <i class="bi bi-camera-fill"></i>
+                  <span>Snap & Log Photo</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dinner Item -->
+          <div class="col-md-4">
+            <div class="p-3 rounded-3 border bg-light h-100 d-flex flex-column justify-content-between">
+              <div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="badge bg-primary bg-opacity-25 text-dark border border-primary px-2 py-0.5 small fw-bold">🌙 Dinner</span>
+                  <span class="badge bg-white text-muted border small">~320 kcal</span>
+                </div>
+                <strong class="text-dark small d-block mb-1">Steamed Chemba Idli with Veg Stew / Sambar</strong>
+                <p class="text-muted small mb-0" style="font-size: 0.75rem; line-height: 1.35;">Fermented probiotic batter with light vegetable stew.</p>
+              </div>
+              <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top">
+                <button type="button" class="btn btn-sm" [ngClass]="mealChecklistState['dinner'] ? 'btn-success' : 'btn-outline-secondary'" (click)="toggleMealCheck('dinner')">
+                  <i class="bi me-1" [ngClass]="mealChecklistState['dinner'] ? 'bi-check-circle-fill' : 'bi-circle'"></i>
+                  <span>{{ mealChecklistState['dinner'] ? 'Eaten' : 'Mark Eaten' }}</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success fw-bold d-flex align-items-center gap-1 shadow-xs" (click)="triggerMealPhotoUpload('Dinner', 'Steamed Chemba Idli with Veg Stew')">
+                  <i class="bi bi-camera-fill"></i>
+                  <span>Snap & Log Photo</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="row g-4">
         <!-- Hero Header -->
         <div class="col-12">
@@ -338,7 +601,7 @@
               <span class="badge px-3 py-1 mb-2 fw-semibold" style="background: #ECFDF5; color: #047857; border: 1px solid #10B981;">
                 <i class="bi bi-stars me-1"></i> Gemini Vision Multi-Modal AI & Edamam Database Engine
               </span>
-              <h2 class="fw-bold text-dark mb-1">🥗 AI Food & Macronutrient Tracker</h2>
+              <h2 class="fw-bold text-dark mb-1">📸 AI Food & Micronutrient Plate Scanner</h2>
               <p class="text-secondary small mb-0">Snap or upload a photo of your meal plate. Google Gemini Vision identifies the dish, allowing you to edit portions before Edamam computes exact macronutrients.</p>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -351,7 +614,7 @@
 
         <!-- Left Column: Food Photo Uploader, Gemini Recognition, & Edamam Analyzer -->
         <div class="col-lg-7">
-          <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
+          <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white" id="ai-food-uploader-section">
             <h5 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
               <i class="bi bi-camera-fill text-success"></i> 1. Snap or Upload Meal Plate Photo
             </h5>
@@ -367,6 +630,7 @@
               >
                 <input 
                   type="file" 
+                  id="carepath-food-photo-file-input"
                   #foodPhotoInput 
                   accept="image/jpeg,image/png,image/webp" 
                   (change)="onFoodImageSelected($event)" 
@@ -1404,7 +1668,7 @@
         [class.active]="activeCarePathTab === 'edamam-recipes'"
         (click)="activeCarePathTab = 'edamam-recipes'"
       >
-        <i class="bi bi-magic"></i> Live Edamam Recipe Cards
+        <i class="bi bi-stars text-warning"></i> AI Clinical Recipe Recommendations
       </button>
     </div>
 
@@ -1465,36 +1729,44 @@
 
       </div>
 
-      <!-- TAB 2: Dynamic Edamam Recipe Cards -->
+      <!-- TAB 2: Dynamic AI Clinical Recipe Cards -->
       <div *ngIf="activeCarePathTab === 'edamam-recipes'">
         
         <div *ngIf="loadingEdamamPlan" class="text-center py-5">
           <div class="spinner-border text-success mb-3" role="status"></div>
-          <p class="text-muted small">Querying Edamam Nutrition Engine for dynamic recipe cards...</p>
+          <p class="text-muted small">Synthesizing AI Clinical Recipe Cards based on doctor's CarePath...</p>
         </div>
 
         <div *ngIf="!loadingEdamamPlan && edamamMealPlan" class="d-flex flex-column gap-4">
           
+          <!-- Regional Cuisine Banner -->
+          <div *ngIf="edamamMealPlanRegion" class="d-flex align-items-center justify-content-between p-2.5 px-3 bg-success bg-opacity-10 border border-success border-opacity-25 rounded-3 mb-1">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-geo-alt-fill text-success fs-5"></i>
+              <div>
+                <strong class="text-success small d-block">Hyper-Local Regional CarePath Synthesis</strong>
+                <span class="text-dark x-small" style="font-size: 0.78rem;">Recipes specifically adapted for locally accessible staples in <strong>{{ edamamMealPlanRegion }}</strong>.</span>
+              </div>
+            </div>
+            <span class="badge bg-success text-white px-2.5 py-1.5 small">🌴 {{ edamamMealPlanRegion }}</span>
+          </div>
+
           <!-- Breakfast Section -->
           <div *ngIf="edamamMealPlan.breakfast && edamamMealPlan.breakfast.length > 0">
-            <h6 class="fw-bold text-dark text-uppercase mb-3 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
-              <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-1">🌅 Breakfast Options</span>
+            <h6 class="fw-bold text-dark text-uppercase mb-2.5 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
+              <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2.5 py-1">🌅 Breakfast Recommendations</span>
             </h6>
-            <div class="row g-3">
-              <div *ngFor="let recipe of edamamMealPlan.breakfast" class="col-md-6">
-                <div class="carepath-recipe-card h-100">
-                  <img [src]="recipe.image" class="carepath-recipe-img" [alt]="recipe.title">
-                  <div class="p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                      <strong class="text-dark small d-block text-truncate" style="max-width: 70%;">{{ recipe.title }}</strong>
-                      <span class="badge bg-success text-white small">{{ recipe.calories }} kcal</span>
-                    </div>
-                    <div class="d-flex justify-content-between text-muted small border-top pt-2 mt-2" style="font-size: 0.75rem;">
-                      <span>💪 {{ recipe.protein }}g Protein</span>
-                      <span>🌾 {{ recipe.carbs }}g Carbs</span>
-                      <span>🧂 {{ recipe.sodium }}mg Sodium</span>
-                    </div>
+            <div class="d-flex flex-column gap-2">
+              <div *ngFor="let recipe of edamamMealPlan.breakfast" class="carepath-minimal-card">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="rounded-circle bg-warning bg-opacity-10 p-2 text-warning d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;">
+                    <i class="bi bi-egg-fried fs-5"></i>
                   </div>
+                  <strong class="text-dark fs-6">{{ recipe.title }}</strong>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                  <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1.5 fw-semibold">{{ recipe.calories }} kcal</span>
+                  <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1.5 fw-semibold">{{ recipe.protein }}g Protein</span>
                 </div>
               </div>
             </div>
@@ -1502,24 +1774,20 @@
 
           <!-- Lunch Section -->
           <div *ngIf="edamamMealPlan.lunch && edamamMealPlan.lunch.length > 0">
-            <h6 class="fw-bold text-dark text-uppercase mb-3 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
-              <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-1">☀️ Lunch Options</span>
+            <h6 class="fw-bold text-dark text-uppercase mb-2.5 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
+              <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2.5 py-1">☀️ Lunch Recommendations</span>
             </h6>
-            <div class="row g-3">
-              <div *ngFor="let recipe of edamamMealPlan.lunch" class="col-md-6">
-                <div class="carepath-recipe-card h-100">
-                  <img [src]="recipe.image" class="carepath-recipe-img" [alt]="recipe.title">
-                  <div class="p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                      <strong class="text-dark small d-block text-truncate" style="max-width: 70%;">{{ recipe.title }}</strong>
-                      <span class="badge bg-success text-white small">{{ recipe.calories }} kcal</span>
-                    </div>
-                    <div class="d-flex justify-content-between text-muted small border-top pt-2 mt-2" style="font-size: 0.75rem;">
-                      <span>💪 {{ recipe.protein }}g Protein</span>
-                      <span>🌾 {{ recipe.carbs }}g Carbs</span>
-                      <span>🧂 {{ recipe.sodium }}mg Sodium</span>
-                    </div>
+            <div class="d-flex flex-column gap-2">
+              <div *ngFor="let recipe of edamamMealPlan.lunch" class="carepath-minimal-card">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="rounded-circle bg-success bg-opacity-10 p-2 text-success d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;">
+                    <i class="bi bi-sun-fill fs-5"></i>
                   </div>
+                  <strong class="text-dark fs-6">{{ recipe.title }}</strong>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                  <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1.5 fw-semibold">{{ recipe.calories }} kcal</span>
+                  <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1.5 fw-semibold">{{ recipe.protein }}g Protein</span>
                 </div>
               </div>
             </div>
@@ -1527,24 +1795,20 @@
 
           <!-- Dinner Section -->
           <div *ngIf="edamamMealPlan.dinner && edamamMealPlan.dinner.length > 0">
-            <h6 class="fw-bold text-dark text-uppercase mb-3 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
-              <span class="badge bg-primary bg-opacity-25 text-dark border border-primary px-2 py-1">🌙 Dinner Options</span>
+            <h6 class="fw-bold text-dark text-uppercase mb-2.5 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
+              <span class="badge bg-primary bg-opacity-25 text-dark border border-primary px-2.5 py-1">🌙 Dinner Recommendations</span>
             </h6>
-            <div class="row g-3">
-              <div *ngFor="let recipe of edamamMealPlan.dinner" class="col-md-6">
-                <div class="carepath-recipe-card h-100">
-                  <img [src]="recipe.image" class="carepath-recipe-img" [alt]="recipe.title">
-                  <div class="p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                      <strong class="text-dark small d-block text-truncate" style="max-width: 70%;">{{ recipe.title }}</strong>
-                      <span class="badge bg-success text-white small">{{ recipe.calories }} kcal</span>
-                    </div>
-                    <div class="d-flex justify-content-between text-muted small border-top pt-2 mt-2" style="font-size: 0.75rem;">
-                      <span>💪 {{ recipe.protein }}g Protein</span>
-                      <span>🌾 {{ recipe.carbs }}g Carbs</span>
-                      <span>🧂 {{ recipe.sodium }}mg Sodium</span>
-                    </div>
+            <div class="d-flex flex-column gap-2">
+              <div *ngFor="let recipe of edamamMealPlan.dinner" class="carepath-minimal-card">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="rounded-circle bg-primary bg-opacity-10 p-2 text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;">
+                    <i class="bi bi-moon-stars-fill fs-5"></i>
                   </div>
+                  <strong class="text-dark fs-6">{{ recipe.title }}</strong>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                  <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1.5 fw-semibold">{{ recipe.calories }} kcal</span>
+                  <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1.5 fw-semibold">{{ recipe.protein }}g Protein</span>
                 </div>
               </div>
             </div>
