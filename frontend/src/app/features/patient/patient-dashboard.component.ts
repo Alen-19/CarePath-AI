@@ -11,6 +11,12 @@ import {
   AppointmentItem
 } from '../../core/services/appointment.service';
 import { NutritionService, EdamamRecipe } from '../../core/services/nutrition.service';
+import {
+  MedicationService,
+  MedicationDoseItem,
+  DoctorMedFilterItem,
+  MedicationScheduleResponse
+} from '../../core/services/medication.service';
 
 declare var Razorpay: any;
 
@@ -33,6 +39,13 @@ export class PatientDashboardComponent implements OnInit {
   isExerciseDone: boolean = false;
   dailyExerciseMinutes: number = 30;
   mealChecklistState: { [key: string]: boolean } = {};
+
+  // ─── 💊 Daily Medication & Pill Schedule State ─────────────────────────────
+  medicationSchedule: MedicationScheduleResponse | null = null;
+  loadingMedications: boolean = false;
+  selectedDoctorMedFilter: string = 'all';
+  isTogglingDose: boolean = false;
+  sendingMedEmail: boolean = false;
 
   // ─── Dietary CarePath & Edamam Modal State ─────────────────────────────────
   showCarePathModal = false;
@@ -330,6 +343,39 @@ export class PatientDashboardComponent implements OnInit {
     return Math.min(100, Math.round((this.todayWaterMl / this.targetWaterMl) * 100));
   }
 
+  // ─── 💊 Medication Schedule Getters ─────────────────────────────────────────
+  get filteredMorningMeds(): MedicationDoseItem[] {
+    if (!this.medicationSchedule?.schedule?.morning) return [];
+    if (this.selectedDoctorMedFilter === 'all') return this.medicationSchedule.schedule.morning;
+    return this.medicationSchedule.schedule.morning.filter(m => m.doctorId === this.selectedDoctorMedFilter);
+  }
+
+  get filteredAfternoonMeds(): MedicationDoseItem[] {
+    if (!this.medicationSchedule?.schedule?.afternoon) return [];
+    if (this.selectedDoctorMedFilter === 'all') return this.medicationSchedule.schedule.afternoon;
+    return this.medicationSchedule.schedule.afternoon.filter(m => m.doctorId === this.selectedDoctorMedFilter);
+  }
+
+  get filteredNightMeds(): MedicationDoseItem[] {
+    if (!this.medicationSchedule?.schedule?.night) return [];
+    if (this.selectedDoctorMedFilter === 'all') return this.medicationSchedule.schedule.night;
+    return this.medicationSchedule.schedule.night.filter(m => m.doctorId === this.selectedDoctorMedFilter);
+  }
+
+  get totalActiveMedsCount(): number {
+    return this.filteredMorningMeds.length + this.filteredAfternoonMeds.length + this.filteredNightMeds.length;
+  }
+
+  get takenMedsCount(): number {
+    const all = [...this.filteredMorningMeds, ...this.filteredAfternoonMeds, ...this.filteredNightMeds];
+    return all.filter(m => m.isTaken).length;
+  }
+
+  get medicationCompliancePct(): number {
+    if (this.totalActiveMedsCount === 0) return 100;
+    return Math.round((this.takenMedsCount / this.totalActiveMedsCount) * 100);
+  }
+
   // ─── 💧 Interactive Hydration & Wellness Tracker Handlers ──────────────────
   loadTodayWellnessTracker(): void {
     const todayStr = this.getTodayDateString();
@@ -425,11 +471,72 @@ export class PatientDashboardComponent implements OnInit {
     private authService: AuthService,
     private appointmentService: AppointmentService,
     private nutritionService: NutritionService,
+    private medicationService: MedicationService,
     private http: HttpClient,
     private router: Router,
     private ngZone: NgZone
   ) {
     this.syncPatientInfo();
+  }
+
+  // ─── 💊 Medication Schedule Handlers ─────────────────────────────────────────
+  loadActiveMedications(): void {
+    this.loadingMedications = true;
+    this.medicationService.getActiveMedicationSchedule().subscribe({
+      next: (res) => {
+        this.loadingMedications = false;
+        if (res && res.success) {
+          this.medicationSchedule = res;
+        }
+      },
+      error: (err) => {
+        this.loadingMedications = false;
+        console.warn('[MEDICATION] Could not load active medication schedule:', err);
+      }
+    });
+  }
+
+  toggleMedDose(med: MedicationDoseItem, slot: 'Morning' | 'Afternoon' | 'Night'): void {
+    const previousState = med.isTaken;
+    med.isTaken = !med.isTaken;
+    med.takenAt = med.isTaken ? new Date().toISOString() : null;
+
+    this.medicationService.toggleDoseStatus({
+      medicineName: med.medicineName,
+      slot,
+      prescriptionId: med.prescriptionId,
+      appointmentId: med.appointmentId,
+      isTaken: med.isTaken
+    }).subscribe({
+      next: (res) => {
+        if (res && res.success) {
+          this.showToast(
+            med.isTaken 
+              ? `✔ Taken: ${med.medicineName} (${slot} dose)` 
+              : `Pending: ${med.medicineName} (${slot} dose)`, 
+            'success'
+          );
+        }
+      },
+      error: () => {
+        med.isTaken = previousState;
+        this.showToast('Failed to update dose status. Please try again.', 'error');
+      }
+    });
+  }
+
+  sendTestMedicationDigestEmail(): void {
+    this.sendingMedEmail = true;
+    this.medicationService.sendTestMorningDigest().subscribe({
+      next: (res) => {
+        this.sendingMedEmail = false;
+        this.showToast(res.message || 'Morning medication digest email sent successfully!', 'success');
+      },
+      error: (err) => {
+        this.sendingMedEmail = false;
+        this.showToast(err.error?.message || 'Failed to dispatch email.', 'error');
+      }
+    });
   }
 
   syncPatientInfo() {
@@ -758,6 +865,7 @@ export class PatientDashboardComponent implements OnInit {
     this.loadMyAppointments();
     this.loadTodayWellnessTracker();
     this.loadTodayNutritionLogs();
+    this.loadActiveMedications();
 
     if (this.isProfileIncomplete()) {
       setTimeout(() => {
@@ -806,6 +914,7 @@ export class PatientDashboardComponent implements OnInit {
     } else if (tab === 'food-tracker') {
       this.loadTodayNutritionLogs();
       this.loadTodayWellnessTracker();
+      this.loadActiveMedications();
     } else if (tab === 'profile') {
       this.syncPatientInfo();
     }

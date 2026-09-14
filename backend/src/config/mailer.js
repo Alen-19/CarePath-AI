@@ -434,8 +434,134 @@ const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, spec
   }
 };
 
+/**
+ * Sends Daily Morning Medication Schedule & CarePath Digest Email
+ */
+const sendMedicationDigestEmail = async (patientEmail, patientName, formattedDate, morningMeds = [], afternoonMeds = [], nightMeds = [], hydrationLiters = 2.5) => {
+  try {
+    const transporter = await createTransporter();
+    if (!transporter) {
+      console.error('[MAILER] Transporter unavailable. Cannot send morning digest email.');
+      return false;
+    }
+
+    const renderMedRow = (med) => `
+      <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <strong style="font-size: 0.95rem; color: #0F172A;">💊 ${med.medicineName}</strong>
+          <span style="font-size: 0.75rem; background: #F1F5F9; color: #475569; padding: 2px 8px; border-radius: 12px; font-weight: 600;">${med.duration || 'Active Course'}</span>
+        </div>
+        <div style="font-size: 0.82rem; color: #64748B;">
+          <span>Instruction: <strong>${med.instructions || 'Take after food'}</strong></span>
+          ${med.doctorName ? `<span style="margin-left: 10px; color: #0284C7;">• Prescribed by ${med.doctorName}</span>` : ''}
+        </div>
+      </div>
+    `;
+
+    const morningHtml = morningMeds.length > 0 
+      ? morningMeds.map(renderMedRow).join('') 
+      : `<p style="font-size: 0.85rem; color: #94A3B8; font-style: italic; margin: 5px 0;">No morning medications scheduled.</p>`;
+
+    const afternoonHtml = afternoonMeds.length > 0 
+      ? afternoonMeds.map(renderMedRow).join('') 
+      : `<p style="font-size: 0.85rem; color: #94A3B8; font-style: italic; margin: 5px 0;">No afternoon medications scheduled.</p>`;
+
+    const nightHtml = nightMeds.length > 0 
+      ? nightMeds.map(renderMedRow).join('') 
+      : `<p style="font-size: 0.85rem; color: #94A3B8; font-style: italic; margin: 5px 0;">No night medications scheduled.</p>`;
+
+    const logoHtml = hasLogoCircle 
+      ? `<img src="cid:carepath_logo_circle" alt="CarePath AI Logo" style="width: 44px; height: 44px; border-radius: 50%; vertical-align: middle;" />`
+      : `<span style="font-size: 20px; color: #059669;">✦</span>`;
+
+    const htmlContent = `
+      <div style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; padding: 30px 15px; color: #1E293B; max-width: 600px; margin: 0 auto;">
+        <div style="background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+          
+          <!-- Top Header -->
+          <div style="background: linear-gradient(135deg, #065F46 0%, #0F766E 100%); padding: 24px; text-align: center; color: #FFFFFF;">
+            <div style="margin-bottom: 8px;">${logoHtml}</div>
+            <h2 style="margin: 0 0 6px 0; font-size: 1.3rem; font-weight: 700; color: #FFFFFF;">Daily Medication & CarePath Digest</h2>
+            <p style="margin: 0; font-size: 0.85rem; color: #A7F3D0;">${formattedDate}</p>
+          </div>
+
+          <!-- Greeting -->
+          <div style="padding: 24px;">
+            <p style="font-size: 0.95rem; color: #334155; margin-top: 0;">
+              Good morning <strong>${patientName}</strong>,<br>
+              Here is your active doctor-prescribed medicine schedule for today. Please take each dose as instructed.
+            </p>
+
+            <!-- Morning Slot -->
+            <div style="margin-bottom: 20px;">
+              <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #B45309; background: #FEF3C7; padding: 3px 10px; border-radius: 20px;">🌅 Morning Slot (Breakfast)</span>
+              </div>
+              ${morningHtml}
+            </div>
+
+            <!-- Afternoon Slot -->
+            <div style="margin-bottom: 20px;">
+              <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #0369A1; background: #E0F2FE; padding: 3px 10px; border-radius: 20px;">☀️ Afternoon Slot (Lunch)</span>
+              </div>
+              ${afternoonHtml}
+            </div>
+
+            <!-- Night Slot -->
+            <div style="margin-bottom: 24px;">
+              <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #4338CA; background: #EEF2FF; padding: 3px 10px; border-radius: 20px;">🌙 Night Slot (Dinner)</span>
+              </div>
+              ${nightHtml}
+            </div>
+
+            <!-- Hydration Reminder Banner -->
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 14px; margin-bottom: 24px; text-align: center;">
+              <strong style="color: #15803D; font-size: 0.9rem;">💧 Daily Hydration Target: ${hydrationLiters} Liters</strong>
+              <p style="color: #166534; font-size: 0.8rem; margin: 4px 0 0 0;">Remember to stay hydrated throughout the day to support medicine absorption.</p>
+            </div>
+
+            <!-- Action Button -->
+            <div style="text-align: center; margin-bottom: 10px;">
+              <a href="http://localhost:4200/patient" style="background: #059669; color: #FFFFFF; padding: 12px 28px; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 0.9rem; display: inline-block;">
+                Open CarePath & Mark Doses Taken →
+              </a>
+            </div>
+
+            <p style="font-size: 0.75rem; color: #94A3B8; text-align: center; margin-top: 20px;">
+              This is an automated reminder from CarePath AI. If you experience adverse side effects, contact your doctor immediately.
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const attachments = [];
+    if (hasLogoCircle) {
+      attachments.push({ filename: 'logo_circle.png', path: logoCirclePath, cid: 'carepath_logo_circle' });
+    }
+
+    await transporter.sendMail({
+      from: '"CarePath AI Reminders" <carepathaiadmin@gmail.com>',
+      to: patientEmail,
+      subject: `💊 Your Medication Schedule for Today — ${formattedDate}`,
+      html: htmlContent,
+      attachments
+    });
+
+    console.log(`[MAILER] Daily medication digest sent to ${patientEmail}`);
+    return true;
+  } catch (err) {
+    console.error('[MAILER] Failed to send medication digest email:', err);
+    return false;
+  }
+};
+
 module.exports = {
   sendResetOtpEmail,
   sendAppointmentReceiptEmail,
-  sendPrescriptionEmail
+  sendPrescriptionEmail,
+  sendMedicationDigestEmail
 };
+

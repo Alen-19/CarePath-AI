@@ -41,6 +41,8 @@ const appointmentRoutes = require('./routes/appointment.routes');
 const bookingRoutes = require('./routes/booking.routes');
 const medicineRoutes = require('./routes/medicine.routes');
 const nutritionRoutes = require('./routes/nutrition.routes');
+const medicationRoutes = require('./routes/medication.routes');
+const { initMedicationCron } = require('./services/medication-cron.service');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -49,6 +51,7 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/nutrition', nutritionRoutes);
+app.use('/api/medications', medicationRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -67,6 +70,9 @@ const server = http.createServer(app);
 
 // Initialize Socket.io
 initSocket(server);
+
+// Initialize Daily Medication Cron Scheduler
+initMedicationCron();
 
 // Define server port
 const PORT = process.env.PORT || 5000;
