@@ -13,6 +13,27 @@ import {
 } from '../../core/services/appointment.service';
 import { WebRtcService } from '../../core/services/webrtc.service';
 
+export interface PatientConsultationGroup {
+  patientKey: string;
+  patientName: string;
+  initials: string;
+  gender?: string;
+  age?: number | string;
+  bloodGroup?: string;
+  phone?: string;
+  profileImage?: string;
+  imageFailed?: boolean;
+  totalVisits: number;
+  lastVisitDate: string;
+  lastVisitTime: string;
+  lastVisitType: string;
+  hasEmergencyHistory: boolean;
+  allPrescriptionsCount: number;
+  allNutritionalTags: string[];
+  isExpanded: boolean;
+  consultations: DoctorAppointmentItem[];
+}
+
 @Component({
   selector: 'app-doctor-dashboard',
   standalone: true,
@@ -98,6 +119,16 @@ export class DoctorDashboardComponent implements OnInit {
   overrideSession2Start = '04:00 PM';
   overrideSession2End = '07:00 PM';
 
+  // Leave Booking Conflict Modal State
+  showLeaveConflictModal = false;
+  conflictAppointments: any[] = [];
+  conflictCount = 0;
+  conflictTotalRefund = 0;
+  conflictDate = '';
+  conflictReason = '';
+  conflictDoctorNote = '';
+  isConfirmingLeaveCancellation = false;
+
   // Suspension State
   isSuspended = false;
   suspensionReason = '';
@@ -124,7 +155,7 @@ export class DoctorDashboardComponent implements OnInit {
   loadingPincode = false;
   pincodeErrorMsg = '';
 
-  activeNavTab: 'appointments' | 'profile' = 'appointments';
+  activeNavTab: 'live-clinic' | 'patient-records' | 'profile' | 'appointments' = 'live-clinic';
   
   // Doctor Profile Editing State
   docFirstName = '';
@@ -213,6 +244,203 @@ export class DoctorDashboardComponent implements OnInit {
       const date = (a.appointmentDate || '').toLowerCase();
       return patientName.includes(q) || symptoms.includes(q) || type.includes(q) || date.includes(q);
     });
+  }
+
+  // ─── 👥 Patient-Grouped Longitudinal Consultation Dossiers ─────────────────
+  expandedPatientKeys: { [key: string]: boolean } = {};
+
+  get totalUniquePatientsCount(): number {
+    if (!this.pastApptsList || this.pastApptsList.length === 0) return 0;
+    const uniqueKeys = new Set<string>();
+    for (const appt of this.pastApptsList) {
+      const pid = appt.patientId?._id || appt.patientName || 'unknown';
+      uniqueKeys.add(pid);
+    }
+    return uniqueKeys.size;
+  }
+
+  get groupedPastPatients(): PatientConsultationGroup[] {
+    if (!this.pastApptsList || this.pastApptsList.length === 0) return [];
+
+    const groupMap = new Map<string, PatientConsultationGroup>();
+    const searchQ = (this.pastApptsSearch || '').toLowerCase().trim();
+
+    for (const appt of this.pastApptsList) {
+      const pidObj = appt.patientId;
+      const key = (pidObj && pidObj._id)
+        ? pidObj._id
+        : (appt.patientName || 'Unknown Patient').toLowerCase().trim();
+
+      const name = (pidObj && (pidObj.firstName || pidObj.lastName))
+        ? `${pidObj.firstName || ''} ${pidObj.lastName || ''}`.trim()
+        : (pidObj?.name || appt.patientName || 'Patient');
+
+      if (!groupMap.has(key)) {
+        const computedAge = pidObj?.age ?? this.calculateAge(pidObj?.dateOfBirth);
+        const initials = this.getPatientInitials(name);
+
+        groupMap.set(key, {
+          patientKey: key,
+          patientName: name,
+          initials,
+          gender: pidObj?.gender && pidObj.gender !== 'Prefer not to say' ? pidObj.gender : undefined,
+          age: computedAge,
+          bloodGroup: pidObj?.bloodGroup || undefined,
+          phone: pidObj?.phone || undefined,
+          profileImage: pidObj?.profileImage || undefined,
+          totalVisits: 0,
+          lastVisitDate: appt.appointmentDate,
+          lastVisitTime: appt.startTime,
+          lastVisitType: appt.type,
+          hasEmergencyHistory: false,
+          allPrescriptionsCount: 0,
+          allNutritionalTags: [],
+          imageFailed: false,
+          isExpanded: false,
+          consultations: []
+        });
+      }
+
+      const group = groupMap.get(key)!;
+      group.totalVisits++;
+      group.consultations.push(appt);
+
+      if (!group.profileImage && pidObj?.profileImage) {
+        group.profileImage = pidObj.profileImage;
+      }
+      if (!group.bloodGroup && pidObj?.bloodGroup) {
+        group.bloodGroup = pidObj.bloodGroup;
+      }
+      if (!group.phone && pidObj?.phone) {
+        group.phone = pidObj.phone;
+      }
+      if (!group.age && (pidObj?.age || pidObj?.dateOfBirth)) {
+        group.age = pidObj?.age ?? this.calculateAge(pidObj?.dateOfBirth);
+      }
+      if (!group.gender && pidObj?.gender && pidObj.gender !== 'Prefer not to say') {
+        group.gender = pidObj.gender;
+      }
+
+      if (appt.type === 'Emergency Sync' || appt.isEmergency) {
+        group.hasEmergencyHistory = true;
+      }
+
+      if (appt.prescription && appt.prescription.length > 0) {
+        group.allPrescriptionsCount += appt.prescription.length;
+      }
+
+      if (appt.clinicalNotes?.nutritionalTags && appt.clinicalNotes.nutritionalTags.length > 0) {
+        for (const tag of appt.clinicalNotes.nutritionalTags) {
+          if (!group.allNutritionalTags.includes(tag)) {
+            group.allNutritionalTags.push(tag);
+          }
+        }
+      }
+    }
+
+    let result = Array.from(groupMap.values());
+
+    // Filter by search query across patient name, phone, symptoms, notes, or medicines
+    if (searchQ) {
+      result = result.filter(grp => {
+        const nameMatch = grp.patientName.toLowerCase().includes(searchQ);
+        const phoneMatch = grp.phone ? grp.phone.includes(searchQ) : false;
+        const consultMatch = grp.consultations.some(c => {
+          const symMatch = (c.symptoms || '').toLowerCase().includes(searchQ);
+          const typeMatch = (c.type || '').toLowerCase().includes(searchQ);
+          const notesMatch = (c.clinicalNotes?.doctorRemarks || '').toLowerCase().includes(searchQ);
+          const medMatch = (c.prescription || []).some((m: any) =>
+            (m.medicineName || '').toLowerCase().includes(searchQ) ||
+            (m.instructions || '').toLowerCase().includes(searchQ)
+          );
+          const tagMatch = (c.clinicalNotes?.nutritionalTags || []).some((t: string) =>
+            t.toLowerCase().includes(searchQ)
+          );
+          return symMatch || typeMatch || notesMatch || medMatch || tagMatch;
+        });
+        return nameMatch || phoneMatch || consultMatch;
+      });
+
+      // Auto-expand all matching patient cards during search
+      result.forEach(grp => {
+        grp.isExpanded = true;
+      });
+    } else {
+      // Sync manual expansion states
+      result.forEach(grp => {
+        grp.isExpanded = !!this.expandedPatientKeys[grp.patientKey];
+      });
+    }
+
+    return result;
+  }
+
+  togglePatientAccordion(group: PatientConsultationGroup): void {
+    group.isExpanded = !group.isExpanded;
+    this.expandedPatientKeys[group.patientKey] = group.isExpanded;
+  }
+
+  expandAllPatients(expand: boolean): void {
+    for (const grp of this.groupedPastPatients) {
+      grp.isExpanded = expand;
+      this.expandedPatientKeys[grp.patientKey] = expand;
+    }
+  }
+
+  getPatientInitials(fullName: string): string {
+    if (!fullName) return 'P';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  calculateAge(dob: string | Date | undefined): number | undefined {
+    if (!dob) return undefined;
+    const birthDate = new Date(dob);
+    if (isNaN(birthDate.getTime())) return undefined;
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age > 0 ? age : undefined;
+  }
+
+  // Master-Detail Patient Selection State
+  selectedPatientKey: string = '';
+  mobileDetailViewActive: boolean = false;
+
+  get selectedPatientGroup(): PatientConsultationGroup | null {
+    if (!this.groupedPastPatients || this.groupedPastPatients.length === 0) return null;
+    if (this.selectedPatientKey) {
+      const match = this.groupedPastPatients.find(p => p.patientKey === this.selectedPatientKey);
+      if (match) return match;
+    }
+    return this.groupedPastPatients[0] || null;
+  }
+
+  selectPatient(patientKey: string): void {
+    this.selectedPatientKey = patientKey;
+    this.mobileDetailViewActive = true;
+  }
+
+  backToPatientList(): void {
+    this.mobileDetailViewActive = false;
+  }
+
+  getPatientImageUrl(imagePath?: string): string {
+    if (!imagePath) return '';
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    return 'http://localhost:5000' + (imagePath.startsWith('/') ? imagePath : '/' + imagePath);
+  }
+
+  onPatientImageError(group?: PatientConsultationGroup | null): void {
+    if (group) {
+      group.imageFailed = true;
+    }
   }
 
   // Touch Trackers for Doctor Profile
@@ -528,14 +756,18 @@ export class DoctorDashboardComponent implements OnInit {
     }
   }
 
-  // ─── Doctor Profile Page Handlers ─────────────────────────────────────────
-  setNavTab(tab: 'appointments' | 'profile'): void {
+  // ─── Clinician Workspace Navigation Handlers ─────────────────────────────
+  setNavTab(tab: 'live-clinic' | 'patient-records' | 'profile' | 'appointments'): void {
+    if (tab === 'appointments') tab = 'live-clinic';
     this.activeNavTab = tab;
     this.closeDoctorDropdown();
     this.profileSaveMsg = '';
     this.profileErrMsg = '';
     this.passwordSuccess = '';
     this.passwordError = '';
+    if (tab === 'patient-records' && !this.selectedPatientKey && this.groupedPastPatients.length > 0) {
+      this.selectedPatientKey = this.groupedPastPatients[0].patientKey;
+    }
   }
 
   onDoctorImageSelected(event: any): void {
@@ -867,10 +1099,43 @@ export class DoctorDashboardComponent implements OnInit {
       return;
     }
 
-    this.isSavingSchedule = true;
     this.scheduleSuccessMsg = '';
     this.scheduleErrMsg = '';
 
+    // If marking as ON LEAVE, check for active confirmed patient booking conflicts first!
+    if (this.overrideIsOffDay) {
+      this.isSavingSchedule = true;
+      this.appointmentService.checkOverrideConflicts(this.overrideDateInput).subscribe({
+        next: (res) => {
+          this.isSavingSchedule = false;
+          if (res && res.count > 0) {
+            // Conflict detected! Open interactive Warning Modal
+            this.conflictAppointments = res.appointments || [];
+            this.conflictCount = res.count;
+            this.conflictTotalRefund = res.totalRefundAmount || 0;
+            this.conflictDate = this.overrideDateInput;
+            this.conflictReason = this.overrideReason || 'Personal Leave';
+            this.conflictDoctorNote = this.overrideReason || 'Doctor is on leave';
+            this.showLeaveConflictModal = true;
+          } else {
+            // No conflicts, execute date override directly
+            this.executeSaveDateOverride();
+          }
+        },
+        error: (err) => {
+          this.isSavingSchedule = false;
+          this.scheduleErrMsg = err?.error?.message || 'Failed to check appointment conflicts.';
+        }
+      });
+      return;
+    }
+
+    // Custom working hours override without off-day
+    this.executeSaveDateOverride();
+  }
+
+  executeSaveDateOverride(): void {
+    this.isSavingSchedule = true;
     const payload: DoctorDateOverrideData = {
       date: this.overrideDateInput,
       isOffDay: this.overrideIsOffDay,
@@ -896,6 +1161,44 @@ export class DoctorDashboardComponent implements OnInit {
     });
   }
 
+  confirmLeaveAndCancelAppointments(): void {
+    this.isConfirmingLeaveCancellation = true;
+    this.scheduleSuccessMsg = '';
+    this.scheduleErrMsg = '';
+
+    const payload: DoctorDateOverrideData = {
+      date: this.conflictDate,
+      isOffDay: true,
+      reason: this.conflictReason || 'On Leave',
+      confirmCancelBookings: true,
+      cancellationReason: this.conflictDoctorNote || this.conflictReason || 'Doctor on leave'
+    };
+
+    this.appointmentService.saveDateOverride(payload).subscribe({
+      next: (res) => {
+        this.isConfirmingLeaveCancellation = false;
+        this.showLeaveConflictModal = false;
+        const refundedCount = res.cancelledCount ?? this.conflictCount;
+        const refundedSum = res.totalRefunded ?? this.conflictTotalRefund;
+        this.scheduleSuccessMsg = `Leave recorded for ${this.conflictDate}. ${refundedCount} appointment(s) cancelled and refunded (₹${refundedSum}).`;
+        this.overrideDateInput = '';
+        this.loadDoctorSchedule();
+        this.loadDoctorAppointments(); // refreshes live queue, removing cancelled appointments!
+      },
+      error: (err) => {
+        this.isConfirmingLeaveCancellation = false;
+        this.scheduleErrMsg = err?.error?.message || 'Failed to process leave cancellation and refunds.';
+      }
+    });
+  }
+
+  closeLeaveConflictModal(): void {
+    this.showLeaveConflictModal = false;
+    this.conflictAppointments = [];
+    this.conflictCount = 0;
+    this.conflictTotalRefund = 0;
+  }
+
   onDeleteDateOverride(id: string): void {
     this.appointmentService.deleteDateOverride(id).subscribe({
       next: () => {
@@ -915,10 +1218,29 @@ export class DoctorDashboardComponent implements OnInit {
     nutritionalTags: [],
     recommendedFoods: '',
     foodsToAvoid: '',
-    hydrationGoalLiters: 3
+    hydrationGoalLiters: 3,
+    followUpRecommendation: {
+      isRecommended: false,
+      recommendedAfterDays: 7,
+      clinicalInstructions: ''
+    }
   };
   isSavingNotesModal: boolean = false;
   notesModalMsg: string = '';
+
+  // Prior Consultation History Modal State (for Follow-Up appointments)
+  selectedPriorAppt: any = null;
+  showPriorHistoryModal: boolean = false;
+
+  openPriorHistoryModal(parentAppt: any): void {
+    this.selectedPriorAppt = parentAppt;
+    this.showPriorHistoryModal = true;
+  }
+
+  closePriorHistoryModal(): void {
+    this.selectedPriorAppt = null;
+    this.showPriorHistoryModal = false;
+  }
 
   openClinicalNotesModal(appt: any): void {
     this.selectedNotesAppt = appt;
@@ -931,7 +1253,12 @@ export class DoctorDashboardComponent implements OnInit {
         nutritionalTags: appt.clinicalNotes.nutritionalTags ? [...appt.clinicalNotes.nutritionalTags] : [],
         recommendedFoods: appt.clinicalNotes.recommendedFoods || '',
         foodsToAvoid: appt.clinicalNotes.foodsToAvoid || '',
-        hydrationGoalLiters: appt.clinicalNotes.hydrationGoalLiters || 3
+        hydrationGoalLiters: appt.clinicalNotes.hydrationGoalLiters || 3,
+        followUpRecommendation: {
+          isRecommended: appt.followUpRecommendation?.isRecommended || false,
+          recommendedAfterDays: appt.followUpRecommendation?.recommendedAfterDays || 7,
+          clinicalInstructions: appt.followUpRecommendation?.clinicalInstructions || ''
+        }
       };
     } else {
       this.modalNotesData = {
@@ -939,23 +1266,36 @@ export class DoctorDashboardComponent implements OnInit {
         nutritionalTags: [],
         recommendedFoods: '',
         foodsToAvoid: '',
-        hydrationGoalLiters: 3
+        hydrationGoalLiters: 3,
+        followUpRecommendation: {
+          isRecommended: appt?.followUpRecommendation?.isRecommended || false,
+          recommendedAfterDays: appt?.followUpRecommendation?.recommendedAfterDays || 7,
+          clinicalInstructions: appt?.followUpRecommendation?.clinicalInstructions || ''
+        }
       };
     }
 
     if (appt && appt._id) {
       this.appointmentService.getClinicalNotes(appt._id).subscribe({
-        next: (res) => {
+        next: (res: any) => {
           if (res.success && res.clinicalNotes) {
             this.modalNotesData = {
               doctorRemarks: res.clinicalNotes.doctorRemarks || '',
               nutritionalTags: res.clinicalNotes.nutritionalTags || [],
               recommendedFoods: res.clinicalNotes.recommendedFoods || '',
               foodsToAvoid: res.clinicalNotes.foodsToAvoid || '',
-              hydrationGoalLiters: res.clinicalNotes.hydrationGoalLiters || 3
+              hydrationGoalLiters: res.clinicalNotes.hydrationGoalLiters || 3,
+              followUpRecommendation: {
+                isRecommended: appt.followUpRecommendation?.isRecommended ?? res.followUpRecommendation?.isRecommended ?? false,
+                recommendedAfterDays: appt.followUpRecommendation?.recommendedAfterDays ?? res.followUpRecommendation?.recommendedAfterDays ?? 7,
+                clinicalInstructions: appt.followUpRecommendation?.clinicalInstructions ?? res.followUpRecommendation?.clinicalInstructions ?? ''
+              }
             };
             if (this.selectedNotesAppt) {
               this.selectedNotesAppt.clinicalNotes = res.clinicalNotes;
+              if (res.followUpRecommendation) {
+                this.selectedNotesAppt.followUpRecommendation = res.followUpRecommendation;
+              }
             }
           }
         }
@@ -1013,12 +1353,13 @@ export class DoctorDashboardComponent implements OnInit {
     this.notesModalMsg = '';
 
     this.appointmentService.saveClinicalNotes(this.selectedNotesAppt._id, this.modalNotesData).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         this.isSavingNotesModal = false;
         if (res.success) {
-          this.notesModalMsg = '✅ Remarks & Dietary Advice saved and emailed to patient!';
+          this.notesModalMsg = '✅ Remarks, Diet & Follow-Up Advice saved and emailed to patient!';
           if (this.selectedNotesAppt) {
             this.selectedNotesAppt.clinicalNotes = res.clinicalNotes;
+            this.selectedNotesAppt.followUpRecommendation = res.followUpRecommendation;
           }
           setTimeout(() => { this.closeClinicalNotesModal(); }, 1800);
         }

@@ -1889,3 +1889,65 @@ select.form-select option {
 
 
 
+
+/* -------- FLOATING BOT UI -------- */
+.symptom-bot-fab {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--primary-color, #4361ee);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.symptom-bot-fab:hover {
+  transform: scale(1.1);
+}
+
+.symptom-bot-fab.active {
+  background: #ff4757;
+  transform: rotate(90deg);
+}
+
+.symptom-bot-window {
+  position: fixed;
+  bottom: 110px;
+  right: 30px;
+  width: 360px;
+  max-height: 80vh;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  z-index: 1049;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.05);
+  border: 1px solid rgba(255,255,255,0.4);
+}
+
+.symptom-bot-header {
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.symptom-bot-body::-webkit-scrollbar {
+  width: 6px;
+}
+.symptom-bot-body::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.05);
+  border-radius: 4px;
+}
+.symptom-bot-body::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.15);
+  border-radius: 4px;
+}
+

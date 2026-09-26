@@ -320,7 +320,7 @@ const sendAppointmentReceiptEmail = async (details) => {
   }
 };
 
-const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, specialty, prescriptionList, dateStr, clinicalNotes = null) => {
+const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, specialty, prescriptionList, dateStr, clinicalNotes = null, followUp = null) => {
   try {
     const transporter = await createTransporter();
     if (!transporter) return false;
@@ -353,7 +353,7 @@ const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, spec
 
       const tagsHtml = (clinicalNotes.nutritionalTags || []).map(t => `<span style="background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; margin-right: 6px; display: inline-block; margin-bottom: 4px;">${t}</span>`).join('');
 
-      if (clinicalNotes.recommendedFoods || clinicalNotes.foodsToAvoid || (clinicalNotes.nutritionalTags && clinicalNotes.nutritionalTags.length > 0)) {
+      if (clinicalNotes.recommendedFoods || clinicalNotes.foodsToAvoid || (clinicalNotes.nutritionalTags && clinicalNotes.nutritionalTags.length > 0) || clinicalNotes.hydrationGoalLiters) {
         dietaryAdviceHtml = `
           <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px; margin-bottom: 20px;">
             <h3 style="color: #16A34A; font-size: 0.95rem; margin: 0 0 10px 0; display: flex; align-items: center;">🥗 Doctor's Dietary & Food Recommendations</h3>
@@ -364,6 +364,17 @@ const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, spec
           </div>
         `;
       }
+    }
+
+    let followUpHtml = '';
+    if (followUp && followUp.isRecommended) {
+      followUpHtml = `
+        <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+          <h3 style="color: #D97706; font-size: 0.95rem; margin: 0 0 8px 0; display: flex; align-items: center;">📅 Follow-Up Consultation Recommended</h3>
+          <p style="margin: 0 0 6px 0; font-size: 0.88rem; color: #1E293B;"><strong>Recommended Timeline:</strong> In ${followUp.recommendedAfterDays} Days (By ${followUp.recommendedDate})</p>
+          ${followUp.clinicalInstructions ? `<p style="margin: 0; font-size: 0.85rem; color: #475569;"><strong>Instructions:</strong> ${followUp.clinicalInstructions}</p>` : ''}
+        </div>
+      `;
     }
 
     const htmlContent = `
@@ -389,6 +400,7 @@ const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, spec
 
         ${doctorRemarksHtml}
         ${dietaryAdviceHtml}
+        ${followUpHtml}
 
         ${prescriptionList && prescriptionList.length > 0 ? `
         <h3 style="color: #0F172A; font-size: 1rem; margin-bottom: 10px;">💊 Prescribed Medications</h3>
@@ -558,10 +570,144 @@ const sendMedicationDigestEmail = async (patientEmail, patientName, formattedDat
   }
 };
 
+/**
+ * Sends automated cancellation and 100% refund email to patient when a doctor takes leave
+ */
+const sendDoctorLeaveCancellationEmail = async ({
+  patientEmail,
+  patientName,
+  doctorName,
+  specialty,
+  appointmentDate,
+  startTime,
+  cancellationReason,
+  refundAmount,
+  razorpayRefundId
+}) => {
+  try {
+    const transporter = await createTransporter();
+    if (!transporter) {
+      console.error('[MAILER] Transporter unavailable. Cannot send doctor leave cancellation email.');
+      return false;
+    }
+
+    const cleanDoctorName = (doctorName || 'Doctor').replace(/^Dr\.?\s*/i, '');
+    const cleanReason = (cancellationReason || 'Doctor on leave').replace(/^Doctor Leave:\s*/i, '');
+
+    const logoHtml = hasLogoCircle
+      ? `<img src="cid:carepath_logo_circle" alt="CarePath AI Logo" style="width: 52px; height: 52px; border-radius: 50%; vertical-align: middle; object-fit: cover;" />`
+      : `<span style="font-size: 24px; color: #ffffff; line-height: 46px; display: block;">✦</span>`;
+
+    const htmlContent = `
+      <div style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; color: #0F172A; padding: 40px 20px;">
+        <div style="max-width: 540px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);">
+          
+          <!-- Header Banner -->
+          <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); padding: 28px; text-align: center; color: #FFFFFF;">
+            <div style="margin-bottom: 12px;">${logoHtml}</div>
+            <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700; color: #FFFFFF;">CarePath AI Telehealth</h2>
+            <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #94A3B8;">Consultation Status Update</p>
+          </div>
+
+          <!-- Body Content -->
+          <div style="padding: 28px;">
+            <div style="background: #FEF2F2; border: 1px solid #FECACA; border-left: 4px solid #EF4444; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
+              <strong style="color: #991B1B; font-size: 0.92rem; display: block;">⚠️ Notice: Appointment Cancelled due to Clinician Leave</strong>
+              <p style="color: #7F1D1D; font-size: 0.82rem; margin: 4px 0 0 0;">
+                Dear <strong>${patientName || 'Patient'}</strong>,${cleanDoctorName} is unavailable and on leave on <strong>${appointmentDate}</strong>.
+              </p>
+            </div>
+
+            <p style="font-size: 0.88rem; color: #334155; line-height: 1.5; margin-bottom: 18px;">
+              We sincerely apologize for any inconvenience caused. Your scheduled consultation has been cancelled, and a <strong>100% full refund</strong> has been processed to your original payment method.
+            </p>
+
+            <!-- Appointment Details Card -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+              <h4 style="margin: 0 0 10px 0; font-size: 0.82rem; text-transform: uppercase; color: #64748B; letter-spacing: 0.05em;">Cancelled Appointment Details</h4>
+              <table style="width: 100%; font-size: 0.84rem; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 4px 0; color: #64748B;">Doctor:</td>
+                  <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #0F172A;">${cleanDoctorName} (${specialty || 'General Practitioner'})</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 0; color: #64748B;">Scheduled Date:</td>
+                  <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #0F172A;">${appointmentDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 0; color: #64748B;">Scheduled Time:</td>
+                  <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #0F172A;">${startTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 0; color: #64748B;">Leave Reason:</td>
+                  <td style="padding: 4px 0; text-align: right; font-style: italic; color: #475569;">${cleanReason}</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Refund Details Card -->
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+              <h4 style="margin: 0 0 10px 0; font-size: 0.82rem; text-transform: uppercase; color: #166534; letter-spacing: 0.05em;">💳 100% Full Refund Confirmation</h4>
+              <table style="width: 100%; font-size: 0.84rem; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 4px 0; color: #166534;">Refunded Amount:</td>
+                  <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #15803D; font-size: 0.95rem;">₹${refundAmount || 0}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 0; color: #166534;">Refund Status:</td>
+                  <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #15803D;">Processed (100% Refund)</td>
+                </tr>
+                <tr ${razorpayRefundId ? '' : 'style="display:none;"'}>
+                  <td style="padding: 4px 0; color: #166534;">Refund Reference ID:</td>
+                  <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #15803D;">${razorpayRefundId || 'N/A'}</td>
+                </tr>
+              </table>
+              <p style="font-size: 0.76rem; color: #15803D; margin: 8px 0 0 0;">
+                The funds will automatically credit back to your card, bank, or UPI account within 5–7 business days per banking standards.
+              </p>
+            </div>
+
+            <!-- Rebook Call to Action -->
+            <div style="text-align: center; margin-bottom: 10px;">
+              <a href="http://localhost:4200/appointments" style="background: #2563EB; color: #FFFFFF; padding: 12px 28px; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 0.88rem; display: inline-block;">
+                Find Available Slots & Rebook →
+              </a>
+            </div>
+
+            <p style="font-size: 0.75rem; color: #94A3B8; text-align: center; margin-top: 20px;">
+              If you have any clinical questions or urgent medical concerns, please visit your nearest clinic or emergency provider.
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const attachments = [];
+    if (hasLogoCircle) {
+      attachments.push({ filename: 'logo_circle.png', path: logoCirclePath, cid: 'carepath_logo_circle' });
+    }
+
+    await transporter.sendMail({
+      from: '"CarePath AI Clinical Support" <carepathaiadmin@gmail.com>',
+      to: patientEmail,
+      subject: `⚠️ Consultation Cancelled & 100% Refund Issued — ${cleanDoctorName} (${appointmentDate})`,
+      html: htmlContent,
+      attachments
+    });
+
+    console.log(`[MAILER] Doctor leave cancellation & refund email sent to ${patientEmail}`);
+    return true;
+  } catch (err) {
+    console.error('[MAILER] Failed to send doctor leave cancellation email:', err);
+    return false;
+  }
+};
+
 module.exports = {
   sendResetOtpEmail,
   sendAppointmentReceiptEmail,
   sendPrescriptionEmail,
-  sendMedicationDigestEmail
+  sendMedicationDigestEmail,
+  sendDoctorLeaveCancellationEmail
 };
 

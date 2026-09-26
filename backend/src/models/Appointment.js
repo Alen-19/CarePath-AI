@@ -131,6 +131,39 @@ const AppointmentSchema = new mongoose.Schema({
   delayMinutes: {
     type: Number,
     default: 0
+  },
+  // Follow-Up Consultation fields
+  followUpRecommendation: {
+    isRecommended: {
+      type: Boolean,
+      default: false
+    },
+    recommendedAfterDays: {
+      type: Number,
+      default: 7
+    },
+    recommendedDate: {
+      type: String, // YYYY-MM-DD
+      default: null
+    },
+    validUntil: {
+      type: String, // YYYY-MM-DD
+      default: null
+    },
+    clinicalInstructions: {
+      type: String,
+      trim: true,
+      default: ''
+    }
+  },
+  parentAppointmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appointment',
+    default: null
+  },
+  hasFollowUpBooked: {
+    type: Boolean,
+    default: false
   }
 }, { 
   timestamps: true,

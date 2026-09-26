@@ -42,7 +42,9 @@ const bookingRoutes = require('./routes/booking.routes');
 const medicineRoutes = require('./routes/medicine.routes');
 const nutritionRoutes = require('./routes/nutrition.routes');
 const medicationRoutes = require('./routes/medication.routes');
+const symptomRoutes = require('./routes/symptom.routes');
 const { initMedicationCron } = require('./services/medication-cron.service');
+const { seedSpecialties } = require('./services/specialty-seed.service');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -52,6 +54,7 @@ app.use('/api/booking', bookingRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/nutrition', nutritionRoutes);
 app.use('/api/medications', medicationRoutes);
+app.use('/api/symptoms', symptomRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -73,6 +76,9 @@ initSocket(server);
 
 // Initialize Daily Medication Cron Scheduler
 initMedicationCron();
+
+// Seed database
+seedSpecialties();
 
 // Define server port
 const PORT = process.env.PORT || 5000;

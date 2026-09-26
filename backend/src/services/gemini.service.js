@@ -257,9 +257,52 @@ Respond ONLY with a valid JSON array of 2 recipe objects (no markdown code block
   return null;
 };
 
+/**
+ * Extract structured symptoms from natural language text
+ * @param {string} description - Patient's symptom description
+ * @returns {Promise<{ symptoms: string[], duration: string, severity: string, isPotentiallyUrgent: boolean, urgencyReason: string }>}
+ */
+const extractSymptoms = async (description) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'your_gemini_api_key') return null;
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const prompt = `You are an expert clinical triage AI.
+Extract the symptoms, duration, and severity from the patient's description.
+Do NOT diagnose any disease.
+Assess if the description contains symptoms that are potentially urgent (e.g., severe chest pain, loss of consciousness, uncontrolled bleeding, severe breathing difficulty).
+Crucially, you must detect if the user's input is entirely unrelated to medical symptoms, health conditions, or body issues (e.g., general knowledge questions like "who is the president", casual chat, or coding questions). If it is unrelated, set "isOffTopic" to true.
+
+Patient description: "${description}"
+
+Respond strictly with a valid JSON object without any preamble or markdown code fences:
+{
+  "symptoms": ["extracted symptom 1", "extracted symptom 2"],
+  "duration": "extracted duration or 'not specified'",
+  "severity": "extracted severity or 'not specified'",
+  "isPotentiallyUrgent": true/false,
+  "urgencyReason": "Reason if urgent, else empty string",
+  "isOffTopic": true/false
+}`;
+
+  for (const modelName of CANDIDATE_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text().trim();
+      const cleanedJson = responseText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+      return JSON.parse(cleanedJson);
+    } catch (err) {
+      console.warn(`[GEMINI SYMPTOMS] Model ${modelName} failed (${err.message}). Trying next candidate...`);
+    }
+  }
+  return null;
+};
+
 module.exports = {
   identifyFoodFromImage,
   calculateDishMacrosWithGemini,
-  generateClinicalRecipesWithGemini
+  generateClinicalRecipesWithGemini,
+  extractSymptoms
 };
 

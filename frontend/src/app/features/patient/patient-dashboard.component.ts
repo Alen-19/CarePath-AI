@@ -31,7 +31,7 @@ export class PatientDashboardComponent implements OnInit {
   patientName = '';
   patientId = '';
   patientEmail = '';
-  activeTab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'profile' = 'find-doctors';
+  activeTab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'profile' | 'symptom-checker' = 'find-doctors';
   showUserDropdown = false;
 
   // ─── 🌟 Daily CarePath & Lifestyle Goal Center State ────────────────────────
@@ -87,6 +87,14 @@ export class PatientDashboardComponent implements OnInit {
     sodium: number;
     time: string;
   }> = [];
+
+  // ─── Symptom Checker State ────────────────────────────────────────────────
+  isSymptomBotOpen = false;
+  symptomInput = '';
+  isAnalyzingSymptoms = false;
+  chatMessages: any[] = [
+    { type: 'bot', text: 'Describe what you are experiencing. I\'ll help identify relevant medical specialties and connect you with the right doctor.' }
+  ];
 
   // ─── Toast ─────────────────────────────────────────────────────────────────
   toastMessage = '';
@@ -906,7 +914,7 @@ export class PatientDashboardComponent implements OnInit {
   }
 
   // ─── Tab ───────────────────────────────────────────────────────────────────
-  setTab(tab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'profile') {
+  setTab(tab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'profile' | 'symptom-checker') {
     this.activeTab = tab;
     this.closeUserDropdown();
     if (tab === 'my-appointments') {
@@ -983,7 +991,10 @@ export class PatientDashboardComponent implements OnInit {
     this.proceedToBookingModal(doctor);
   }
 
+  pendingParentAppointmentId: string | null = null;
+
   proceedToBookingModal(doctor: DoctorCard) {
+    this.pendingParentAppointmentId = null;
     this.selectedDoctor = doctor;
     this.bookingStep = 1;
     this.selectedDate = '';
@@ -995,8 +1006,60 @@ export class PatientDashboardComponent implements OnInit {
     this.showBookingModal = true;
   }
 
+  initiateFollowUpBooking(parentAppt: any) {
+    if (this.isProfileIncomplete()) {
+      this.openProfileModal();
+      return;
+    }
+
+    const docObj = parentAppt.doctorId;
+    if (!docObj) {
+      this.showToast('Doctor information unavailable for follow-up.', 'error');
+      return;
+    }
+
+    // Match doctor card or construct fallback
+    let targetDoc = this.doctors.find(d => d._id === (docObj._id || docObj));
+    if (!targetDoc) {
+      targetDoc = {
+        _id: docObj._id || docObj,
+        firstName: docObj.firstName || 'Doctor',
+        lastName: docObj.lastName || '',
+        specialization: docObj.specialization || 'General Practice',
+        licenseNumber: docObj.licenseNumber || '',
+        experienceYears: docObj.experienceYears || 5,
+        clinicAddress: docObj.clinicAddress || '',
+        rating: 5.0,
+        consultationFee: docObj.consultationFee || 500
+      };
+    }
+
+    this.selectedDoctor = targetDoc;
+    this.pendingParentAppointmentId = parentAppt._id;
+    this.appointmentType = 'Follow-up';
+    this.bookingStep = 2; // Jump directly to date selection
+    this.symptoms = `Follow-Up Consultation (Prior: ${this.normalizeDateStr(parentAppt.appointmentDate)})`;
+    if (parentAppt.followUpRecommendation?.clinicalInstructions) {
+      this.symptoms += ` - ${parentAppt.followUpRecommendation.clinicalInstructions}`;
+    }
+
+    // Pre-fill recommended date if in future, else today
+    const recDate = parentAppt.followUpRecommendation?.recommendedDate;
+    const todayStr = this.getTodayDateString();
+    if (recDate && recDate >= todayStr) {
+      this.selectedDate = recDate;
+      this.onDateChange();
+    } else {
+      this.selectedDate = todayStr;
+      this.onDateChange();
+    }
+
+    this.selectedSlot = null;
+    this.showBookingModal = true;
+  }
+
   onSelectAppointmentType(t: string): void {
-    if (t === 'Follow-up' || t === 'Care Plan Review') {
+    if (t === 'Care Plan Review') {
       return;
     }
     this.appointmentType = t;
@@ -1005,6 +1068,7 @@ export class PatientDashboardComponent implements OnInit {
   closeBookingModal() {
     this.showBookingModal = false;
     this.selectedDoctor = null;
+    this.pendingParentAppointmentId = null;
   }
 
   onDateChange() {
@@ -1079,7 +1143,8 @@ export class PatientDashboardComponent implements OnInit {
       startTime: isEmergency ? 'Immediate Queue' : (this.selectedSlot?.start || '09:00 AM'),
       endTime: isEmergency ? 'Immediate Queue' : (this.selectedSlot?.end || '09:30 AM'),
       type: this.appointmentType,
-      symptoms: this.symptoms || (isEmergency ? 'Emergency Triage Request' : '')
+      symptoms: this.symptoms || (isEmergency ? 'Emergency Triage Request' : ''),
+      parentAppointmentId: this.pendingParentAppointmentId || undefined
     };
 
     this.appointmentService.bookAppointment(payload).subscribe({
@@ -1523,5 +1588,67 @@ export class PatientDashboardComponent implements OnInit {
   onLogout() {
     this.authService.logout();
     this.router.navigate(['/auth/login']);
+  }
+  // ─── Symptom Checker Methods ──────────────────────────────────────────────
+  toggleSymptomBot() {
+    this.isSymptomBotOpen = !this.isSymptomBotOpen;
+  }
+
+  analyzeSymptoms() {
+    if (!this.symptomInput || this.symptomInput.trim().length === 0) {
+      return;
+    }
+
+    const userText = this.symptomInput.trim();
+    this.chatMessages.push({ type: 'user', text: userText });
+    this.symptomInput = '';
+    
+    // Build context from previous user messages
+    const previousUserContext = this.chatMessages
+      .filter(m => m.type === 'user' && m.text !== userText)
+      .map(m => m.text)
+      .join('. ');
+      
+    const fullDescription = previousUserContext 
+      ? `Previous context: ${previousUserContext}. Current input: ${userText}`
+      : userText;
+
+    this.isAnalyzingSymptoms = true;
+    this.chatMessages.push({ type: 'bot', isTyping: true });
+
+    // Auto-scroll to bottom (timeout ensures DOM has updated)
+    setTimeout(() => this.scrollToChatBottom(), 50);
+
+    this.http.post<any>('http://localhost:5000/api/symptoms/analyze', { description: fullDescription })
+      .subscribe({
+        next: (res) => {
+          this.isAnalyzingSymptoms = false;
+          // Remove typing indicator
+          this.chatMessages = this.chatMessages.filter(m => !m.isTyping);
+          // Add bot response
+          this.chatMessages.push({ type: 'bot', result: res });
+          setTimeout(() => this.scrollToChatBottom(), 50);
+        },
+        error: (err) => {
+          this.isAnalyzingSymptoms = false;
+          this.chatMessages = this.chatMessages.filter(m => !m.isTyping);
+          this.showToast(err.error?.message || 'Failed to analyze symptoms. Please try again.', 'error');
+        }
+      });
+  }
+
+  private scrollToChatBottom() {
+    const chatBody = document.querySelector('.symptom-bot-body');
+    if (chatBody) {
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+  }
+
+  bookSpecialist(specialtyName: string) {
+    this.searchQuery = specialtyName;
+    this.isSymptomBotOpen = false; // Close the bot
+    this.setTab('find-doctors');
+    // apply filtering
+    this.onSearch();
   }
 }

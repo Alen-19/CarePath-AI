@@ -32,6 +32,8 @@ export interface DoctorDateOverrideData {
   session2Start?: string;
   session2End?: string;
   reason?: string;
+  confirmCancelBookings?: boolean;
+  cancellationReason?: string;
 }
 
 export interface AvailableSlotItem {
@@ -96,6 +98,7 @@ export interface BookAppointmentPayload {
   endTime: string;
   type?: string;
   symptoms?: string;
+  parentAppointmentId?: string;
 }
 
 export interface BookingResponse {
@@ -116,6 +119,14 @@ export interface VerifyPaymentPayload {
   razorpayOrderId: string;
   razorpayPaymentId: string;
   razorpaySignature: string;
+}
+
+export interface FollowUpRecommendation {
+  isRecommended: boolean;
+  recommendedAfterDays?: number;
+  recommendedDate?: string;
+  validUntil?: string;
+  clinicalInstructions?: string;
 }
 
 export interface AppointmentItem {
@@ -141,11 +152,26 @@ export interface AppointmentItem {
   isEmergency?: boolean;
   emergencyStatus?: string;
   clinicalNotes?: ClinicalNotesData;
+  followUpRecommendation?: FollowUpRecommendation;
+  parentAppointmentId?: any;
+  hasFollowUpBooked?: boolean;
 }
 
 export interface DoctorAppointmentItem {
   _id: string;
-  patientId?: { _id: string; firstName?: string; lastName?: string; name?: string; age?: number; phone?: string; email?: string; bloodGroup?: string };
+  patientId?: { 
+    _id: string; 
+    firstName?: string; 
+    lastName?: string; 
+    name?: string; 
+    age?: number; 
+    phone?: string; 
+    email?: string; 
+    bloodGroup?: string;
+    gender?: string;
+    dateOfBirth?: string;
+    profileImage?: string;
+  };
   patientName?: string;
   appointmentDate: string;
   startTime: string;
@@ -161,6 +187,9 @@ export interface DoctorAppointmentItem {
   time?: string;
   age?: number;
   clinicalNotes?: ClinicalNotesData;
+  followUpRecommendation?: FollowUpRecommendation;
+  parentAppointmentId?: any;
+  hasFollowUpBooked?: boolean;
 }
 
 export interface CancelResponse {
@@ -179,6 +208,7 @@ export interface ClinicalNotesData {
   foodsToAvoid?: string;
   hydrationGoalLiters?: number;
   savedAt?: string;
+  followUpRecommendation?: FollowUpRecommendation;
 }
 
 @Injectable({
@@ -206,8 +236,37 @@ export class AppointmentService {
     );
   }
 
-  saveDateOverride(override: DoctorDateOverrideData): Observable<{ success: boolean; message: string; override: DoctorDateOverrideData }> {
-    return this.http.post<{ success: boolean; message: string; override: DoctorDateOverrideData }>(
+  checkOverrideConflicts(dateStr: string): Observable<{
+    success: boolean;
+    date: string;
+    count: number;
+    appointments: any[];
+    totalRefundAmount: number;
+  }> {
+    const params = new HttpParams().set('date', dateStr);
+    return this.http.get<{
+      success: boolean;
+      date: string;
+      count: number;
+      appointments: any[];
+      totalRefundAmount: number;
+    }>(`${this.apiUrl}/schedule/override-conflicts`, { params });
+  }
+
+  saveDateOverride(override: DoctorDateOverrideData): Observable<{
+    success: boolean;
+    message: string;
+    override: DoctorDateOverrideData;
+    cancelledCount?: number;
+    totalRefunded?: number;
+  }> {
+    return this.http.post<{
+      success: boolean;
+      message: string;
+      override: DoctorDateOverrideData;
+      cancelledCount?: number;
+      totalRefunded?: number;
+    }>(
       `${this.apiUrl}/schedule/override-date`,
       override
     );

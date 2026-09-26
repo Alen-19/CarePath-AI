@@ -7,16 +7,30 @@
   </div>
   
   <div class="user-profile-menu ms-auto d-flex align-items-center gap-3">
-    <!-- Top Header Navigation: Consultation Overview (Second from right) -->
-    <button 
-      type="button" 
-      class="header-overview-btn" 
-      [class.active]="activeNavTab === 'appointments'"
-      (click)="setNavTab('appointments')"
-      title="View Consultation Queue & Daily Overview">
-      <i class="bi bi-calendar2-week text-primary me-1"></i>
-      <span>Consultation Overview</span>
-    </button>
+    <!-- Clinician Primary Workspace Tabs -->
+    <div class="clinician-nav-tabs d-flex align-items-center gap-2">
+      <button 
+        type="button" 
+        class="header-overview-btn" 
+        [class.active]="activeNavTab === 'live-clinic' || activeNavTab === 'appointments'"
+        (click)="setNavTab('live-clinic')"
+        title="Live Clinic Console (Today's Queue & Upcoming Bookings)">
+        <i class="bi bi-hospital text-primary me-1"></i>
+        <span>Live Clinic</span>
+        <span class="badge bg-primary text-white ms-1 small" *ngIf="todayApptsList.length > 0">{{ todayApptsList.length }}</span>
+      </button>
+
+      <button 
+        type="button" 
+        class="header-overview-btn" 
+        [class.active]="activeNavTab === 'patient-records'"
+        (click)="setNavTab('patient-records')"
+        title="Longitudinal Patient Medical Records & Consultations Directory">
+        <i class="bi bi-person-vcard text-info me-1"></i>
+        <span>Patient Records</span>
+        <span class="badge bg-secondary text-white ms-1 small" *ngIf="totalUniquePatientsCount > 0">{{ totalUniquePatientsCount }}</span>
+      </button>
+    </div>
 
     <!-- Doctor Profile Dropdown Toggle (Rightmost) -->
     <div class="doctor-menu-container position-relative">
@@ -126,7 +140,7 @@
     </button>
   </section>
 
-  <div *ngIf="activeNavTab === 'appointments'">
+  <div *ngIf="activeNavTab === 'live-clinic' || activeNavTab === 'appointments'">
     <!-- Top Welcome & Schedule Actions Banner -->
     <section class="welcome-banner glass-card" *ngIf="!isSuspended">
       <div class="banner-content">
@@ -192,17 +206,17 @@
             <line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
-          <h2>Appointments & Consultation Records</h2>
+          <h2>Appointments & Live Consultation Console</h2>
         </div>
         <div class="appt-tabs">
           <button class="appt-tab-btn" [class.active]="apptTab === 'today'" (click)="apptTab = 'today'">
-            Today <span class="appt-count" *ngIf="todayApptsList.length > 0">{{ todayApptsList.length }}</span>
+            Today's Queue <span class="appt-count" *ngIf="todayApptsList.length > 0">{{ todayApptsList.length }}</span>
           </button>
           <button class="appt-tab-btn" [class.active]="apptTab === 'upcoming'" (click)="apptTab = 'upcoming'">
-            Upcoming <span class="appt-count" *ngIf="upcomingApptsList.length > 0">{{ upcomingApptsList.length }}</span>
+            Upcoming Schedule <span class="appt-count" *ngIf="upcomingApptsList.length > 0">{{ upcomingApptsList.length }}</span>
           </button>
-          <button class="appt-tab-btn" [class.active]="apptTab === 'past'" (click)="apptTab = 'past'">
-            📜 Past Consultations <span class="appt-count" *ngIf="pastApptsList.length > 0">{{ pastApptsList.length }}</span>
+          <button class="appt-tab-btn" (click)="setNavTab('patient-records')" title="Open dedicated Patient Medical Records workspace">
+            👥 Patient Records ({{ totalUniquePatientsCount }}) →
           </button>
         </div>
       </div>
@@ -227,8 +241,14 @@
               <h4 class="d-flex align-items-center gap-2">
                 <span>{{ a.patientId ? (a.patientId.firstName ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientId.name || 'Patient')) : 'Patient' }}</span>
                 <span *ngIf="a.type === 'Emergency Sync' || a.isEmergency" class="badge bg-danger text-white px-2 py-1 small">🚨 EMERGENCY</span>
+                <span *ngIf="a.type === 'Follow-up'" class="badge bg-info text-dark px-2 py-1 small fw-bold">🔁 Follow-Up</span>
               </h4>
-              <p>{{ a.type }}<span *ngIf="a.symptoms"> · {{ a.symptoms }}</span></p>
+              <p>
+                {{ a.type }}<span *ngIf="a.symptoms"> · {{ a.symptoms }}</span>
+                <button *ngIf="a.parentAppointmentId" type="button" class="btn btn-outline-primary btn-xs py-0 px-2 ms-2 rounded-pill shadow-2xs" (click)="openPriorHistoryModal(a.parentAppointmentId)">
+                  <i class="bi bi-clock-history me-1"></i> Prior Visit
+                </button>
+              </p>
             </div>
             <div class="d-flex align-items-center gap-2">
               <a [routerLink]="['/consultation', a._id]" class="btn btn-sm pill-btn shadow-sm" [class.btn-danger]="a.type === 'Emergency Sync' || a.isEmergency" [class.btn-success]="a.type !== 'Emergency Sync' && !a.isEmergency" *ngIf="a.status === 'Confirmed'">
@@ -255,92 +275,20 @@
               <h4 class="d-flex align-items-center gap-2">
                 <span>{{ a.patientId ? (a.patientId.firstName ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientId.name || 'Patient')) : 'Patient' }}</span>
                 <span *ngIf="a.type === 'Emergency Sync' || a.isEmergency" class="badge bg-danger text-white px-2 py-1 small">🚨 EMERGENCY</span>
+                <span *ngIf="a.type === 'Follow-up'" class="badge bg-info text-dark px-2 py-1 small fw-bold">🔁 Follow-Up</span>
               </h4>
-              <p>{{ a.type }}</p>
+              <p>
+                {{ a.type }}
+                <button *ngIf="a.parentAppointmentId" type="button" class="btn btn-outline-primary btn-xs py-0 px-2 ms-2 rounded-pill shadow-2xs" (click)="openPriorHistoryModal(a.parentAppointmentId)">
+                  <i class="bi bi-clock-history me-1"></i> Prior Visit
+                </button>
+              </p>
             </div>
             <div class="d-flex align-items-center gap-2">
               <a [routerLink]="['/consultation', a._id]" class="btn btn-sm pill-btn shadow-sm" [class.btn-danger]="a.type === 'Emergency Sync' || a.isEmergency" [class.btn-success]="a.type !== 'Emergency Sync' && !a.isEmergency" *ngIf="a.status === 'Confirmed'">
                 <i class="bi bi-camera-video-fill me-1"></i> Join Call
               </a>
               <span class="live-appt-status" [class.confirmed]="a.status === 'Confirmed' && a.type !== 'Emergency Sync'" [class.bg-danger]="a.type === 'Emergency Sync' || a.isEmergency" [class.text-white]="a.type === 'Emergency Sync' || a.isEmergency">{{ a.status }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 📜 Past Consulted Patients Tab (Ergonomic Dual-Column Card Grid) -->
-      <div *ngIf="apptTab === 'past' && !loadingAppts">
-        
-        <!-- Search & Filter Past Patients Bar -->
-        <div class="past-search-row mb-3" *ngIf="pastApptsList.length > 0">
-          <div class="input-group">
-            <span class="input-group-text bg-white border-end-0">
-              <i class="bi bi-search text-muted"></i>
-            </span>
-            <input 
-              type="text" 
-              class="form-control border-start-0 ps-0" 
-              placeholder="Search consulted patients by name, symptoms, or consultation date…" 
-              [(ngModel)]="pastApptsSearch" />
-          </div>
-        </div>
-
-        <div *ngIf="filteredPastApptsList.length === 0" class="appt-empty py-4 text-center">
-          <div class="fs-1 mb-2">📜</div>
-          <strong class="d-block text-dark">{{ pastApptsList.length === 0 ? 'No past consultations completed yet.' : 'No consulted patients match your search.' }}</strong>
-          <span class="small text-muted">Completed consultation sessions and patient clinical summaries will appear here.</span>
-        </div>
-
-        <div class="past-consultations-grid" *ngIf="filteredPastApptsList.length > 0">
-          <div class="past-consult-card" *ngFor="let a of filteredPastApptsList">
-            <div class="card-top-row d-flex justify-content-between align-items-center mb-2">
-              <div class="past-date-pill">
-                <i class="bi bi-calendar2-check me-1 text-success"></i>
-                <strong class="text-dark">{{ formatApptDate(a.appointmentDate) }}</strong>
-                <span class="text-muted ms-1">({{ a.startTime }})</span>
-              </div>
-              <span class="badge bg-light text-success border border-success fw-bold px-2 py-1">
-                Completed
-              </span>
-            </div>
-
-            <div class="past-patient-body mb-2">
-              <h4 class="past-patient-name m-0 d-flex align-items-center gap-2 flex-wrap">
-                <span>{{ a.patientId ? (a.patientId.firstName ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientId.name || 'Patient')) : (a.patientName || 'Patient') }}</span>
-                <span class="badge bg-secondary text-white small" *ngIf="a.type">{{ a.type }}</span>
-              </h4>
-              <p class="past-symptoms-text mb-0 text-muted small mt-1" *ngIf="a.symptoms">
-                <strong>Reason:</strong> {{ a.symptoms }}
-              </p>
-              <p class="past-symptoms-text mb-0 text-muted small mt-1" *ngIf="!a.symptoms">
-                <strong>Clinical Notes:</strong> Telehealth consultation completed.
-              </p>
-            </div>
-
-            <div class="card-bottom-actions d-flex justify-content-between align-items-center pt-2 border-top gap-2">
-              <span class="badge bg-success text-white small" *ngIf="a.prescription && a.prescription.length > 0">
-                <i class="bi bi-capsule me-1"></i>Rx ({{ a.prescription.length }} Meds)
-              </span>
-              <span class="badge bg-light text-muted border small" *ngIf="!a.prescription || a.prescription.length === 0">
-                No RX Issued
-              </span>
-
-              <div class="ms-auto d-flex gap-1">
-                <button 
-                  type="button" 
-                  class="btn btn-outline-info btn-sm"
-                  (click)="openClinicalNotesModal(a)"
-                  title="View / Edit Doctor Remarks & Dietary Advice">
-                  <i class="bi bi-journal-medical me-1"></i> Notes & Diet
-                </button>
-                <button 
-                  type="button" 
-                  class="btn btn-outline-primary btn-sm"
-                  (click)="selectedPastAppointment = a"
-                  title="View Consultation Summary & Prescription">
-                  <i class="bi bi-file-earmark-medical me-1"></i> View Record
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -415,6 +363,290 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- ══════════════ 👥 PATIENT MEDICAL RECORDS WORKSPACE (MASTER-DETAIL SPLIT SCREEN) ══════════════ -->
+  <div *ngIf="activeNavTab === 'patient-records'" class="patient-records-workspace animate-fade-in">
+    
+    <!-- Workspace Title Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-3.5 flex-wrap gap-2">
+      <div>
+        <h2 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
+          <i class="bi bi-person-vcard text-primary fs-3"></i>
+          <span>Patient Medical Records & Longitudinal History</span>
+        </h2>
+        <p class="text-muted small mb-0">Longitudinal clinical directory with all completed consultation records, prescribed medicines, and CarePath dietary plans.</p>
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-white text-secondary border px-3 py-2 small fw-semibold shadow-2xs">
+          👥 {{ groupedPastPatients.length }} {{ groupedPastPatients.length === 1 ? 'Patient' : 'Patients' }} · 📅 {{ pastApptsList.length }} Total Consultations
+        </span>
+      </div>
+    </div>
+
+    <!-- Empty State: No past appointments at all -->
+    <div *ngIf="pastApptsList.length === 0" class="appt-empty py-5 text-center bg-white rounded-4 border shadow-xs">
+      <div class="fs-1 mb-2">📜</div>
+      <strong class="d-block text-dark fs-6">No past consultations completed yet.</strong>
+      <span class="small text-muted">Completed consultation sessions and patient clinical summaries will appear here.</span>
+    </div>
+
+    <!-- Master-Detail Split Screen Layout -->
+    <div class="master-detail-row row g-3" *ngIf="pastApptsList.length > 0">
+      
+      <!-- ─── LEFT MASTER PANEL: Patient Directory (35% width) ─── -->
+      <div class="col-lg-4 col-md-5" [class.d-none]="mobileDetailViewActive" [class.d-md-block]="true">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100 d-flex flex-column" style="min-height: 640px;">
+          
+          <!-- Search Bar -->
+          <div class="input-group mb-3">
+            <span class="input-group-text bg-white border-end-0">
+              <i class="bi bi-search text-muted"></i>
+            </span>
+            <input 
+              type="text" 
+              class="form-control border-start-0 ps-0" 
+              placeholder="Search patients by name, symptoms, or meds…" 
+              [(ngModel)]="pastApptsSearch" />
+            <button 
+              type="button" 
+              class="btn btn-outline-secondary btn-sm" 
+              *ngIf="pastApptsSearch" 
+              (click)="pastApptsSearch = ''" 
+              title="Clear search">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+
+          <!-- Empty search result -->
+          <div *ngIf="groupedPastPatients.length === 0" class="text-center py-5 text-muted small">
+            <div class="fs-3 mb-1">🔍</div>
+            No patients match "{{ pastApptsSearch }}".
+          </div>
+
+          <!-- Scrollable Patient Selector List -->
+          <div class="patient-master-list flex-grow-1 overflow-auto pe-1" style="max-height: 600px;" *ngIf="groupedPastPatients.length > 0">
+            <div 
+              class="patient-master-item p-3 rounded-3 border mb-2 cursor-pointer transition-all" 
+              *ngFor="let grp of groupedPastPatients" 
+              [class.active-patient-item]="selectedPatientGroup?.patientKey === grp.patientKey"
+              (click)="selectPatient(grp.patientKey)">
+              
+              <div class="d-flex align-items-center gap-3">
+                <!-- Avatar -->
+                <div class="patient-avatar-mini flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle fw-bold text-white shadow-2xs overflow-hidden" 
+                     [style.background]="grp.hasEmergencyHistory ? 'linear-gradient(135deg, #EF4444, #B91C1C)' : 'linear-gradient(135deg, #2563EB, #1D4ED8)'"
+                     style="width: 42px; height: 42px; font-size: 0.95rem;">
+                  <img 
+                    *ngIf="grp.profileImage && !grp.imageFailed" 
+                    [src]="getPatientImageUrl(grp.profileImage)" 
+                    [alt]="grp.patientName" 
+                    (error)="onPatientImageError(grp)"
+                    class="w-100 h-100 rounded-circle object-fit-cover" />
+                  <span *ngIf="!grp.profileImage || grp.imageFailed">{{ grp.initials }}</span>
+                </div>
+
+                <div class="flex-grow-1 min-w-0">
+                  <div class="d-flex justify-content-between align-items-center mb-0.5">
+                    <strong class="text-dark text-truncate d-block" style="font-size: 0.92rem;">
+                      {{ grp.patientName }}
+                    </strong>
+                    <span class="badge rounded-pill small px-2 py-0.5 fw-bold" 
+                          [ngClass]="selectedPatientGroup?.patientKey === grp.patientKey ? 'bg-primary text-white' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'"
+                          style="font-size: 0.72rem;">
+                      {{ grp.totalVisits }} {{ grp.totalVisits === 1 ? 'Visit' : 'Visits' }}
+                    </span>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-1.5 flex-wrap text-muted mt-1" style="font-size: 0.75rem;" *ngIf="grp.hasEmergencyHistory">
+                    <span class="badge bg-warning bg-opacity-25 text-dark px-1.5 py-0" style="font-size: 0.68rem;">
+                      🚨 Emergency
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ─── RIGHT DETAIL PANEL: Patient Medical Chart & Longitudinal Timeline (65% width) ─── -->
+      <div class="col-lg-8 col-md-7" [class.d-none]="!mobileDetailViewActive" [class.d-md-block]="true">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 p-md-4 h-100" style="min-height: 640px;" *ngIf="selectedPatientGroup">
+          
+          <!-- Mobile Back Navigation Button -->
+          <div class="d-md-none mb-3">
+            <button type="button" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1.5" (click)="backToPatientList()">
+              <i class="bi bi-arrow-left"></i>
+              <span>Back to Patient Directory</span>
+            </button>
+          </div>
+
+          <!-- Patient Demographics Banner Header -->
+          <div class="patient-dossier-top-card p-3 rounded-4 bg-light bg-opacity-75 border mb-3">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+              
+              <div class="d-flex align-items-center gap-3">
+                <div class="patient-avatar-circle flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle fw-bold text-white shadow-xs overflow-hidden" 
+                     [style.background]="selectedPatientGroup.hasEmergencyHistory ? 'linear-gradient(135deg, #EF4444, #B91C1C)' : 'linear-gradient(135deg, #2563EB, #1D4ED8)'"
+                     style="width: 52px; height: 52px; font-size: 1.2rem;">
+                  <img 
+                    *ngIf="selectedPatientGroup.profileImage && !selectedPatientGroup.imageFailed" 
+                    [src]="getPatientImageUrl(selectedPatientGroup.profileImage)" 
+                    [alt]="selectedPatientGroup.patientName" 
+                    (error)="onPatientImageError(selectedPatientGroup)"
+                    class="w-100 h-100 rounded-circle object-fit-cover" />
+                  <span *ngIf="!selectedPatientGroup.profileImage || selectedPatientGroup.imageFailed">{{ selectedPatientGroup.initials }}</span>
+                </div>
+
+                <div>
+                  <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                    <h4 class="m-0 fw-bold text-dark">{{ selectedPatientGroup.patientName }}</h4>
+                    <span class="badge bg-white text-secondary border small" *ngIf="selectedPatientGroup.age">{{ selectedPatientGroup.age }} yrs</span>
+                    <span class="badge bg-white text-secondary border small" *ngIf="selectedPatientGroup.gender">{{ selectedPatientGroup.gender }}</span>
+                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 small fw-bold" *ngIf="selectedPatientGroup.bloodGroup">
+                      🩸 {{ selectedPatientGroup.bloodGroup }}
+                    </span>
+                    <span class="badge bg-warning bg-opacity-25 text-dark border border-warning small fw-semibold" *ngIf="selectedPatientGroup.hasEmergencyHistory">
+                      🚨 Past Emergency Patient
+                    </span>
+                  </div>
+
+                  <div class="text-muted small d-flex align-items-center gap-2 flex-wrap">
+                    <span><i class="bi bi-calendar2-check text-primary me-1"></i>Last Visit: <strong>{{ formatApptDate(selectedPatientGroup.lastVisitDate) }}</strong> ({{ selectedPatientGroup.lastVisitTime }})</span>
+                    <span>•</span>
+                    <span><i class="bi bi-capsule text-success me-1"></i><strong>{{ selectedPatientGroup.allPrescriptionsCount }}</strong> Total Prescriptions Recorded</span>
+                    <span *ngIf="selectedPatientGroup.phone">•</span>
+                    <span *ngIf="selectedPatientGroup.phone"><i class="bi bi-telephone text-secondary me-1"></i>{{ selectedPatientGroup.phone }}</span>
+                  </div>
+
+                  <!-- Cumulative CarePath Dietary Tags -->
+                  <div class="d-flex flex-wrap gap-1 mt-2" *ngIf="selectedPatientGroup.allNutritionalTags.length > 0">
+                    <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;">Historical CarePath Diet:</span>
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 small" style="font-size: 0.7rem;" *ngFor="let tag of selectedPatientGroup.allNutritionalTags">
+                      🥗 {{ tag }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="text-end">
+                <span class="badge bg-primary px-3 py-2 fw-bold rounded-pill text-white shadow-xs">
+                  📂 {{ selectedPatientGroup.totalVisits }} {{ selectedPatientGroup.totalVisits === 1 ? 'Consultation' : 'Consultations' }}
+                </span>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Longitudinal Timeline Header -->
+          <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
+            <span class="small fw-bold text-secondary text-uppercase tracking-wider">
+              <i class="bi bi-clock-history text-primary me-1"></i> Longitudinal Consultation Timeline ({{ selectedPatientGroup.consultations.length }} {{ selectedPatientGroup.consultations.length === 1 ? 'Visit' : 'Visits' }})
+            </span>
+            <span class="small text-muted fst-italic">Chronological order (Newest first)</span>
+          </div>
+
+          <!-- Timeline Scroll Container -->
+          <div class="patient-detail-timeline overflow-auto" style="max-height: 540px;">
+            <div class="timeline-item position-relative ps-4" 
+                 *ngFor="let a of selectedPatientGroup.consultations; let last = last" 
+                 [class.pb-4]="!last" 
+                 [class.border-start]="!last"
+                 style="border-color: #CBD5E1 !important;">
+              
+              <!-- Timeline Node Dot -->
+              <div class="timeline-dot position-absolute top-0 start-0 translate-middle-x rounded-circle border border-white" 
+                   [style.background]="(a.type === 'Emergency Sync' || a.isEmergency) ? '#EF4444' : '#2563EB'"
+                   style="width: 14px; height: 14px; margin-top: 5px; box-shadow: 0 0 0 3px rgba(37,99,235,0.18);">
+              </div>
+
+              <!-- Visit Header Row -->
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-2 flex-wrap">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <strong class="text-dark fs-6">{{ formatApptDate(a.appointmentDate) }}</strong>
+                  <span class="text-muted small">({{ a.startTime }})</span>
+                  <span class="badge" [ngClass]="(a.type === 'Emergency Sync' || a.isEmergency) ? 'bg-danger text-white' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'">
+                    {{ a.type }}
+                  </span>
+                  <span class="badge bg-light text-success border border-success small fw-bold">
+                    Completed
+                  </span>
+                </div>
+
+                <!-- Action buttons for this specific consultation session -->
+                <div class="d-flex gap-1.5">
+                  <button 
+                    type="button" 
+                    class="btn btn-outline-info btn-xs fw-semibold shadow-2xs"
+                    (click)="openClinicalNotesModal(a)"
+                    title="View / Edit Doctor Remarks & Dietary Advice">
+                    <i class="bi bi-journal-medical me-1"></i> Notes & Diet
+                  </button>
+                  <button 
+                    type="button" 
+                    class="btn btn-outline-primary btn-xs fw-semibold shadow-2xs"
+                    (click)="selectedPastAppointment = a"
+                    title="View Consultation Summary & Prescription">
+                    <i class="bi bi-file-earmark-medical me-1"></i> View Record
+                  </button>
+                </div>
+              </div>
+
+              <!-- Visit Details: Symptoms & Notes -->
+              <div class="visit-details-box p-3 rounded-3 bg-light bg-opacity-75 border mb-2.5">
+                <div class="small text-dark mb-1" *ngIf="a.symptoms">
+                  <strong class="text-secondary"><i class="bi bi-chat-left-text me-1"></i>Reason / Symptoms:</strong> {{ a.symptoms }}
+                </div>
+                <div class="small text-dark mb-1" *ngIf="a.clinicalNotes?.doctorRemarks">
+                  <strong class="text-secondary"><i class="bi bi-clipboard2-pulse me-1"></i>Doctor Remarks:</strong> {{ a.clinicalNotes?.doctorRemarks }}
+                </div>
+                <div class="small text-muted fst-italic" *ngIf="!a.symptoms && !a.clinicalNotes?.doctorRemarks">
+                  Telehealth consultation completed.
+                </div>
+
+                <!-- CarePath Nutritional Advice for this Visit -->
+                <div class="d-flex flex-wrap align-items-center gap-1 mt-2 pt-2 border-top" *ngIf="a.clinicalNotes && (a.clinicalNotes.nutritionalTags?.length || a.clinicalNotes.hydrationGoalLiters)">
+                  <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;">CarePath Diet:</span>
+                  <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 small" style="font-size: 0.7rem;" *ngFor="let tag of a.clinicalNotes.nutritionalTags">
+                    {{ tag }}
+                  </span>
+                  <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 small" style="font-size: 0.7rem;" *ngIf="a.clinicalNotes.hydrationGoalLiters">
+                    💧 {{ a.clinicalNotes.hydrationGoalLiters }}L Water
+                  </span>
+                  <span class="small text-success ms-1" style="font-size: 0.72rem;" *ngIf="a.clinicalNotes.recommendedFoods" title="{{ a.clinicalNotes.recommendedFoods }}">
+                    <strong>Recommended:</strong> {{ a.clinicalNotes.recommendedFoods | slice:0:45 }}{{ a.clinicalNotes.recommendedFoods.length > 45 ? '...' : '' }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Medicines Preview for this Visit -->
+              <div class="visit-meds-row d-flex align-items-center gap-2 flex-wrap">
+                <span class="small text-muted fw-semibold" style="font-size: 0.72rem;">
+                  <i class="bi bi-capsule text-primary me-0.5"></i>Prescribed Rx:
+                </span>
+                <div *ngIf="!a.prescription || a.prescription.length === 0" class="small text-muted fst-italic" style="font-size: 0.75rem;">
+                  No medications prescribed in this session.
+                </div>
+                <div class="d-flex flex-wrap gap-1.5" *ngIf="a.prescription && a.prescription.length > 0">
+                  <span class="badge bg-white text-dark border shadow-2xs small d-inline-flex align-items-center gap-1.5 py-1 px-2.5" style="font-size: 0.74rem;" *ngFor="let med of a.prescription">
+                    <span class="text-primary fw-bold">💊 {{ med.medicineName }}</span>
+                    <span class="text-secondary">({{ med.dosage || '1-0-1' }} · {{ med.duration || '5 Days' }})</span>
+                  </span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
   </div>
 
   <!-- ══════════════ DOCTOR PROFILE TAB ══════════════ -->
@@ -1014,6 +1246,7 @@
       </div>
     </div>
   </div>
+</div>
 
   <!-- ══════════════ PAST CONSULTATION RECORD MODAL ══════════════ -->
   <div class="modal-backdrop-custom animate-fade-in" *ngIf="selectedPastAppointment" (click)="selectedPastAppointment = null">
@@ -1160,11 +1393,37 @@
         </div>
 
         <!-- Hydration Target -->
-        <div class="mb-2">
+        <div class="mb-3">
           <label class="form-label fw-bold small text-info text-uppercase">💧 Daily Hydration Target (Liters)</label>
           <div class="d-flex align-items-center gap-2">
             <input type="range" class="form-range flex-grow-1" min="1" max="5" step="0.5" [(ngModel)]="modalNotesData.hydrationGoalLiters">
             <span class="badge bg-info text-dark fw-bold fs-6">{{ modalNotesData.hydrationGoalLiters }} L/day</span>
+          </div>
+        </div>
+
+        <!-- Follow-Up Consultation Recommendation -->
+        <div class="mb-3 p-3 bg-light rounded-3 border border-primary border-opacity-25 shadow-sm" *ngIf="modalNotesData.followUpRecommendation">
+          <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 mb-2">
+            <label class="form-check-label fw-bold text-primary mb-0 cursor-pointer" for="recommendFollowUpSwitch">
+              <i class="bi bi-calendar-check me-1"></i> Recommend Follow-Up Consultation
+            </label>
+            <input class="form-check-input ms-2 cursor-pointer" type="checkbox" role="switch" id="recommendFollowUpSwitch" [(ngModel)]="modalNotesData.followUpRecommendation.isRecommended">
+          </div>
+
+          <div *ngIf="modalNotesData.followUpRecommendation.isRecommended" class="mt-2 animate-fade-in">
+            <label class="form-label small fw-bold text-muted text-uppercase mb-1">Recommended Timeline</label>
+            <div class="d-flex flex-wrap gap-2 mb-2.5">
+              <button type="button" class="btn btn-sm" [class.btn-primary]="modalNotesData.followUpRecommendation.recommendedAfterDays === 3" [class.btn-outline-primary]="modalNotesData.followUpRecommendation.recommendedAfterDays !== 3" (click)="modalNotesData.followUpRecommendation.recommendedAfterDays = 3">In 3 Days</button>
+              <button type="button" class="btn btn-sm" [class.btn-primary]="modalNotesData.followUpRecommendation.recommendedAfterDays === 7" [class.btn-outline-primary]="modalNotesData.followUpRecommendation.recommendedAfterDays !== 7" (click)="modalNotesData.followUpRecommendation.recommendedAfterDays = 7">In 7 Days (1 Week)</button>
+              <button type="button" class="btn btn-sm" [class.btn-primary]="modalNotesData.followUpRecommendation.recommendedAfterDays === 14" [class.btn-outline-primary]="modalNotesData.followUpRecommendation.recommendedAfterDays !== 14" (click)="modalNotesData.followUpRecommendation.recommendedAfterDays = 14">In 14 Days (2 Weeks)</button>
+              <button type="button" class="btn btn-sm" [class.btn-primary]="modalNotesData.followUpRecommendation.recommendedAfterDays === 30" [class.btn-outline-primary]="modalNotesData.followUpRecommendation.recommendedAfterDays !== 30" (click)="modalNotesData.followUpRecommendation.recommendedAfterDays = 30">In 1 Month</button>
+            </div>
+
+            <label class="form-label small fw-bold text-muted text-uppercase mb-1">Follow-Up Clinical Instructions</label>
+            <input type="text" class="form-control form-control-sm" placeholder="e.g. Review lab reports / check BP after completing 5-day course" [(ngModel)]="modalNotesData.followUpRecommendation.clinicalInstructions">
+            <small class="text-muted d-block mt-1">
+              <i class="bi bi-info-circle me-1"></i> Patient will receive a direct 1-click booking link and calendar reminder for your profile.
+            </small>
           </div>
         </div>
       </div>
@@ -1179,4 +1438,163 @@
     </div>
   </div>
 
-</div>
+  <!-- ══════════════ ⚠️ LEAVE CONFLICT WARNING & AUTO-REFUND MODAL ══════════════ -->
+  <div class="leave-conflict-backdrop animate-fade-in" *ngIf="showLeaveConflictModal" (click)="closeLeaveConflictModal()">
+    <div class="leave-conflict-card" (click)="$event.stopPropagation()">
+      
+      <!-- Modal Header -->
+      <div class="leave-conflict-header">
+        <div class="d-flex align-items-center gap-2.5">
+          <div class="rounded-circle bg-warning bg-opacity-25 d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+            <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+          </div>
+          <div>
+            <h4 class="m-0 fw-bold text-dark fs-6">Active Bookings Conflict Detected</h4>
+            <span class="small text-muted">Confirmed consultations exist on this requested leave date</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close" (click)="closeLeaveConflictModal()"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="leave-conflict-body">
+        
+        <!-- Clinical Impact Alert -->
+        <div class="alert alert-warning border-warning border-opacity-50 py-2.5 px-3 mb-3 small d-flex align-items-start gap-2.5 rounded-3">
+          <i class="bi bi-info-circle-fill text-warning fs-5 flex-shrink-0 mt-0.5"></i>
+          <div>
+            <strong class="text-dark d-block mb-0.5">
+              ⚠️ You have {{ conflictCount }} confirmed patient {{ conflictCount === 1 ? 'appointment' : 'appointments' }} on {{ conflictDate }}.
+            </strong>
+            <span class="text-secondary">
+              Marking this day as leave will cancel these appointments, issue a <strong>100% full Razorpay refund (₹{{ conflictTotalRefund }})</strong> directly to the patients, and send them an automated email notification. Do you want to proceed?
+            </span>
+          </div>
+        </div>
+
+        <!-- Impacted Appointments List -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-secondary text-uppercase mb-2">
+            <i class="bi bi-people-fill me-1"></i> Impacted Patient Appointments ({{ conflictCount }}):
+          </label>
+          <div class="conflict-appt-list overflow-auto border rounded-3 p-2 bg-light bg-opacity-50" style="max-height: 200px;">
+            <div class="conflict-appt-item bg-white p-2.5 rounded-2 border mb-2 d-flex align-items-center justify-content-between" *ngFor="let a of conflictAppointments">
+              <div class="d-flex align-items-center gap-2.5">
+                <div class="patient-avatar-mini flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle fw-bold text-white shadow-2xs overflow-hidden" 
+                     style="width: 36px; height: 36px; font-size: 0.85rem; background: linear-gradient(135deg, #2563EB, #1D4ED8);">
+                  <img *ngIf="a.patientId?.profileImage" [src]="getPatientImageUrl(a.patientId.profileImage)" class="w-100 h-100 object-fit-cover" />
+                  <span *ngIf="!a.patientId?.profileImage">{{ getPatientInitials(a.patientId ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : a.patientName) }}</span>
+                </div>
+                <div>
+                  <strong class="text-dark small d-block">
+                    {{ a.patientId ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientName || 'Patient') }}
+                  </strong>
+                  <span class="text-muted small" style="font-size: 0.75rem;">
+                    ⏰ {{ a.startTime }} · {{ a.type || 'General Consultation' }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="text-end">
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 small fw-bold">
+                  ₹{{ a.amount || 0 }} (100% Refund)
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional Doctor Note to Patients -->
+        <div class="mb-2">
+          <label class="form-label small fw-bold text-secondary text-uppercase mb-1">
+            Reason / Note to Patients:
+          </label>
+          <input 
+            type="text" 
+            class="form-control form-control-sm" 
+            [(ngModel)]="conflictDoctorNote" 
+            placeholder="e.g. Unforeseen clinician emergency / Medical conference attendance" />
+          <span class="form-text small text-muted" style="font-size: 0.72rem;">
+            This explanation will be included in the automated cancellation & refund email sent to each patient.
+          </span>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="leave-conflict-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3" (click)="closeLeaveConflictModal()" [disabled]="isConfirmingLeaveCancellation">
+          Keep My Schedule
+        </button>
+
+        <button type="button" class="btn btn-danger btn-sm px-3 fw-bold d-flex align-items-center gap-1.5 shadow-sm" (click)="confirmLeaveAndCancelAppointments()" [disabled]="isConfirmingLeaveCancellation">
+          <span *ngIf="isConfirmingLeaveCancellation" class="spinner-border spinner-border-sm"></span>
+          <i *ngIf="!isConfirmingLeaveCancellation" class="bi bi-x-circle-fill"></i>
+          <span>{{ isConfirmingLeaveCancellation ? 'Processing Refunds & Leave…' : 'Yes, Cancel & Confirm Leave' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ PRIOR CONSULTATION HISTORY MODAL (FOLLOW-UP) ══════════════ -->
+  <div class="modal-backdrop-custom animate-fade-in" *ngIf="showPriorHistoryModal && selectedPriorAppt" (click)="closePriorHistoryModal()">
+    <div class="modal-card glass-card shadow-2xl" style="max-width: 600px; width: 100%;" (click)="$event.stopPropagation()">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <span class="fs-4">📜</span>
+          <div>
+            <h3 class="m-0 fs-5 fw-bold text-dark">Prior Consultation Record</h3>
+            <span class="small text-muted">Original Visit: {{ formatApptDate(selectedPriorAppt.appointmentDate) }} • {{ selectedPriorAppt.startTime }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close" (click)="closePriorHistoryModal()"></button>
+      </div>
+
+      <div class="modal-body p-3">
+        <!-- Prior Symptoms -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted text-uppercase">Initial Symptoms / Reason</label>
+          <div class="p-2.5 bg-light rounded border small text-dark">
+            {{ selectedPriorAppt.symptoms || 'General Consultation' }}
+          </div>
+        </div>
+
+        <!-- Prior Clinical Notes -->
+        <div class="mb-3" *ngIf="selectedPriorAppt.clinicalNotes">
+          <label class="form-label fw-bold small text-success text-uppercase">Prior Remarks & Dietary Advice</label>
+          <div class="p-2.5 bg-light rounded border border-success border-opacity-25 small">
+            <p class="mb-1 text-dark" *ngIf="selectedPriorAppt.clinicalNotes.doctorRemarks">
+              <strong>Remarks:</strong> {{ selectedPriorAppt.clinicalNotes.doctorRemarks }}
+            </p>
+            <div *ngIf="selectedPriorAppt.clinicalNotes.recommendedFoods" class="text-success mb-1">
+              <strong>Recommended:</strong> {{ selectedPriorAppt.clinicalNotes.recommendedFoods }}
+            </div>
+            <div *ngIf="selectedPriorAppt.clinicalNotes.foodsToAvoid" class="text-danger">
+              <strong>Avoided:</strong> {{ selectedPriorAppt.clinicalNotes.foodsToAvoid }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Prior Prescription -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted text-uppercase">Prescribed Medications</label>
+          <div *ngIf="!selectedPriorAppt.prescription || selectedPriorAppt.prescription.length === 0" class="p-2 text-center text-muted small bg-light rounded border">
+            No medications were issued in the prior visit.
+          </div>
+          <div *ngIf="selectedPriorAppt.prescription && selectedPriorAppt.prescription.length > 0" class="d-flex flex-column gap-1.5">
+            <div class="p-2 bg-white border rounded d-flex justify-content-between align-items-center" *ngFor="let med of selectedPriorAppt.prescription">
+              <div>
+                <strong class="text-dark small">💊 {{ med.medicineName || med.name }}</strong>
+                <span class="small text-muted d-block">{{ med.instructions || med.dosage }}</span>
+              </div>
+              <span class="badge bg-light text-dark border">{{ med.duration || 'Standard' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer p-3 border-top d-flex justify-content-end">
+        <button type="button" class="btn btn-secondary btn-sm" (click)="closePriorHistoryModal()">Close</button>
+      </div>
+    </div>
+  </div>

@@ -1,7 +1,25 @@
+const crypto = require('crypto');
+const User = require('../models/User');
+const Patient = require('../models/Patient');
 const Doctor = require('../models/Doctor');
 const DoctorSchedule = require('../models/DoctorSchedule');
 const DoctorDateOverride = require('../models/DoctorDateOverride');
 const Appointment = require('../models/Appointment');
+const Payment = require('../models/Payment');
+const Razorpay = require('razorpay');
+const { sendDoctorLeaveCancellationEmail } = require('../config/mailer');
+const { getIO } = require('../config/socket');
+
+let _razorpay = null;
+function getRazorpay() {
+  if (!_razorpay) {
+    _razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET
+    });
+  }
+  return _razorpay;
+}
 
 function getNowIST() {
   const now = new Date();
@@ -237,8 +255,51 @@ exports.updateWeeklySchedule = async (req, res) => {
 };
 
 /**
+ * GET /api/appointments/schedule/override-conflicts?date=YYYY-MM-DD
+ * Check if doctor has confirmed appointments on this date before taking leave
+ */
+exports.checkOverrideConflicts = async (req, res) => {
+  try {
+    const doctor = await Doctor.findOne({ userId: req.user._id });
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor profile not found.' });
+    }
+
+    const { date } = req.query;
+    if (!date) {
+      return res.status(400).json({ message: 'Date query parameter is required.' });
+    }
+
+    const confirmedAppts = await Appointment.find({
+      doctorId: doctor._id,
+      appointmentDate: date,
+      status: 'Confirmed'
+    })
+      .populate({
+        path: 'patientId',
+        select: 'firstName lastName phone bloodGroup profileImage userId',
+        populate: { path: 'userId', select: 'email' }
+      })
+      .sort({ startTime: 1 });
+
+    const totalRefundAmount = confirmedAppts.reduce((sum, a) => sum + (a.amount || 0), 0);
+
+    res.json({
+      success: true,
+      date,
+      count: confirmedAppts.length,
+      appointments: confirmedAppts,
+      totalRefundAmount
+    });
+  } catch (error) {
+    console.error('Error checking override conflicts:', error);
+    res.status(500).json({ message: 'Failed to check appointment conflicts.', error: error.message });
+  }
+};
+
+/**
  * POST /api/appointments/schedule/override-date
- * Add or update date-specific exception with strict date range and session checks
+ * Add or update date-specific exception with strict date range, conflict detection, and auto-refund
  */
 exports.saveDateOverride = async (req, res) => {
   try {
@@ -247,7 +308,18 @@ exports.saveDateOverride = async (req, res) => {
       return res.status(404).json({ message: 'Doctor profile not found.' });
     }
 
-    const { date, isOffDay, session1Start, session1End, hasSecondSession, session2Start, session2End, reason } = req.body;
+    const {
+      date,
+      isOffDay,
+      session1Start,
+      session1End,
+      hasSecondSession,
+      session2Start,
+      session2End,
+      reason,
+      confirmCancelBookings,
+      cancellationReason
+    } = req.body;
 
     if (!date) {
       return res.status(400).json({ message: 'Date string (YYYY-MM-DD) is required.' });
@@ -264,7 +336,124 @@ exports.saveDateOverride = async (req, res) => {
       return res.status(400).json({ message: 'Single-day overrides can only be set up to 1 year in advance.' });
     }
 
-    if (!isOffDay) {
+    let cancelledCount = 0;
+    let totalRefunded = 0;
+
+    if (isOffDay) {
+      // Check for active confirmed bookings on this date
+      const confirmedAppts = await Appointment.find({
+        doctorId: doctor._id,
+        appointmentDate: date,
+        status: 'Confirmed'
+      }).populate({
+        path: 'patientId',
+        select: 'firstName lastName phone bloodGroup profileImage userId',
+        populate: { path: 'userId', select: 'email' }
+      });
+
+      if (confirmedAppts.length > 0 && !confirmCancelBookings) {
+        return res.status(409).json({
+          success: false,
+          conflict: true,
+          count: confirmedAppts.length,
+          appointments: confirmedAppts,
+          message: `You have ${confirmedAppts.length} confirmed patient appointment(s) on ${date}. Marking this day as leave requires cancelling them with 100% full refund.`
+        });
+      }
+
+      if (confirmedAppts.length > 0 && confirmCancelBookings) {
+        const doctorDisplayName = (doctor.firstName || doctor.lastName)
+          ? `${doctor.firstName || ''} ${doctor.lastName || ''}`.trim()
+          : (doctor.name || 'Doctor');
+        const specialtyName = doctor.specialization || doctor.specialty || 'General Practitioner';
+        const effectiveReason = cancellationReason || reason || 'Clinician on leave';
+
+        for (const appt of confirmedAppts) {
+          let razorpayRefundId = null;
+          const refundAmt = appt.amount || 0;
+
+          // Initiate 100% full Razorpay refund if paid
+          if (appt.paymentStatus === 'Paid' && appt.razorpayPaymentId && refundAmt > 0) {
+            try {
+              const refund = await getRazorpay().payments.refund(appt.razorpayPaymentId, {
+                amount: Math.round(refundAmt * 100) // in paise
+              });
+              razorpayRefundId = refund.id;
+            } catch (refundErr) {
+              const errDesc = refundErr.error?.description || refundErr.description || refundErr.message || 'Refund error';
+              console.error(`[Razorpay Refund] Error for appointment ${appt._id}: ${errDesc}`);
+
+              // In Razorpay Test Mode, if account has 0 refund credits, generate simulated test refund ID
+              if (process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test')) {
+                razorpayRefundId = 'rfnd_test_' + crypto.randomBytes(6).toString('hex');
+                console.log(`[Razorpay Test Mode] Generated simulated refund ID: ${razorpayRefundId}`);
+              }
+            }
+          }
+
+          // Update Appointment
+          appt.status = 'Cancelled';
+          appt.paymentStatus = refundAmt > 0 ? 'Refunded' : appt.paymentStatus;
+          appt.cancelledAt = new Date();
+          appt.cancellationReason = `Doctor Leave: ${effectiveReason}`;
+          appt.refundId = razorpayRefundId;
+          await appt.save();
+
+          // Update Payment record
+          if (refundAmt > 0) {
+            await Payment.findOneAndUpdate(
+              { appointmentId: appt._id },
+              {
+                status: 'Refunded',
+                refundAmount: refundAmt,
+                refundPercentage: 100,
+                razorpayRefundId: razorpayRefundId,
+                refundInitiatedAt: new Date(),
+                refundStatus: 'Processed'
+              }
+            );
+          }
+
+          cancelledCount++;
+          totalRefunded += refundAmt;
+
+          // Dispatch email notification to patient
+          const patientEmail = appt.patientId?.userId?.email || appt.patientId?.email;
+          const patientName = (appt.patientId?.firstName || appt.patientId?.lastName)
+            ? `${appt.patientId.firstName || ''} ${appt.patientId.lastName || ''}`.trim()
+            : (appt.patientName || 'Patient');
+
+          if (patientEmail) {
+            sendDoctorLeaveCancellationEmail({
+              patientEmail,
+              patientName,
+              doctorName: doctorDisplayName,
+              specialty: specialtyName,
+              appointmentDate: appt.appointmentDate,
+              startTime: appt.startTime,
+              cancellationReason: effectiveReason,
+              refundAmount: refundAmt,
+              razorpayRefundId
+            }).catch(mailErr => console.error('[MAILER Error on Doctor Leave]:', mailErr));
+          } else {
+            console.warn(`[MAILER] No email found for patient in appointment ${appt._id}`);
+          }
+
+          // Emit Socket.io event if connected
+          try {
+            const io = getIO();
+            io.emit(`appointment_cancelled_${appt._id}`, {
+              appointmentId: appt._id,
+              reason: `Doctor Leave: ${effectiveReason}`,
+              refundAmount: refundAmt,
+              refundStatus: 'Refunded'
+            });
+          } catch (sockErr) {
+            // Non-critical socket notification
+          }
+        }
+      }
+    } else {
       const s1Start = parseTimeToMinutes(session1Start || '09:00 AM');
       const s1End = parseTimeToMinutes(session1End || '01:00 PM');
       if (s1Start < 0 || s1End < 0 || s1Start >= s1End) {
@@ -298,8 +487,12 @@ exports.saveDateOverride = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Date override saved successfully.',
-      override
+      message: cancelledCount > 0
+        ? `Date override saved. ${cancelledCount} confirmed appointment(s) cancelled and refunded (₹${totalRefunded}).`
+        : 'Date override saved successfully.',
+      override,
+      cancelledCount,
+      totalRefunded
     });
   } catch (error) {
     console.error('Error saving date override:', error);

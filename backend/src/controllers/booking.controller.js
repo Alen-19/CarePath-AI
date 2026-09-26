@@ -307,7 +307,7 @@ const getAvailableSlots = async (req, res) => {
 // Patient books appointment → creates Razorpay order
 const bookAppointment = async (req, res) => {
   try {
-    let { doctorId, appointmentDate, startTime, endTime, type, symptoms } = req.body;
+    let { doctorId, appointmentDate, startTime, endTime, type, symptoms, parentAppointmentId } = req.body;
 
     const { todayStr, nowMinutes } = getNowIST();
     const isEmergencySync = type === 'Emergency Sync';
@@ -335,6 +335,21 @@ const bookAppointment = async (req, res) => {
     const doctor = await Doctor.findById(doctorId);
     if (!doctor || doctor.status !== 'approved') {
       return res.status(404).json({ message: 'Doctor not found or not active.' });
+    }
+
+    // Validate parent appointment if this is a Follow-up
+    let linkedParentAppt = null;
+    if (parentAppointmentId) {
+      linkedParentAppt = await Appointment.findOne({
+        _id: parentAppointmentId,
+        patientId: patient._id
+      });
+      if (!linkedParentAppt) {
+        return res.status(404).json({ message: 'Parent consultation record not found or does not belong to your account.' });
+      }
+      if (linkedParentAppt.hasFollowUpBooked) {
+        return res.status(400).json({ message: 'A follow-up consultation has already been scheduled for this visit.' });
+      }
     }
 
     // Check slot availability for routine bookings
@@ -431,7 +446,8 @@ const bookAppointment = async (req, res) => {
       currency: 'INR',
       razorpayOrderId: razorpayOrder.id,
       isEmergency: isEmergencySync,
-      emergencyStatus: isEmergencySync ? 'Pending' : 'None'
+      emergencyStatus: isEmergencySync ? 'Pending' : 'None',
+      parentAppointmentId: linkedParentAppt ? linkedParentAppt._id : null
     });
 
     // Create Payment record with 80/20 revenue audit
@@ -509,6 +525,13 @@ const verifyPayment = async (req, res) => {
       }
     );
 
+    // If this was a follow-up appointment, mark the parent appointment as having scheduled its follow-up
+    if (appointment.parentAppointmentId) {
+      await Appointment.findByIdAndUpdate(appointment.parentAppointmentId, {
+        hasFollowUpBooked: true
+      });
+    }
+
     // 🚨 Emit Live Socket.io Emergency Alert to Doctor if Emergency Sync
     if (appointment.type === 'Emergency Sync' || appointment.isEmergency) {
       try {
@@ -579,6 +602,10 @@ const getPatientAppointments = async (req, res) => {
 
     const appointments = await Appointment.find({ patientId: patient._id })
       .populate('doctorId', 'firstName lastName specialization clinicAddress consultationFee')
+      .populate({
+        path: 'parentAppointmentId',
+        select: 'appointmentDate startTime type symptoms prescription clinicalNotes'
+      })
       .sort({ appointmentDate: -1, startTime: -1 });
 
     res.json({ success: true, count: appointments.length, appointments });
@@ -598,7 +625,11 @@ const getDoctorAppointments = async (req, res) => {
       doctorId: doctor._id,
       status: { $in: ['Confirmed', 'Completed'] }
     })
-      .populate('patientId', 'firstName lastName age phone email bloodGroup')
+      .populate('patientId', 'firstName lastName dateOfBirth gender phone email bloodGroup profileImage')
+      .populate({
+        path: 'parentAppointmentId',
+        select: 'appointmentDate startTime type symptoms prescription clinicalNotes'
+      })
       .sort({ appointmentDate: 1, startTime: 1 });
 
     const todayAppts = appointments.filter(a => a.appointmentDate === today && a.status === 'Confirmed');
@@ -652,12 +683,18 @@ const cancelAppointment = async (req, res) => {
     if (appointment.paymentStatus === 'Paid' && appointment.razorpayPaymentId && refundAmount > 0) {
       try {
         const refund = await getRazorpay().payments.refund(appointment.razorpayPaymentId, {
-          amount: refundAmount * 100 // in paise
+          amount: Math.round(refundAmount * 100) // in paise
         });
         razorpayRefundId = refund.id;
       } catch (refundErr) {
-        console.error('Razorpay refund error:', refundErr.message);
-        // Continue with cancellation even if refund API fails
+        const errDesc = refundErr.error?.description || refundErr.description || refundErr.message || 'Refund error';
+        console.error(`Razorpay refund error for appointment ${id}:`, errDesc);
+
+        // In Razorpay Test Mode, if account has 0 refund credits, generate simulated test refund ID
+        if (process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test')) {
+          razorpayRefundId = 'rfnd_test_' + crypto.randomBytes(6).toString('hex');
+          console.log(`[Razorpay Test Mode] Generated simulated refund ID: ${razorpayRefundId}`);
+        }
       }
     }
 
@@ -831,7 +868,7 @@ const addPrescription = async (req, res) => {
 
     if (patientEmail) {
       console.log(`[E-PRESCRIPTION] Sending email to patient: ${patientEmail}...`);
-      sendPrescriptionEmail(patientEmail, patientName, doctorName, specialty, prescription, appointment.appointmentDate, appointment.clinicalNotes);
+      sendPrescriptionEmail(patientEmail, patientName, doctorName, specialty, prescription, appointment.appointmentDate, appointment.clinicalNotes, appointment.followUpRecommendation);
     } else {
       console.warn('[E-PRESCRIPTION] Could not find patient email to send prescription.');
     }
@@ -852,7 +889,14 @@ const addPrescription = async (req, res) => {
 const saveClinicalNotes = async (req, res) => {
   try {
     const { id } = req.params;
-    const { doctorRemarks, nutritionalTags, recommendedFoods, foodsToAvoid, hydrationGoalLiters } = req.body;
+    const { 
+      doctorRemarks, 
+      nutritionalTags, 
+      recommendedFoods, 
+      foodsToAvoid, 
+      hydrationGoalLiters,
+      followUpRecommendation 
+    } = req.body;
 
     const doctor = await Doctor.findOne({ userId: req.user._id });
     if (!doctor) return res.status(404).json({ message: 'Doctor profile not found.' });
@@ -879,6 +923,44 @@ const saveClinicalNotes = async (req, res) => {
       hydrationGoalLiters: hydrationGoalLiters || 3,
       savedAt: new Date()
     };
+
+    // Process Follow-Up Recommendation if provided
+    if (followUpRecommendation && typeof followUpRecommendation === 'object') {
+      const isRec = Boolean(followUpRecommendation.isRecommended);
+      let recDays = parseInt(followUpRecommendation.recommendedAfterDays, 10) || 7;
+      let recDate = followUpRecommendation.recommendedDate;
+      let validUntil = followUpRecommendation.validUntil;
+
+      if (isRec && !recDate && appointment.appointmentDate) {
+        // Calculate recommended date as appointmentDate + recDays
+        const [y, m, d] = appointment.appointmentDate.split('-').map(Number);
+        const base = new Date(y, m - 1, d);
+        base.setDate(base.getDate() + recDays);
+        const by = base.getFullYear();
+        const bm = String(base.getMonth() + 1).padStart(2, '0');
+        const bd = String(base.getDate()).padStart(2, '0');
+        recDate = `${by}-${bm}-${bd}`;
+      }
+
+      if (isRec && !validUntil && recDate) {
+        // 7 days grace window after recommended date
+        const [ry, rm, rd] = recDate.split('-').map(Number);
+        const grace = new Date(ry, rm - 1, rd);
+        grace.setDate(grace.getDate() + 7);
+        const gy = grace.getFullYear();
+        const gm = String(grace.getMonth() + 1).padStart(2, '0');
+        const gd = String(grace.getDate()).padStart(2, '0');
+        validUntil = `${gy}-${gm}-${gd}`;
+      }
+
+      appointment.followUpRecommendation = {
+        isRecommended: isRec,
+        recommendedAfterDays: recDays,
+        recommendedDate: isRec ? recDate : null,
+        validUntil: isRec ? validUntil : null,
+        clinicalInstructions: followUpRecommendation.clinicalInstructions || ''
+      };
+    }
 
     await appointment.save();
 
@@ -927,14 +1009,16 @@ const saveClinicalNotes = async (req, res) => {
         specialty,
         appointment.prescription || [],
         appointment.appointmentDate,
-        appointment.clinicalNotes
+        appointment.clinicalNotes,
+        appointment.followUpRecommendation
       );
     }
 
     res.json({
       success: true,
-      message: 'Clinical remarks and dietary advice saved and emailed to patient.',
-      clinicalNotes: appointment.clinicalNotes
+      message: 'Clinical remarks, dietary advice and follow-up plan saved and emailed to patient.',
+      clinicalNotes: appointment.clinicalNotes,
+      followUpRecommendation: appointment.followUpRecommendation
     });
   } catch (err) {
     console.error('Save clinical notes error:', err);

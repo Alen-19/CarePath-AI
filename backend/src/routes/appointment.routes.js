@@ -21,6 +21,13 @@ router.put(
   appointmentController.updateWeeklySchedule
 );
 
+router.get(
+  '/schedule/override-conflicts',
+  authenticateJWT,
+  authorizeRoles(['doctor']),
+  appointmentController.checkOverrideConflicts
+);
+
 router.post(
   '/schedule/override-date',
   authenticateJWT,

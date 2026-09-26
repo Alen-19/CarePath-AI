@@ -16,6 +16,7 @@
       <span>CarePath <span class="brand-accent">AI</span></span>
     </div>
     <div class="pd-nav-center">
+
       <button class="nav-tab" [class.active]="activeTab === 'find-doctors'" (click)="setTab('find-doctors')">
         🔍 Find Doctors
       </button>
@@ -91,6 +92,8 @@
         Complete Profile Now
       </button>
     </div>
+
+
 
     <!-- ══════════════ FIND DOCTORS TAB ══════════════ -->
     <section *ngIf="activeTab === 'find-doctors'" class="tab-section">
@@ -266,6 +269,31 @@
             <div class="mt-3 p-2 rounded-3 d-flex align-items-center justify-content-between bg-light border border-secondary border-opacity-10" *ngIf="appt.status === 'Completed' && (!appt.clinicalNotes || (!appt.clinicalNotes.doctorRemarks && !appt.clinicalNotes.recommendedFoods))">
               <span class="small text-muted"><i class="bi bi-check2-circle text-success me-1"></i> Consultation Completed</span>
               <span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-0.5" style="font-size: 0.7rem;">Completed</span>
+            </div>
+
+            <!-- 🔔 Doctor Recommended Follow-Up Action Card -->
+            <div class="mt-3 p-3 rounded-3 bg-light border border-primary border-opacity-30 shadow-2xs" *ngIf="appt.followUpRecommendation?.isRecommended">
+              <div class="d-flex justify-content-between align-items-start mb-1">
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 small fw-bold">
+                  <i class="bi bi-calendar-check me-1"></i> Follow-Up Advised
+                </span>
+                <span class="small text-muted" *ngIf="appt.followUpRecommendation?.recommendedDate">
+                  Target: <strong>{{ formatDate(appt.followUpRecommendation?.recommendedDate || '') }}</strong>
+                </span>
+              </div>
+              <p class="small text-secondary mb-2" *ngIf="appt.followUpRecommendation?.clinicalInstructions">
+                <em>"{{ appt.followUpRecommendation?.clinicalInstructions }}"</em>
+              </p>
+              <div class="d-flex justify-content-between align-items-center pt-1" *ngIf="!appt.hasFollowUpBooked">
+                <span class="small text-muted" style="font-size: 0.75rem;">Keep continuity with Dr. {{ appt.doctorId.firstName }}</span>
+                <button type="button" class="btn btn-primary btn-sm fw-bold px-3 py-1 shadow-xs" (click)="initiateFollowUpBooking(appt)">
+                  📅 Book Follow-Up
+                </button>
+              </div>
+              <div class="d-flex align-items-center gap-1.5 text-success small pt-1 fw-bold" *ngIf="appt.hasFollowUpBooked">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Follow-Up Appointment Scheduled</span>
+              </div>
             </div>
           </div>
 
@@ -1450,12 +1478,12 @@
           class="type-btn"
           [class.selected]="appointmentType === t"
           [class.emergency-btn]="t === 'Emergency Sync'"
-          [class.disabled-blur]="t === 'Follow-up' || t === 'Care Plan Review'"
-          [disabled]="t === 'Follow-up' || t === 'Care Plan Review'"
+          [class.disabled-blur]="t === 'Care Plan Review'"
+          [disabled]="t === 'Care Plan Review'"
           (click)="onSelectAppointmentType(t)"
         >
           {{ t }}
-          <span *ngIf="t === 'Follow-up' || t === 'Care Plan Review'" class="badge-coming-soon">Coming Soon</span>
+          <span *ngIf="t === 'Care Plan Review'" class="badge-coming-soon">Coming Soon</span>
         </button>
       </div>
 
@@ -2070,6 +2098,106 @@
       <button type="button" class="btn-carepath-close" (click)="closeCarePathModal()">Close</button>
     </div>
 
+  </div>
+</div>
+
+<!-- ══════════════ FLOATING AI SYMPTOM BOT ══════════════ -->
+<button class="symptom-bot-fab shadow-lg" (click)="toggleSymptomBot()" [class.active]="isSymptomBotOpen">
+  <i class="bi fs-4" [ngClass]="isSymptomBotOpen ? 'bi-x-lg' : 'bi-robot'"></i>
+</button>
+
+<div class="symptom-bot-window glass-card shadow-lg animate-fade-in" *ngIf="isSymptomBotOpen">
+  <div class="symptom-bot-header bg-primary p-3 rounded-top-4 d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-2">
+      <div class="robot-avatar bg-white text-primary rounded-circle d-flex justify-content-center align-items-center" style="width: 36px; height: 36px; font-size: 1.2rem;">🤖</div>
+      <div>
+        <h6 class="mb-0 text-white fw-bold">CarePath AI</h6>
+        <small class="text-white text-opacity-75" style="font-size: 0.75rem;">Clinical Triage Assistant</small>
+      </div>
+    </div>
+    <button class="btn-close btn-close-white" (click)="toggleSymptomBot()"></button>
+  </div>
+
+  <div class="symptom-bot-body p-3 overflow-y-auto d-flex flex-column gap-3" style="flex: 1; max-height: 350px;">
+    
+    <ng-container *ngFor="let msg of chatMessages">
+      
+      <!-- User Message -->
+      <div *ngIf="msg.type === 'user'" class="d-flex justify-content-end animate-fade-in">
+        <div class="bg-primary text-white p-3 rounded-4 shadow-sm" style="max-width: 85%; border-bottom-right-radius: 4px;">
+          <p class="mb-0 small">{{ msg.text }}</p>
+        </div>
+      </div>
+
+      <!-- Bot Message (Text) -->
+      <div *ngIf="msg.type === 'bot' && msg.text" class="d-flex justify-content-start animate-fade-in">
+        <div class="bg-light text-dark p-3 rounded-4 shadow-sm border" style="max-width: 85%; border-bottom-left-radius: 4px;">
+          <p class="mb-0 small">{{ msg.text }}</p>
+        </div>
+      </div>
+
+      <!-- Bot Message (Typing) -->
+      <div *ngIf="msg.type === 'bot' && msg.isTyping" class="d-flex justify-content-start animate-fade-in">
+        <div class="bg-light text-dark p-3 rounded-4 shadow-sm border d-flex align-items-center gap-1" style="max-width: 85%; border-bottom-left-radius: 4px;">
+          <span class="spinner-grow spinner-grow-sm text-primary" style="width: 0.5rem; height: 0.5rem;"></span>
+          <span class="spinner-grow spinner-grow-sm text-primary" style="width: 0.5rem; height: 0.5rem; animation-delay: 0.2s"></span>
+          <span class="spinner-grow spinner-grow-sm text-primary" style="width: 0.5rem; height: 0.5rem; animation-delay: 0.4s"></span>
+        </div>
+      </div>
+
+      <!-- Bot Message (Result) -->
+      <div *ngIf="msg.type === 'bot' && msg.result" class="d-flex justify-content-start animate-fade-in">
+        <div class="bg-light p-3 rounded-4 shadow-sm border w-100" style="border-bottom-left-radius: 4px;">
+          
+          <!-- Off Topic Notice -->
+          <div *ngIf="msg.result.isOffTopic" class="text-center">
+            <i class="bi bi-shield-lock-fill text-secondary fs-3 mb-2 d-block"></i>
+            <p class="text-dark small fw-semibold mb-0">{{ msg.result.message }}</p>
+          </div>
+
+          <!-- Urgent Warning -->
+          <div *ngIf="msg.result.isUrgent" class="d-flex gap-2 align-items-start bg-danger bg-opacity-10 p-2 rounded-3 border border-danger border-opacity-25 mb-2">
+            <i class="bi bi-exclamation-triangle-fill text-danger mt-1"></i>
+            <div>
+              <strong class="text-danger small d-block">Potentially Urgent</strong>
+              <p class="text-danger mb-0" style="font-size: 0.75rem;">{{ msg.result.message }}</p>
+            </div>
+          </div>
+
+          <!-- Needs More Info -->
+          <div *ngIf="msg.result.needsMoreInformation && !msg.result.isOffTopic">
+            <p class="text-dark mb-0" style="font-size: 0.85rem;">{{ msg.result.message }}</p>
+          </div>
+
+          <!-- Specialty Match Results -->
+          <div *ngIf="msg.result.specialties && msg.result.specialties.length > 0 && !msg.result.isUrgent && !msg.result.isOffTopic">
+            <h6 class="fw-bold mb-2 d-flex align-items-center text-dark" style="font-size: 0.85rem;">
+              <i class="bi bi-check-circle-fill text-success me-2"></i> Suggested Specialties
+            </h6>
+            
+            <div *ngFor="let spec of msg.result.specialties; let i = index" class="p-2 mb-2 rounded-3 border bg-white shadow-sm" [ngClass]="{'border-primary': i === 0}">
+              <div *ngIf="i === 0" class="badge bg-primary mb-1" style="font-size: 0.6rem;">Top Match</div>
+              <h6 class="text-primary fw-bold mb-1" style="font-size: 0.9rem;">{{ spec.name }}</h6>
+              <p class="text-muted mb-2" style="font-size: 0.75rem; line-height: 1.2;">{{ spec.description }}</p>
+              <button class="btn btn-sm btn-outline-primary w-100 fw-bold rounded-pill" style="font-size: 0.8rem;" (click)="bookSpecialist(spec.name)">
+                Find Doctors <i class="bi bi-arrow-right ms-1"></i>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </ng-container>
+
+  </div>
+
+  <div class="symptom-bot-footer p-3 bg-white border-top">
+    <div class="input-group">
+      <input type="text" class="form-control bg-light border-0 shadow-none px-3 py-2" placeholder="Type a message..." [(ngModel)]="symptomInput" (keyup.enter)="analyzeSymptoms()" [disabled]="isAnalyzingSymptoms" style="border-radius: 20px 0 0 20px; font-size: 0.9rem;">
+      <button class="btn btn-primary px-3" (click)="analyzeSymptoms()" [disabled]="isAnalyzingSymptoms || !symptomInput" style="border-radius: 0 20px 20px 0;">
+        <i class="bi bi-send-fill"></i>
+      </button>
+    </div>
   </div>
 </div>
 

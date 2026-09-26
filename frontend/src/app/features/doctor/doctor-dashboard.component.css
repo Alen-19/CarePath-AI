@@ -1707,3 +1707,260 @@
   padding: 1rem;
 }
 
+.modal-card {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.modal-card .modal-body {
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+.modal-card .modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-card .modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal-card .modal-body::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 9999px;
+}
+
+/* ─── 👥 Patient Medical Records Master-Detail Split Screen Styles ───────────── */
+.patient-records-workspace {
+  margin-top: 0.5rem;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.transition-all {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.patient-master-list {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+.patient-master-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.patient-master-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.patient-master-list::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 9999px;
+}
+
+.patient-master-item {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-left: 3px solid transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.patient-master-item:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+  border-left-color: #94A3B8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+}
+
+.patient-master-item.active-patient-item {
+  background: #EFF6FF !important;
+  border-color: #93C5FD !important;
+  border-left: 4px solid #2563EB !important;
+  box-shadow: 0 4px 14px -2px rgba(37, 99, 235, 0.12) !important;
+}
+
+.patient-avatar-mini {
+  width: 42px;
+  height: 42px;
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+}
+
+.patient-avatar-circle {
+  width: 48px;
+  height: 48px;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+}
+
+.patient-dossier-top-card {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px solid #E2E8F0;
+}
+
+.patient-detail-timeline {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-left: 1.5rem !important;
+  padding-right: 0.75rem !important;
+  padding-top: 0.5rem;
+  padding-bottom: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+.patient-detail-timeline::-webkit-scrollbar {
+  width: 6px;
+}
+
+.patient-detail-timeline::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.patient-detail-timeline::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 9999px;
+}
+
+.timeline-item {
+  margin-left: 0.35rem;
+}
+
+.timeline-dot {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  z-index: 2;
+}
+
+.timeline-item:hover .timeline-dot {
+  transform: translate(-50%, 0) scale(1.2);
+  box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.25) !important;
+}
+
+.timeline-item:hover .visit-details-box {
+  border-color: #BFDBFE !important;
+  background: #F0F7FF !important;
+}
+
+.visit-details-box {
+  background: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+  transition: all 0.2s ease;
+}
+
+.btn-xs {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  border-radius: 6px;
+}
+
+.shadow-2xs {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+@media (max-width: 768px) {
+  .master-detail-row {
+    margin-top: 0;
+  }
+}
+
+/* ─── ⚠️ Leave Booking Conflict Warning Modal Styles ───────────── */
+.leave-conflict-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  z-index: 9999 !important; /* Above all existing modals and panels */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1.5rem !important;
+}
+
+.leave-conflict-card {
+  background: #FFFFFF !important;
+  border-radius: 18px !important;
+  box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.45) !important;
+  border: 1px solid #E2E8F0 !important;
+  width: 100% !important;
+  max-width: 580px !important;
+  display: flex !important;
+  flex-direction: column !important; /* Strictly vertical stack */
+  overflow: hidden !important;
+  animation: leaveConflictPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes leaveConflictPop {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.leave-conflict-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 1.25rem 1.5rem !important;
+  background: #FFFBEB !important;
+  border-bottom: 1px solid #FEF3C7 !important;
+}
+
+.leave-conflict-body {
+  padding: 1.5rem !important;
+  max-height: 70vh !important;
+  overflow-y: auto !important;
+}
+
+.leave-conflict-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 1rem 1.5rem !important;
+  background: #F8FAFC !important;
+  border-top: 1px solid #E2E8F0 !important;
+}
+
+.conflict-appt-list {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+.conflict-appt-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conflict-appt-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conflict-appt-list::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 9999px;
+}
+
+.conflict-appt-item {
+  transition: all 0.15s ease;
+}
+
+.conflict-appt-item:hover {
+  background-color: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+}
+
+
+
+
