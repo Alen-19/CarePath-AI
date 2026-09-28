@@ -1478,25 +1478,75 @@
           class="type-btn"
           [class.selected]="appointmentType === t"
           [class.emergency-btn]="t === 'Emergency Sync'"
-          [class.disabled-blur]="t === 'Care Plan Review'"
-          [disabled]="t === 'Care Plan Review'"
+          [class.disabled-blur]="t === 'Care Plan Review' || (t === 'Follow-up' && !isFollowUpEligibleForSelectedDoctor)"
+          [disabled]="t === 'Care Plan Review' || (t === 'Follow-up' && !isFollowUpEligibleForSelectedDoctor)"
           (click)="onSelectAppointmentType(t)"
         >
           {{ t }}
           <span *ngIf="t === 'Care Plan Review'" class="badge-coming-soon">Coming Soon</span>
+          <span *ngIf="t === 'Follow-up' && !isFollowUpEligibleForSelectedDoctor" class="badge-lock">🔒 Returning Only</span>
+          <span *ngIf="t === 'Follow-up' && isFollowUpEligibleForSelectedDoctor" class="badge-discount">50% OFF</span>
         </button>
       </div>
 
-      <div *ngIf="appointmentType === 'Emergency Sync'" class="alert alert-danger border-0 p-3 shadow-sm rounded-3 mt-2 text-white" style="background: linear-gradient(135deg, #DC2626, #B91C1C);">
+      <!-- Follow-Up Context Banner & Symptom Tracker -->
+      <div *ngIf="appointmentType === 'Follow-up'" class="followup-card animate-fade-in">
+        <div class="followup-card-header">
+          <div class="followup-card-title">
+            <span class="fs-5">🔁</span>
+            <span>Returning Patient Follow-Up</span>
+          </div>
+          <span class="followup-concession-pill">
+            <i class="bi bi-tag-fill"></i> 50% Concession
+          </span>
+        </div>
+
+        <p class="followup-card-desc">
+          Eligible for 50% discount with Dr. {{ selectedDoctor?.firstName }}. Prior records and prescriptions will be attached.
+        </p>
+        
+        <!-- Condition Progress Selector -->
+        <div class="followup-condition-section">
+          <label class="followup-condition-label">Condition since last visit:</label>
+          <div class="followup-condition-grid">
+            <button
+              type="button"
+              class="condition-pill-btn"
+              [class.selected-improved]="patientConditionStatus === 'Improved'"
+              (click)="patientConditionStatus = 'Improved'"
+            >
+              <span>🟢</span> Improved
+            </button>
+            <button
+              type="button"
+              class="condition-pill-btn"
+              [class.selected-unchanged]="patientConditionStatus === 'Unchanged'"
+              (click)="patientConditionStatus = 'Unchanged'"
+            >
+              <span>🟡</span> Same
+            </button>
+            <button
+              type="button"
+              class="condition-pill-btn"
+              [class.selected-worsened]="patientConditionStatus === 'Worsened'"
+              (click)="patientConditionStatus = 'Worsened'"
+            >
+              <span>🔴</span> Worse
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="appointmentType === 'Emergency Sync'" class="emergency-card-banner animate-fade-in shadow-sm">
         <div class="d-flex align-items-center gap-2 mb-1">
           <i class="bi bi-lightning-charge-fill fs-5"></i>
-          <strong>🚨 Immediate Emergency Priority Queue</strong>
+          <strong>Immediate Emergency Priority Queue</strong>
         </div>
         <p class="small m-0 text-white-50">
-          Selecting Emergency Sync bypasses scheduled date & time pickers. Your appointment will be placed in Doctor Alen's live priority queue instantly upon payment.
+          Emergency Sync bypasses scheduled date & time pickers. Your appointment will be placed in Dr. {{ selectedDoctor?.firstName }}'s live priority queue instantly upon payment.
         </p>
       </div>
-      <p *ngIf="appointmentType !== 'Emergency Sync'" class="field-hint text-muted">
+      <p *ngIf="appointmentType !== 'Emergency Sync' && appointmentType !== 'Follow-up'" class="field-hint text-muted">
         Choose <strong>General Consultation</strong> for new visits, or <strong>Emergency Sync</strong> for urgent triage.
       </p>
     </div>
@@ -1573,11 +1623,43 @@
           <span>Queue Status</span>
           <strong class="text-danger">🚨 Immediate Priority Queue (Next Available)</strong>
         </div>
+        
         <!-- Standard Consultation Fee Row -->
-        <div class="summary-row fee-row" *ngIf="appointmentType !== 'Emergency Sync'">
+        <div class="summary-row fee-row" *ngIf="appointmentType !== 'Emergency Sync' && appointmentType !== 'Follow-up'">
           <span>Consultation Fee</span>
           <strong class="fee-highlight">₹{{ baseConsultationFee | number }}</strong>
         </div>
+
+        <!-- Follow-Up Itemized Fee Breakdown -->
+        <ng-container *ngIf="appointmentType === 'Follow-up'">
+          <div class="summary-row">
+            <span>Standard Consultation Fee</span>
+            <strong class="text-muted text-decoration-line-through">₹{{ baseConsultationFee | number }}</strong>
+          </div>
+          <div class="summary-row text-success">
+            <span class="d-flex align-items-center gap-1"><i class="bi bi-tag-fill"></i> Returning Patient Follow-Up Concession (50% OFF)</span>
+            <strong>- ₹{{ followUpDiscount | number }}</strong>
+          </div>
+          <div class="summary-row" *ngIf="patientConditionStatus">
+            <span>Condition Since Last Visit</span>
+            <span
+              class="summary-condition-badge"
+              [ngClass]="{
+                'improved': patientConditionStatus === 'Improved',
+                'unchanged': patientConditionStatus === 'Unchanged',
+                'worsened': patientConditionStatus === 'Worsened'
+              }"
+            >
+              <ng-container *ngIf="patientConditionStatus === 'Improved'">🟢 Improved</ng-container>
+              <ng-container *ngIf="patientConditionStatus === 'Unchanged'">🟡 Same / Unchanged</ng-container>
+              <ng-container *ngIf="patientConditionStatus === 'Worsened'">🔴 Worsened</ng-container>
+            </span>
+          </div>
+          <div class="summary-row fee-row pt-2" style="border-top: 1px dashed #CBD5E1;">
+            <span class="fw-bold">Total Amount Payable</span>
+            <strong class="fee-highlight text-success">₹{{ totalBookingFee | number }}</strong>
+          </div>
+        </ng-container>
 
         <!-- Emergency Sync Itemized Fee Breakdown -->
         <ng-container *ngIf="appointmentType === 'Emergency Sync'">

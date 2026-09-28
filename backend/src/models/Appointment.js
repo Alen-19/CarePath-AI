@@ -164,6 +164,19 @@ const AppointmentSchema = new mongoose.Schema({
   hasFollowUpBooked: {
     type: Boolean,
     default: false
+  },
+  patientConditionStatus: {
+    type: String,
+    enum: ['Improved', 'Unchanged', 'Worsened', 'None', null],
+    default: null
+  },
+  discountAmount: {
+    type: Number,
+    default: 0
+  },
+  originalAmount: {
+    type: Number,
+    default: null
   }
 }, { 
   timestamps: true,

@@ -26,7 +26,12 @@
           <span class="brand-title">CarePath AI Telehealth</span>
         </div>
         <div class="consultation-info" *ngIf="appointmentDetails">
-          <span class="badge bg-primary me-2">{{ appointmentDetails.type || 'General Consultation' }}</span>
+          <span class="badge me-1" [class.bg-warning]="isFollowUp" [class.text-dark]="isFollowUp" [class.bg-primary]="!isFollowUp">
+            {{ isFollowUp ? '🔁 Follow-Up' : (appointmentDetails.type || 'General Consultation') }}
+          </span>
+          <span *ngIf="isFollowUp && patientCondition" class="badge me-2" [ngClass]="{'bg-success text-white': patientCondition === 'Improved', 'bg-warning text-dark': patientCondition === 'Unchanged', 'bg-danger text-white': patientCondition === 'Worsened'}">
+            Condition: {{ patientCondition }}
+          </span>
           <span class="participant-name">
             {{ userRole === 'patient' ? doctorName : patientName }}
           </span>
@@ -496,6 +501,92 @@
               <div class="info-row"><strong>Type:</strong> {{ appointmentDetails.type }}</div>
             </div>
           </div>
+
+          <!-- 📜 Prior Consultation History Panel (Follow-Up Mode) -->
+          <div *ngIf="activeSidebarTab === 'prior'" class="sidebar-content prior-content">
+            <div class="panel-header d-flex align-items-center justify-content-between">
+              <h6 class="m-0 text-light d-flex align-items-center gap-2">
+                <i class="bi bi-clock-history text-warning"></i>
+                <span>Prior Visit Record</span>
+                <span class="badge bg-warning text-dark small" style="font-size: 0.65rem;">Follow-Up</span>
+              </h6>
+              <button class="btn-close btn-close-white btn-sm" (click)="activeSidebarTab = null"></button>
+            </div>
+
+            <div class="p-3 text-light small sidebar-body-scroll" *ngIf="priorConsultation">
+              <!-- Prior Visit Metadata -->
+              <div class="p-2.5 rounded mb-3 bg-black bg-opacity-30 border border-secondary border-opacity-30">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="text-secondary">Original Date:</span>
+                  <strong class="text-light">{{ priorConsultation.appointmentDate }} ({{ priorConsultation.startTime }})</strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-center" *ngIf="patientCondition">
+                  <span class="text-secondary">Patient Condition:</span>
+                  <span class="badge" [ngClass]="{'bg-success text-white': patientCondition === 'Improved', 'bg-warning text-dark': patientCondition === 'Unchanged', 'bg-danger text-white': patientCondition === 'Worsened'}">
+                    {{ patientCondition }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Prior Reason / Symptoms -->
+              <div class="mb-3">
+                <label class="form-label text-secondary small fw-bold text-uppercase mb-1">Prior Reason / Symptoms</label>
+                <div class="p-2 rounded bg-black bg-opacity-25 border border-secondary border-opacity-25">
+                  {{ priorConsultation.symptoms || 'General Consultation' }}
+                </div>
+              </div>
+
+              <!-- Prior Clinical Notes & Dietary Advice -->
+              <div class="mb-3" *ngIf="priorConsultation.clinicalNotes">
+                <label class="form-label text-info small fw-bold text-uppercase mb-1">Prior Doctor Remarks & Advice</label>
+                <div class="p-2.5 rounded bg-black bg-opacity-25 border border-info border-opacity-25">
+                  <p class="mb-1 text-light" *ngIf="priorConsultation.clinicalNotes.doctorRemarks">
+                    <strong>Remarks:</strong> {{ priorConsultation.clinicalNotes.doctorRemarks }}
+                  </p>
+                  <div *ngIf="priorConsultation.clinicalNotes.recommendedFoods" class="text-success mb-1">
+                    <strong>Diet:</strong> {{ priorConsultation.clinicalNotes.recommendedFoods }}
+                  </div>
+                  <div *ngIf="priorConsultation.clinicalNotes.foodsToAvoid" class="text-danger small">
+                    <strong>Avoid:</strong> {{ priorConsultation.clinicalNotes.foodsToAvoid }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Prior Prescribed Medications -->
+              <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <label class="form-label text-success small fw-bold text-uppercase m-0">Prior Medications</label>
+                  <span class="badge bg-secondary" *ngIf="priorConsultation.prescription">{{ priorConsultation.prescription.length }} item(s)</span>
+                </div>
+
+                <div *ngIf="!priorConsultation.prescription || priorConsultation.prescription.length === 0" class="p-2 text-center text-secondary small bg-black bg-opacity-20 rounded border border-secondary border-opacity-20">
+                  No medications were recorded in the prior visit.
+                </div>
+
+                <div *ngIf="priorConsultation.prescription && priorConsultation.prescription.length > 0" class="d-flex flex-column gap-2 mb-2">
+                  <div class="p-2 rounded bg-black bg-opacity-25 border border-success border-opacity-25 d-flex justify-content-between align-items-start" *ngFor="let med of priorConsultation.prescription">
+                    <div>
+                      <strong class="text-light d-block">💊 {{ med.medicineName || med.name }}</strong>
+                      <span class="text-secondary small d-block">{{ med.dosage }} • {{ med.duration }}</span>
+                      <span class="text-white-50 small">{{ med.instructions }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 1-Click Renew/Copy Button for Doctor -->
+                <button *ngIf="userRole === 'doctor' && priorConsultation.prescription && priorConsultation.prescription.length > 0" class="btn btn-sm btn-success w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-1.5 mt-2" (click)="importPriorPrescription()">
+                  <i class="bi bi-arrow-repeat"></i>
+                  <span>Renew / Copy to Current Prescription</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Empty State if no prior consultation linked -->
+            <div class="p-4 text-center text-secondary small" *ngIf="!priorConsultation">
+              <i class="bi bi-clock-history fs-3 d-block mb-2 text-warning"></i>
+              <p class="mb-0">No prior consultation record was linked for this session.</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -541,6 +632,20 @@
             <span class="btn-label">Notes & Diet</span>
             <span *ngIf="unreadNotesCount > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-info text-dark border border-dark">
               1
+            </span>
+          </button>
+
+          <!-- Prior Visit History Toggle (Follow-Up Mode) -->
+          <button
+            *ngIf="isFollowUp || priorConsultation"
+            [class]="activeSidebarTab === 'prior' ? 'btn btn-warning toolbar-btn position-relative active-prior-btn' : 'btn btn-dark toolbar-btn position-relative'"
+            (click)="toggleSidebar('prior')"
+            title="Prior Visit History"
+          >
+            <i class="bi bi-clock-history" [class.text-warning]="activeSidebarTab !== 'prior'"></i>
+            <span class="btn-label">Prior Visit</span>
+            <span *ngIf="activeSidebarTab !== 'prior'" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark border border-dark" style="font-size: 0.6rem;">
+              🔁
             </span>
           </button>
 

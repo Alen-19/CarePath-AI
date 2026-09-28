@@ -99,6 +99,7 @@ export interface BookAppointmentPayload {
   type?: string;
   symptoms?: string;
   parentAppointmentId?: string;
+  patientConditionStatus?: string;
 }
 
 export interface BookingResponse {
@@ -155,6 +156,9 @@ export interface AppointmentItem {
   followUpRecommendation?: FollowUpRecommendation;
   parentAppointmentId?: any;
   hasFollowUpBooked?: boolean;
+  patientConditionStatus?: string;
+  discountAmount?: number;
+  originalAmount?: number;
 }
 
 export interface DoctorAppointmentItem {
@@ -190,6 +194,9 @@ export interface DoctorAppointmentItem {
   followUpRecommendation?: FollowUpRecommendation;
   parentAppointmentId?: any;
   hasFollowUpBooked?: boolean;
+  patientConditionStatus?: string;
+  discountAmount?: number;
+  originalAmount?: number;
 }
 
 export interface CancelResponse {

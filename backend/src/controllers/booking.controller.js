@@ -337,18 +337,48 @@ const bookAppointment = async (req, res) => {
       return res.status(404).json({ message: 'Doctor not found or not active.' });
     }
 
-    // Validate parent appointment if this is a Follow-up
+    // Validate Follow-up eligibility & link parent appointment
     let linkedParentAppt = null;
-    if (parentAppointmentId) {
-      linkedParentAppt = await Appointment.findOne({
-        _id: parentAppointmentId,
-        patientId: patient._id
-      });
-      if (!linkedParentAppt) {
-        return res.status(404).json({ message: 'Parent consultation record not found or does not belong to your account.' });
+    const isFollowUp = type === 'Follow-up';
+
+    if (isFollowUp) {
+      if (parentAppointmentId) {
+        linkedParentAppt = await Appointment.findOne({
+          _id: parentAppointmentId,
+          patientId: patient._id,
+          doctorId: doctor._id,
+          status: 'Completed'
+        });
+
+        if (!linkedParentAppt) {
+          const anyParent = await Appointment.findOne({ _id: parentAppointmentId, patientId: patient._id });
+          if (!anyParent) {
+            return res.status(404).json({ message: 'Prior consultation record not found or does not belong to your account.' });
+          }
+          if (anyParent.doctorId.toString() !== doctor._id.toString()) {
+            return res.status(400).json({ message: 'Follow-up consultations must be booked with the same doctor from your previous visit.' });
+          }
+          if (anyParent.status !== 'Completed') {
+            return res.status(400).json({ message: 'A follow-up can only be booked for a completed consultation.' });
+          }
+        }
+      } else {
+        // Automatically find the latest completed consultation with this doctor
+        linkedParentAppt = await Appointment.findOne({
+          patientId: patient._id,
+          doctorId: doctor._id,
+          status: 'Completed'
+        }).sort({ appointmentDate: -1, createdAt: -1 });
+
+        if (!linkedParentAppt) {
+          return res.status(400).json({
+            message: `Follow-up consultations are only available for returning patients with a previously completed visit with Dr. ${doctor.firstName} ${doctor.lastName}. Please book a General Consultation.`
+          });
+        }
       }
-      if (linkedParentAppt.hasFollowUpBooked) {
-        return res.status(400).json({ message: 'A follow-up consultation has already been scheduled for this visit.' });
+
+      if (linkedParentAppt && linkedParentAppt.hasFollowUpBooked) {
+        return res.status(400).json({ message: 'A follow-up consultation has already been scheduled for this previous visit.' });
       }
     }
 
@@ -393,7 +423,16 @@ const bookAppointment = async (req, res) => {
 
     const doctorSchedule = await DoctorSchedule.findOne({ doctorId });
     const baseFee = doctorSchedule?.consultationFee || doctor.consultationFee || 500;
-    const fee = isEmergencySync ? Math.round(baseFee * 1.1) : baseFee; // Emergency priority fee (+10%)
+    
+    // Fee Calculation: 50% discount for Follow-up, +10% for Emergency Sync
+    let fee = baseFee;
+    let discountAmount = 0;
+    if (isEmergencySync) {
+      fee = Math.round(baseFee * 1.1); // Emergency priority fee (+10%)
+    } else if (isFollowUp) {
+      discountAmount = Math.round(baseFee * 0.5); // 50% Follow-up Concession
+      fee = baseFee - discountAmount;
+    }
 
     // 💰 Option 1 Revenue Split: 80% Doctor Share, 20% Admin Platform Share
     const doctorShare = Math.round(fee * 0.80);
@@ -408,7 +447,9 @@ const bookAppointment = async (req, res) => {
         patientId: patient._id.toString(),
         appointmentDate,
         startTime,
-        type: type || 'General Consultation'
+        type: type || 'General Consultation',
+        isFollowUp: isFollowUp ? 'true' : 'false',
+        discountApplied: discountAmount > 0 ? `₹${discountAmount} (50% Off)` : 'none'
       }
     };
 
@@ -447,7 +488,10 @@ const bookAppointment = async (req, res) => {
       razorpayOrderId: razorpayOrder.id,
       isEmergency: isEmergencySync,
       emergencyStatus: isEmergencySync ? 'Pending' : 'None',
-      parentAppointmentId: linkedParentAppt ? linkedParentAppt._id : null
+      parentAppointmentId: linkedParentAppt ? linkedParentAppt._id : null,
+      patientConditionStatus: req.body.patientConditionStatus || null,
+      discountAmount,
+      originalAmount: baseFee
     });
 
     // Create Payment record with 80/20 revenue audit
@@ -604,7 +648,7 @@ const getPatientAppointments = async (req, res) => {
       .populate('doctorId', 'firstName lastName specialization clinicAddress consultationFee')
       .populate({
         path: 'parentAppointmentId',
-        select: 'appointmentDate startTime type symptoms prescription clinicalNotes'
+        select: 'appointmentDate startTime type symptoms prescription clinicalNotes followUpRecommendation patientConditionStatus'
       })
       .sort({ appointmentDate: -1, startTime: -1 });
 
@@ -628,7 +672,7 @@ const getDoctorAppointments = async (req, res) => {
       .populate('patientId', 'firstName lastName dateOfBirth gender phone email bloodGroup profileImage')
       .populate({
         path: 'parentAppointmentId',
-        select: 'appointmentDate startTime type symptoms prescription clinicalNotes'
+        select: 'appointmentDate startTime type symptoms prescription clinicalNotes followUpRecommendation patientConditionStatus'
       })
       .sort({ appointmentDate: 1, startTime: 1 });
 

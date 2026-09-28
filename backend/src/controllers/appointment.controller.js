@@ -660,6 +660,10 @@ exports.getConsultationDetails = async (req, res) => {
       .populate({
         path: 'doctorId',
         populate: { path: 'userId', select: 'name email profileImage' }
+      })
+      .populate({
+        path: 'parentAppointmentId',
+        select: 'appointmentDate startTime type symptoms prescription clinicalNotes followUpRecommendation patientConditionStatus'
       });
 
     if (!appointment) {

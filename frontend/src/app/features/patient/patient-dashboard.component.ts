@@ -8,7 +8,8 @@ import {
   AppointmentService,
   DoctorCard,
   BookingSlot,
-  AppointmentItem
+  AppointmentItem,
+  BookAppointmentPayload
 } from '../../core/services/appointment.service';
 import { NutritionService, EdamamRecipe } from '../../core/services/nutrition.service';
 import {
@@ -287,8 +288,18 @@ export class PatientDashboardComponent implements OnInit {
     return this.appointmentType === 'Emergency Sync' ? Math.round(this.baseConsultationFee * 0.1) : 0;
   }
 
+  get followUpDiscount(): number {
+    return this.appointmentType === 'Follow-up' ? Math.round(this.baseConsultationFee * 0.5) : 0;
+  }
+
   get totalBookingFee(): number {
-    return this.appointmentType === 'Emergency Sync' ? Math.round(this.baseConsultationFee * 1.1) : this.baseConsultationFee;
+    if (this.appointmentType === 'Emergency Sync') {
+      return Math.round(this.baseConsultationFee * 1.1);
+    }
+    if (this.appointmentType === 'Follow-up') {
+      return Math.round(this.baseConsultationFee * 0.5);
+    }
+    return this.baseConsultationFee;
   }
 
   // ─── 🌟 Active Doctor-Prescribed CarePath & Macro Ring Getters ──────────────
@@ -992,9 +1003,37 @@ export class PatientDashboardComponent implements OnInit {
   }
 
   pendingParentAppointmentId: string | null = null;
+  patientConditionStatus: 'Improved' | 'Unchanged' | 'Worsened' | '' = '';
+
+  isFollowUpEligibleForDoctor(doctorId?: string): boolean {
+    if (!doctorId || !this.myAppointments || this.myAppointments.length === 0) return false;
+    return this.myAppointments.some(a => {
+      const aDoc = a.doctorId as any;
+      const aDocId = aDoc?._id || (typeof aDoc === 'string' ? aDoc : null);
+      return aDocId === doctorId && a.status === 'Completed';
+    });
+  }
+
+  get isFollowUpEligibleForSelectedDoctor(): boolean {
+    return this.isFollowUpEligibleForDoctor(this.selectedDoctor?._id);
+  }
+
+  getLatestCompletedApptForSelectedDoctor(): AppointmentItem | null {
+    if (!this.selectedDoctor || !this.myAppointments) return null;
+    const docId = this.selectedDoctor._id;
+    const matches = this.myAppointments
+      .filter(a => {
+        const aDoc = a.doctorId as any;
+        const aDocId = aDoc?._id || (typeof aDoc === 'string' ? aDoc : null);
+        return aDocId === docId && a.status === 'Completed';
+      })
+      .sort((a, b) => new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime());
+    return matches[0] || null;
+  }
 
   proceedToBookingModal(doctor: DoctorCard) {
     this.pendingParentAppointmentId = null;
+    this.patientConditionStatus = '';
     this.selectedDoctor = doctor;
     this.bookingStep = 1;
     this.selectedDate = '';
@@ -1036,6 +1075,7 @@ export class PatientDashboardComponent implements OnInit {
 
     this.selectedDoctor = targetDoc;
     this.pendingParentAppointmentId = parentAppt._id;
+    this.patientConditionStatus = '';
     this.appointmentType = 'Follow-up';
     this.bookingStep = 2; // Jump directly to date selection
     this.symptoms = `Follow-Up Consultation (Prior: ${this.normalizeDateStr(parentAppt.appointmentDate)})`;
@@ -1062,6 +1102,21 @@ export class PatientDashboardComponent implements OnInit {
     if (t === 'Care Plan Review') {
       return;
     }
+    if (t === 'Follow-up') {
+      if (!this.isFollowUpEligibleForSelectedDoctor) {
+        this.showToast(
+          `Follow-up is available only for returning patients who have completed a prior visit with Dr. ${this.selectedDoctor?.firstName || 'this doctor'}.`,
+          'error'
+        );
+        return;
+      }
+      if (!this.pendingParentAppointmentId) {
+        const latest = this.getLatestCompletedApptForSelectedDoctor();
+        if (latest) {
+          this.pendingParentAppointmentId = latest._id;
+        }
+      }
+    }
     this.appointmentType = t;
   }
 
@@ -1069,6 +1124,7 @@ export class PatientDashboardComponent implements OnInit {
     this.showBookingModal = false;
     this.selectedDoctor = null;
     this.pendingParentAppointmentId = null;
+    this.patientConditionStatus = '';
   }
 
   onDateChange() {
@@ -1137,14 +1193,15 @@ export class PatientDashboardComponent implements OnInit {
     this.bookingConflictError = '';
 
     const todayStr = this.getTodayDateString();
-    const payload = {
+    const payload: BookAppointmentPayload = {
       doctorId: this.selectedDoctor._id,
       appointmentDate: isEmergency ? todayStr : (this.selectedDate || todayStr),
       startTime: isEmergency ? 'Immediate Queue' : (this.selectedSlot?.start || '09:00 AM'),
       endTime: isEmergency ? 'Immediate Queue' : (this.selectedSlot?.end || '09:30 AM'),
       type: this.appointmentType,
       symptoms: this.symptoms || (isEmergency ? 'Emergency Triage Request' : ''),
-      parentAppointmentId: this.pendingParentAppointmentId || undefined
+      parentAppointmentId: this.pendingParentAppointmentId || undefined,
+      patientConditionStatus: this.appointmentType === 'Follow-up' ? (this.patientConditionStatus || 'Unchanged') : undefined
     };
 
     this.appointmentService.bookAppointment(payload).subscribe({

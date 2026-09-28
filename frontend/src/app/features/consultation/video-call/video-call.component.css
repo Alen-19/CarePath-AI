@@ -405,6 +405,24 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
+/* Active Prior Visit Button (Stark contrast & visible icon) */
+.active-prior-btn {
+  background: #f59e0b !important;
+  border-color: #d97706 !important;
+  color: #0f172a !important;
+}
+
+.active-prior-btn i {
+  color: #0f172a !important;
+  font-size: 1.35rem !important;
+  display: block !important;
+}
+
+.active-prior-btn .btn-label {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
 .btn-circle {
   width: 54px;
   height: 54px;

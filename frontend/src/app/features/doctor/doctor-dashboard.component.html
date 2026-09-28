@@ -242,6 +242,9 @@
                 <span>{{ a.patientId ? (a.patientId.firstName ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientId.name || 'Patient')) : 'Patient' }}</span>
                 <span *ngIf="a.type === 'Emergency Sync' || a.isEmergency" class="badge bg-danger text-white px-2 py-1 small">🚨 EMERGENCY</span>
                 <span *ngIf="a.type === 'Follow-up'" class="badge bg-info text-dark px-2 py-1 small fw-bold">🔁 Follow-Up</span>
+                <span *ngIf="a.patientConditionStatus" class="badge px-2 py-1 small fw-bold" [ngClass]="{'bg-success text-white': a.patientConditionStatus === 'Improved', 'bg-warning text-dark': a.patientConditionStatus === 'Unchanged', 'bg-danger text-white': a.patientConditionStatus === 'Worsened'}">
+                  {{ a.patientConditionStatus }}
+                </span>
               </h4>
               <p>
                 {{ a.type }}<span *ngIf="a.symptoms"> · {{ a.symptoms }}</span>
@@ -276,6 +279,9 @@
                 <span>{{ a.patientId ? (a.patientId.firstName ? (a.patientId.firstName + ' ' + (a.patientId.lastName || '')) : (a.patientId.name || 'Patient')) : 'Patient' }}</span>
                 <span *ngIf="a.type === 'Emergency Sync' || a.isEmergency" class="badge bg-danger text-white px-2 py-1 small">🚨 EMERGENCY</span>
                 <span *ngIf="a.type === 'Follow-up'" class="badge bg-info text-dark px-2 py-1 small fw-bold">🔁 Follow-Up</span>
+                <span *ngIf="a.patientConditionStatus" class="badge px-2 py-1 small fw-bold" [ngClass]="{'bg-success text-white': a.patientConditionStatus === 'Improved', 'bg-warning text-dark': a.patientConditionStatus === 'Unchanged', 'bg-danger text-white': a.patientConditionStatus === 'Worsened'}">
+                  {{ a.patientConditionStatus }}
+                </span>
               </h4>
               <p>
                 {{ a.type }}

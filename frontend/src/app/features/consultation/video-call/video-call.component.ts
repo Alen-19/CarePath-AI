@@ -35,13 +35,65 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   isAudioMuted: boolean = false;
   isVideoOff: boolean = false;
   isScreenSharing: boolean = false;
-  activeSidebarTab: 'chat' | 'rx' | 'notes' | 'info' | null = 'chat';
+  activeSidebarTab: 'chat' | 'rx' | 'notes' | 'info' | 'prior' | null = 'chat';
 
   // Streams & Remote Peer
   localStream: MediaStream | null = null;
   remoteStream: MediaStream | null = null;
   peerUsers: PeerUser[] = [];
   peerMediaStatus = { audioEnabled: true, videoEnabled: true };
+
+  // Follow-Up & Prior Consultation Helpers
+  get isFollowUp(): boolean {
+    return this.appointmentDetails?.type === 'Follow-up' || !!this.appointmentDetails?.parentAppointmentId;
+  }
+
+  get priorConsultation(): any {
+    return this.appointmentDetails?.parentAppointmentId || null;
+  }
+
+  get patientCondition(): string {
+    return this.appointmentDetails?.patientConditionStatus || '';
+  }
+
+  importPriorPrescription(): void {
+    const priorMeds = this.priorConsultation?.prescription;
+    if (!priorMeds || !Array.isArray(priorMeds) || priorMeds.length === 0) {
+      this.prescriptionSuccessMsg = 'No prior medications found in previous visit record.';
+      this.activeSidebarTab = 'rx';
+      setTimeout(() => this.prescriptionSuccessMsg = '', 3500);
+      return;
+    }
+
+    let addedCount = 0;
+    priorMeds.forEach((m: any) => {
+      const medName = m.medicineName || m.name || '';
+      if (!medName) return;
+      const exists = this.prescriptionList.some(p => p.medicineName.toLowerCase() === medName.toLowerCase());
+      if (!exists) {
+        this.prescriptionList.push({
+          medicineName: medName,
+          composition: Array.isArray(m.composition) ? m.composition : (m.composition ? [m.composition] : []),
+          dosage: m.dosage || '1 tablet after food',
+          duration: m.duration || '5 days',
+          instructions: m.instructions || 'Twice daily after meals'
+        });
+        addedCount++;
+      }
+    });
+
+    if (addedCount > 0) {
+      if (this.userRole === 'doctor' && this.appointmentId) {
+        this.webRtcService.syncLivePrescription(this.appointmentId, this.prescriptionList);
+      }
+      this.prescriptionSuccessMsg = `📋 Imported ${addedCount} medication(s) from prior visit!`;
+      this.activeSidebarTab = 'rx';
+    } else {
+      this.prescriptionSuccessMsg = 'All medications from prior visit are already in your prescription.';
+      this.activeSidebarTab = 'rx';
+    }
+    setTimeout(() => this.prescriptionSuccessMsg = '', 4000);
+  }
 
   // Chat
   chatMessages: ChatMessage[] = [];
@@ -442,7 +494,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     this.isScreenSharing = sharing;
   }
 
-  toggleSidebar(tab: 'chat' | 'rx' | 'notes' | 'info'): void {
+  toggleSidebar(tab: 'chat' | 'rx' | 'notes' | 'info' | 'prior'): void {
     if (this.activeSidebarTab === tab) {
       this.activeSidebarTab = null;
     } else {
