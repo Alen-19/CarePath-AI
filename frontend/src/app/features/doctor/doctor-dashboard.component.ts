@@ -52,6 +52,7 @@ export class DoctorDashboardComponent implements OnInit {
   isVerified = true;
   today = new Date();
   showDoctorDropdown = false;
+  docProfileImageError = false;
 
   // Emergency Live Alert State
   activeEmergencyAlert: { appointmentId: string; patientName: string; symptomSummary: string } | null = null;

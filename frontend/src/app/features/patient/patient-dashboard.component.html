@@ -34,10 +34,10 @@
     <div class="pd-nav-right">
       <div class="user-menu-container position-relative">
         <button type="button" class="user-dropdown-btn" (click)="toggleUserDropdown($event)" [class.active]="showUserDropdown">
-          <div class="user-avatar-mini" *ngIf="!profileForm.profileImage">
+          <div class="user-avatar-mini" *ngIf="!profileForm.profileImage || profileImageError">
             {{ patientInitials }}
           </div>
-          <img [src]="getMediaUrl(profileForm.profileImage)" *ngIf="profileForm.profileImage" class="user-avatar-img-mini" alt="Profile" />
+          <img [src]="getMediaUrl(profileForm.profileImage)" *ngIf="profileForm.profileImage && !profileImageError" (error)="profileImageError = true" class="user-avatar-img-mini" alt="Profile" />
           <span class="user-display-name">{{ patientName }}</span>
           <i class="bi bi-chevron-down dropdown-arrow" [class.rotate]="showUserDropdown"></i>
         </button>
@@ -45,10 +45,10 @@
         <!-- User Profile Dropdown Card -->
         <div class="user-dropdown-menu glass-card animate-fade-in" *ngIf="showUserDropdown" (click)="$event.stopPropagation()">
           <div class="dropdown-header">
-            <div class="dropdown-avatar" *ngIf="!profileForm.profileImage">
+            <div class="dropdown-avatar" *ngIf="!profileForm.profileImage || profileImageError">
               {{ patientInitials }}
             </div>
-            <img [src]="getMediaUrl(profileForm.profileImage)" *ngIf="profileForm.profileImage" class="dropdown-avatar-img" alt="Profile Photo" />
+            <img [src]="getMediaUrl(profileForm.profileImage)" *ngIf="profileForm.profileImage && !profileImageError" (error)="profileImageError = true" class="dropdown-avatar-img" alt="Profile Photo" />
             <div class="dropdown-user-details">
               <strong class="dropdown-name">{{ patientName }}</strong>
               <span class="dropdown-email text-truncate">{{ patientEmail }}</span>
@@ -1664,12 +1664,13 @@
       <!-- Profile Header Hero Card -->
       <div class="profile-hero-card glass-card">
         <div class="profile-avatar-container">
-          <div class="profile-avatar-large" *ngIf="!profileForm.profileImage">
+          <div class="profile-avatar-large" *ngIf="!profileForm.profileImage || profileImageError">
             {{ patientInitials }}
           </div>
           <img
             [src]="getMediaUrl(profileForm.profileImage)"
-            *ngIf="profileForm.profileImage"
+            *ngIf="profileForm.profileImage && !profileImageError"
+            (error)="profileImageError = true"
             class="profile-avatar-img-large"
             alt="Profile Photo"
           />

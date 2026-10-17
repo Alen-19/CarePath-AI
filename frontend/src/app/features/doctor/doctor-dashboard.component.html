@@ -35,10 +35,10 @@
     <!-- Doctor Profile Dropdown Toggle (Rightmost) -->
     <div class="doctor-menu-container position-relative">
       <button type="button" class="doctor-dropdown-btn" (click)="toggleDoctorDropdown($event)" [class.active]="showDoctorDropdown">
-        <div class="doc-avatar-mini" *ngIf="!docProfileImage">
+        <div class="doc-avatar-mini" *ngIf="!docProfileImage || docProfileImageError">
           {{ doctorInitials }}
         </div>
-        <img [src]="getMediaUrl(docProfileImage)" *ngIf="docProfileImage" class="doc-avatar-img-mini" alt="Doctor Photo" />
+        <img [src]="getMediaUrl(docProfileImage)" *ngIf="docProfileImage && !docProfileImageError" (error)="docProfileImageError = true" class="doc-avatar-img-mini" alt="Doctor Photo" />
         <div class="doctor-btn-info">
           <span class="user-name">{{ doctorName }}</span>
           <span class="user-spec-mini">{{ specialization }} • <strong class="text-success" *ngIf="isVerified">Verified ✅</strong><strong class="text-warning" *ngIf="!isVerified">Pending ⏳</strong></span>
@@ -49,10 +49,10 @@
       <!-- Doctor Profile Dropdown Card -->
       <div class="doctor-dropdown-menu glass-card animate-fade-in" *ngIf="showDoctorDropdown" (click)="$event.stopPropagation()">
         <div class="dropdown-header">
-          <div class="dropdown-avatar" *ngIf="!docProfileImage">
+          <div class="dropdown-avatar" *ngIf="!docProfileImage || docProfileImageError">
             {{ doctorInitials }}
           </div>
-          <img [src]="getMediaUrl(docProfileImage)" *ngIf="docProfileImage" class="dropdown-avatar-img" alt="Doctor Photo" />
+          <img [src]="getMediaUrl(docProfileImage)" *ngIf="docProfileImage && !docProfileImageError" (error)="docProfileImageError = true" class="dropdown-avatar-img" alt="Doctor Photo" />
           <div class="dropdown-user-details">
             <strong class="dropdown-name">{{ doctorName }}</strong>
             <span class="dropdown-email text-truncate">{{ docEmail }}</span>
@@ -836,12 +836,13 @@
     <!-- Profile Header Hero Card -->
     <div class="doctor-hero-card glass-card">
       <div class="doc-avatar-container">
-        <div class="doc-avatar-large" *ngIf="!docProfileImage">
+        <div class="doc-avatar-large" *ngIf="!docProfileImage || docProfileImageError">
           {{ doctorInitials }}
         </div>
         <img
           [src]="getMediaUrl(docProfileImage)"
-          *ngIf="docProfileImage"
+          *ngIf="docProfileImage && !docProfileImageError"
+          (error)="docProfileImageError = true"
           class="doc-avatar-img-large"
           alt="Doctor Photo"
         />

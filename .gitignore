@@ -15,10 +15,6 @@ backend/.env
 # Angular cache
 .angular/
 
-# Uploaded files
-backend/uploads/
-uploads/
-
 # IDE / OS files
 .vscode/
 .idea/

@@ -39,6 +39,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   patientEmail = '';
   activeTab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'reports' | 'profile' | 'symptom-checker' = 'find-doctors';
   showUserDropdown = false;
+  profileImageError = false;
 
   // ─── 📑 Medical Records Vault & Multimodal AI State ─────────────────────────
   reports: MedicalReport[] = [];
