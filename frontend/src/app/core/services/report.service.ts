@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { getApiBaseUrl } from '../config/api.config';
 
 export type BiomarkerFlag = 'Normal' | 'Borderline' | 'High' | 'Low' | 'Critical';
 
@@ -66,7 +67,7 @@ export interface MedicalReport {
   providedIn: 'root'
 })
 export class ReportService {
-  private apiUrl = 'http://localhost:5000/api/reports';
+  private apiUrl = `${getApiBaseUrl()}/api/reports`;
 
   constructor(private http: HttpClient) {}
 

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
+import { getApiBaseUrl } from '../../../core/config/api.config';
 
 @Component({
   selector: 'app-complete-profile',
@@ -169,7 +170,7 @@ export class CompleteProfileComponent implements OnInit {
   fetchPincodeDetails(pincode: string) {
     this.loadingPincode = true;
     this.pincodeErrorMsg = '';
-    this.http.get<any[]>(`http://localhost:5000/api/auth/pincode/${pincode}`).subscribe({
+    this.http.get<any[]>(`${getApiBaseUrl()}/api/auth/pincode/${pincode}`).subscribe({
       next: (response) => {
         this.loadingPincode = false;
         if (response && response[0] && response[0].Status === 'Success' && response[0].PostOffice && response[0].PostOffice.length > 0) {

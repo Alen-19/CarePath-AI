@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { getApiBaseUrl } from '../config/api.config';
 
 // ─── Doctor Schedule Interfaces ──────────────────────────────────────────────
 export interface DaySchedule {
@@ -245,8 +246,8 @@ export interface ClinicalNotesData {
   providedIn: 'root'
 })
 export class AppointmentService {
-  private apiUrl = 'http://localhost:5000/api/appointments';
-  private bookingUrl = 'http://localhost:5000/api/booking';
+  private apiUrl = `${getApiBaseUrl()}/api/appointments`;
+  private bookingUrl = `${getApiBaseUrl()}/api/booking`;
 
   constructor(private http: HttpClient) {}
 

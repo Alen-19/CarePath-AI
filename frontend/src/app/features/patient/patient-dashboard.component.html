@@ -37,7 +37,7 @@
           <div class="user-avatar-mini" *ngIf="!profileForm.profileImage">
             {{ patientInitials }}
           </div>
-          <img [src]="'http://localhost:5000' + profileForm.profileImage" *ngIf="profileForm.profileImage" class="user-avatar-img-mini" alt="Profile" />
+          <img [src]="getMediaUrl(profileForm.profileImage)" *ngIf="profileForm.profileImage" class="user-avatar-img-mini" alt="Profile" />
           <span class="user-display-name">{{ patientName }}</span>
           <i class="bi bi-chevron-down dropdown-arrow" [class.rotate]="showUserDropdown"></i>
         </button>
@@ -48,7 +48,7 @@
             <div class="dropdown-avatar" *ngIf="!profileForm.profileImage">
               {{ patientInitials }}
             </div>
-            <img [src]="'http://localhost:5000' + profileForm.profileImage" *ngIf="profileForm.profileImage" class="dropdown-avatar-img" alt="Profile Photo" />
+            <img [src]="getMediaUrl(profileForm.profileImage)" *ngIf="profileForm.profileImage" class="dropdown-avatar-img" alt="Profile Photo" />
             <div class="dropdown-user-details">
               <strong class="dropdown-name">{{ patientName }}</strong>
               <span class="dropdown-email text-truncate">{{ patientEmail }}</span>
@@ -1364,7 +1364,7 @@
                 <div class="d-flex align-items-center gap-3">
                   <img 
                     *ngIf="meal.imageUrl" 
-                    [src]="'http://localhost:5000' + meal.imageUrl" 
+                    [src]="getMediaUrl(meal.imageUrl)" 
                     alt="Meal Thumbnail" 
                     class="rounded-3" 
                     style="width: 48px; height: 48px; object-fit: cover;"
@@ -1638,7 +1638,7 @@
                   <span class="d-none d-sm-inline ms-1">Link</span>
                 </button>
 
-                <a [href]="'http://localhost:5000' + rep.fileUrl" target="_blank" class="btn btn-sm btn-light border rounded-pill px-2.5 py-1 text-secondary small" title="View original report document">
+                <a [href]="getMediaUrl(rep.fileUrl)" target="_blank" class="btn btn-sm btn-light border rounded-pill px-2.5 py-1 text-secondary small" title="View original report document">
                   <i class="bi bi-eye"></i>
                 </a>
 
@@ -1668,7 +1668,7 @@
             {{ patientInitials }}
           </div>
           <img
-            [src]="'http://localhost:5000' + profileForm.profileImage"
+            [src]="getMediaUrl(profileForm.profileImage)"
             *ngIf="profileForm.profileImage"
             class="profile-avatar-img-large"
             alt="Profile Photo"
@@ -3024,7 +3024,7 @@
         </div>
       </div>
       <div class="d-flex align-items-center gap-2">
-        <a [href]="'http://localhost:5000' + selectedReportDetail.fileUrl" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3 small">
+        <a [href]="getMediaUrl(selectedReportDetail.fileUrl)" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3 small">
           <i class="bi bi-file-earmark-arrow-down me-1"></i> View Document
         </a>
         <button class="btn btn-sm btn-light rounded-circle p-1 border-0" (click)="closeReportDetailModal()">✕</button>

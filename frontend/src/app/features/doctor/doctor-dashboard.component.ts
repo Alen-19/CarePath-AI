@@ -13,6 +13,7 @@ import {
 } from '../../core/services/appointment.service';
 import { WebRtcService } from '../../core/services/webrtc.service';
 import { ReportService, MedicalReport } from '../../core/services/report.service';
+import { getMediaUrl } from '../../core/config/api.config';
 
 export interface PatientConsultationGroup {
   patientKey: string;
@@ -475,11 +476,7 @@ export class DoctorDashboardComponent implements OnInit {
   }
 
   getPatientImageUrl(imagePath?: string): string {
-    if (!imagePath) return '';
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      return imagePath;
-    }
-    return 'http://localhost:5000' + (imagePath.startsWith('/') ? imagePath : '/' + imagePath);
+    return getMediaUrl(imagePath);
   }
 
   onPatientImageError(group?: PatientConsultationGroup | null): void {
@@ -1444,6 +1441,10 @@ export class DoctorDashboardComponent implements OnInit {
     setTimeout(() => {
       this.carePlanToastMsg = '';
     }, 4000);
+  }
+
+  getMediaUrl(path: string | null | undefined): string {
+    return getMediaUrl(path);
   }
 
   onLogout(): void {

@@ -1,6 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
+import { getApiBaseUrl } from '../config/api.config';
 
 export interface User {
   _id: string;
@@ -69,7 +70,7 @@ interface AuthResponse {
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:5000/api/auth';
+  private apiUrl = `${getApiBaseUrl()}/api/auth`;
   
   // Use Angular 17/18+ signals for reactive, simple state management
   currentUser = signal<User | null>(null);

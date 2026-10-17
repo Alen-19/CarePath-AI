@@ -38,7 +38,7 @@
         <div class="doc-avatar-mini" *ngIf="!docProfileImage">
           {{ doctorInitials }}
         </div>
-        <img [src]="'http://localhost:5000' + docProfileImage" *ngIf="docProfileImage" class="doc-avatar-img-mini" alt="Doctor Photo" />
+        <img [src]="getMediaUrl(docProfileImage)" *ngIf="docProfileImage" class="doc-avatar-img-mini" alt="Doctor Photo" />
         <div class="doctor-btn-info">
           <span class="user-name">{{ doctorName }}</span>
           <span class="user-spec-mini">{{ specialization }} • <strong class="text-success" *ngIf="isVerified">Verified ✅</strong><strong class="text-warning" *ngIf="!isVerified">Pending ⏳</strong></span>
@@ -52,7 +52,7 @@
           <div class="dropdown-avatar" *ngIf="!docProfileImage">
             {{ doctorInitials }}
           </div>
-          <img [src]="'http://localhost:5000' + docProfileImage" *ngIf="docProfileImage" class="dropdown-avatar-img" alt="Doctor Photo" />
+          <img [src]="getMediaUrl(docProfileImage)" *ngIf="docProfileImage" class="dropdown-avatar-img" alt="Doctor Photo" />
           <div class="dropdown-user-details">
             <strong class="dropdown-name">{{ doctorName }}</strong>
             <span class="dropdown-email text-truncate">{{ docEmail }}</span>
@@ -582,7 +582,7 @@
                     <strong class="d-block text-dark small" style="font-size: 0.85rem;">{{ rep.title }}</strong>
                     <span class="text-muted small" style="font-size: 0.72rem;">{{ rep.reportType }} • {{ rep.reportDate || (rep.createdAt | date:'mediumDate') }}</span>
                   </div>
-                  <a [href]="'http://localhost:5000' + rep.fileUrl" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-0.5 small" style="font-size: 0.72rem;">
+                  <a [href]="getMediaUrl(rep.fileUrl)" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-0.5 small" style="font-size: 0.72rem;">
                     <i class="bi bi-file-earmark-arrow-down me-1"></i> View Report
                   </a>
                 </div>
@@ -840,7 +840,7 @@
           {{ doctorInitials }}
         </div>
         <img
-          [src]="'http://localhost:5000' + docProfileImage"
+          [src]="getMediaUrl(docProfileImage)"
           *ngIf="docProfileImage"
           class="doc-avatar-img-large"
           alt="Doctor Photo"

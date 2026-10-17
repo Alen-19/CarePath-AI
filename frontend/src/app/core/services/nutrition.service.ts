@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { getApiBaseUrl } from '../config/api.config';
 
 export interface ClinicalRecipe {
   title: string;
@@ -68,7 +69,7 @@ export interface FoodLogPayload {
   providedIn: 'root'
 })
 export class NutritionService {
-  private apiUrl = 'http://localhost:5000/api/nutrition';
+  private apiUrl = `${getApiBaseUrl()}/api/nutrition`;
 
   constructor(private http: HttpClient) {}
 

@@ -8,6 +8,7 @@ import { AppointmentService, ExerciseItem } from '../../../core/services/appoint
 import { AuthService } from '../../../core/services/auth.service';
 import { MedicineService, MedicineItem } from '../../../core/services/medicine.service';
 import { ReportService, MedicalReport } from '../../../core/services/report.service';
+import { getMediaUrl } from '../../../core/config/api.config';
 
 @Component({
   selector: 'app-video-call',
@@ -1186,5 +1187,9 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     if (!pat) return 'Patient';
     const name = `${pat.firstName || pat.userId?.name || pat.name || ''} ${pat.lastName || ''}`.trim();
     return name || 'Patient';
+  }
+
+  getMediaUrl(path: string | null | undefined): string {
+    return getMediaUrl(path);
   }
 }

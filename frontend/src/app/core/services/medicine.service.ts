@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { getApiBaseUrl } from '../config/api.config';
 
 export interface MedicineItem {
   medicineId: number;
@@ -23,7 +24,7 @@ export interface SearchMedicineResponse {
   providedIn: 'root'
 })
 export class MedicineService {
-  private apiUrl = 'http://localhost:5000/api/medicines';
+  private apiUrl = `${getApiBaseUrl()}/api/medicines`;
 
   constructor(private http: HttpClient) {}
 

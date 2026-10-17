@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
+import { getApiBaseUrl } from '../config/api.config';
 
 export interface ChatMessage {
   message: string;
@@ -56,7 +57,7 @@ export class WebRtcService {
   /**
    * Connect to Socket.io signaling server
    */
-  public connect(serverUrl: string = 'http://localhost:5000'): void {
+  public connect(serverUrl: string = getApiBaseUrl()): void {
     if (!this.socket) {
       this.socket = io(serverUrl, {
         transports: ['websocket', 'polling'],

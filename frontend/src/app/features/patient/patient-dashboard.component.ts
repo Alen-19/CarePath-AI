@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { HttpClient } from '@angular/common/http';
+import { getApiBaseUrl, getMediaUrl } from '../../core/config/api.config';
 import {
   AppointmentService,
   DoctorCard,
@@ -227,6 +228,10 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   isRecognizingImage = false;
   geminiRecognizedDish = '';
   geminiConfidence = 0;
+
+  getMediaUrl(path: string | null | undefined): string {
+    return getMediaUrl(path);
+  }
   geminiIngredients: string[] = [];
   analyzedFoodResult: {
     foodItem: string;
@@ -781,7 +786,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   fetchPincodeDetails(pincode: string) {
     this.loadingPincode = true;
     this.pincodeErrorMsg = '';
-    this.http.get<any[]>(`http://localhost:5000/api/auth/pincode/${pincode}`).subscribe({
+    this.http.get<any[]>(`${getApiBaseUrl()}/api/auth/pincode/${pincode}`).subscribe({
       next: (response) => {
         this.loadingPincode = false;
         if (response && response[0] && response[0].Status === 'Success' && response[0].PostOffice && response[0].PostOffice.length > 0) {
@@ -1847,7 +1852,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     // Auto-scroll to bottom (timeout ensures DOM has updated)
     setTimeout(() => this.scrollToChatBottom(), 50);
 
-    this.http.post<any>('http://localhost:5000/api/symptoms/analyze', { description: fullDescription })
+    this.http.post<any>(`${getApiBaseUrl()}/api/symptoms/analyze`, { description: fullDescription })
       .subscribe({
         next: (res) => {
           this.isAnalyzingSymptoms = false;

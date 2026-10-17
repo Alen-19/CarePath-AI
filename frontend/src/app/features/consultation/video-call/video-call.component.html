@@ -686,7 +686,7 @@
                       <strong class="d-block text-light" style="font-size: 0.9rem;">{{ rep.title }}</strong>
                       <span class="text-secondary" style="font-size: 0.72rem;">{{ rep.reportType }} • {{ rep.reportDate || (rep.createdAt | date:'mediumDate') }}</span>
                     </div>
-                    <a [href]="'http://localhost:5000' + rep.fileUrl" target="_blank" class="btn btn-xs btn-outline-info rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">
+                    <a [href]="getMediaUrl(rep.fileUrl)" target="_blank" class="btn btn-xs btn-outline-info rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">
                       <i class="bi bi-eye me-0.5"></i> View
                     </a>
                   </div>

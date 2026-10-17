@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { getApiBaseUrl } from '../config/api.config';
 
 export interface MedicalCouncil {
   id: string;
@@ -61,7 +62,7 @@ export interface NMCCouncilsResponse {
   providedIn: 'root'
 })
 export class NmcService {
-  private apiUrl = 'http://localhost:5000/api/admin/nmc';
+  private apiUrl = `${getApiBaseUrl()}/api/admin/nmc`;
 
   constructor(private http: HttpClient) {}
 
