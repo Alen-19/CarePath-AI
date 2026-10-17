@@ -1336,5 +1336,25 @@
   .stats-grid {
     grid-template-columns: 1fr !important;
   }
+
+  .admin-portal-tag {
+    display: none !important;
+  }
+
+  .welcome-section {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+
+  .refresh-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    min-height: 44px;
+  }
+
+  .stat-card {
+    padding: 1rem !important;
+  }
 }
 

@@ -2111,6 +2111,26 @@
     align-items: flex-start !important;
     gap: 0.5rem !important;
   }
+
+  .user-spec-mini {
+    display: none !important;
+  }
+
+  .header-overview-btn {
+    padding: 0.4rem 0.65rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .emergency-dashboard-banner > div {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+
+  .emergency-dashboard-banner button {
+    width: 100% !important;
+    min-height: 44px;
+  }
 }
 
 

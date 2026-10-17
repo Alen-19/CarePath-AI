@@ -3106,6 +3106,33 @@ select.form-select option {
     padding-bottom: 6px !important;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* AI Physio Studio Responsive Stacking (< 768px) */
+  .studio-stage-layout {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    padding: 1rem !important;
+    overflow-y: auto !important;
+  }
+
+  .studio-video-stage {
+    width: 100% !important;
+    min-height: 280px !important;
+    max-height: 380px !important;
+  }
+
+  .studio-metrics-sidebar {
+    width: 100% !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+
+  .safety-alert-card,
+  .emergency-dispatched-card {
+    max-width: 92vw !important;
+    padding: 1.25rem !important;
+    margin: auto !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -3118,10 +3145,52 @@ select.form-select option {
   .btn-book {
     width: 100% !important;
     justify-content: center !important;
+    min-height: 44px;
   }
 
   .fee-block {
     text-align: center !important;
+  }
+
+  /* Search & Filter Controls Stack */
+  .search-filter-container {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    align-items: stretch !important;
+  }
+
+  .filter-controls-row {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+
+  .filter-control-item {
+    width: 100% !important;
+  }
+
+  .filter-select {
+    width: 100% !important;
+  }
+
+  /* Type Selector Stack on Micro Phones */
+  .type-selector {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .type-btn {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+
+  /* Slot button tap target */
+  .slot-btn {
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 }
 

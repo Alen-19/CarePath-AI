@@ -812,3 +812,36 @@
   }
 }
 
+@media (max-width: 480px) {
+  .brand-title {
+    display: none !important;
+  }
+
+  .consultation-header {
+    justify-content: space-between !important;
+    gap: 6px !important;
+  }
+
+  .header-left, .header-center, .header-right {
+    flex: 0 0 auto !important;
+  }
+
+  .consultation-info {
+    font-size: 0.78rem !important;
+  }
+
+  .participant-name {
+    max-width: 100px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: inline-block !important;
+  }
+
+  .local-pip-container {
+    width: 90px !important;
+    height: 62px !important;
+  }
+}
+
+
