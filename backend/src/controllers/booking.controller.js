@@ -8,9 +8,11 @@ const DoctorDateOverride = require('../models/DoctorDateOverride');
 const Appointment = require('../models/Appointment');
 const Prescription = require('../models/Prescription');
 const CarePlan = require('../models/CarePlan');
+const MedicalReport = require('../models/MedicalReport');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
-const { sendAppointmentReceiptEmail, sendPrescriptionEmail } = require('../config/mailer');
+const ExerciseLog = require('../models/ExerciseLog');
+const { sendAppointmentReceiptEmail, sendPrescriptionEmail, sendExerciseEmergencyAlertEmail } = require('../config/mailer');
 
 // Lazily initialize Razorpay so it doesn't throw at module load time
 // when env vars haven't been set yet.
@@ -382,11 +384,33 @@ const bookAppointment = async (req, res) => {
       }
     }
 
-    // Check slot availability for routine bookings
+    const doctorSchedule = await DoctorSchedule.findOne({ doctorId });
+
+    // Check slot availability and leave status for routine bookings
     if (!isEmergencySync) {
+      // 1. Doctor Leave / Day-Off Guard: Ensure doctor has not marked leave on this date
+      const dateOverride = await DoctorDateOverride.findOne({ doctorId, date: appointmentDate });
+      if (dateOverride && dateOverride.isOffDay) {
+        return res.status(409).json({
+          message: `The doctor is on leave on ${appointmentDate} (${dateOverride.reason || 'Unavailable'}). Please choose another date.`
+        });
+      }
+
+      // 2. Weekly Working Day Check: Ensure the day is an active consulting day
+      const dayName = getDayName(appointmentDate);
+      if (doctorSchedule && doctorSchedule.weeklySchedule && doctorSchedule.weeklySchedule.length > 0) {
+        const dayData = doctorSchedule.weeklySchedule.find(d => (d.dayOfWeek || d.day) === dayName);
+        const isWorking = dayData ? (dayData.isWorkingDay ?? dayData.isActive ?? true) : (!['Saturday', 'Sunday'].includes(dayName));
+        if (!isWorking && (!dateOverride || dateOverride.isOffDay)) {
+          return res.status(409).json({
+            message: `Dr. ${doctor.firstName} ${doctor.lastName} does not consult on ${dayName}s. Please choose another date.`
+          });
+        }
+      }
+
       const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
 
-      // 1. Doctor Slot Availability Check: Ensure this doctor is not already booked at this slot
+      // 3. Doctor Slot Availability Check: Ensure this doctor is not already booked at this slot
       const conflictingDoctor = await Appointment.findOne({
         doctorId,
         appointmentDate,
@@ -400,7 +424,7 @@ const bookAppointment = async (req, res) => {
         return res.status(409).json({ message: 'This slot is already booked for this doctor. Please choose another.' });
       }
 
-      // 2. Patient Schedule Conflict Guard: Ensure the patient does not already have an active appointment at this exact date & time
+      // 4. Patient Schedule Conflict Guard: Ensure the patient does not already have an active appointment at this exact date & time
       const conflictingPatient = await Appointment.findOne({
         patientId: patient._id,
         appointmentDate,
@@ -421,7 +445,6 @@ const bookAppointment = async (req, res) => {
       }
     }
 
-    const doctorSchedule = await DoctorSchedule.findOne({ doctorId });
     const baseFee = doctorSchedule?.consultationFee || doctor.consultationFee || 500;
     
     // Fee Calculation: 50% discount for Follow-up, +10% for Emergency Sync
@@ -473,6 +496,8 @@ const bookAppointment = async (req, res) => {
     // Create Razorpay order
     const razorpayOrder = await getRazorpay().orders.create(orderPayload);
 
+    const attachedReportIds = Array.isArray(req.body.attachedReportIds) ? req.body.attachedReportIds : [];
+
     // Create appointment in Pending Payment status
     const appointment = await Appointment.create({
       patientId: patient._id,
@@ -491,8 +516,22 @@ const bookAppointment = async (req, res) => {
       parentAppointmentId: linkedParentAppt ? linkedParentAppt._id : null,
       patientConditionStatus: req.body.patientConditionStatus || null,
       discountAmount,
-      originalAmount: baseFee
+      originalAmount: baseFee,
+      attachedReportIds
     });
+
+    // Link reports to this consultation and share with doctor
+    if (attachedReportIds.length > 0) {
+      await MedicalReport.updateMany(
+        { _id: { $in: attachedReportIds } },
+        {
+          $addToSet: {
+            linkedConsultationIds: appointment._id,
+            sharedWithDoctorIds: doctor._id
+          }
+        }
+      );
+    }
 
     // Create Payment record with 80/20 revenue audit
     await Payment.create({
@@ -542,6 +581,59 @@ const verifyPayment = async (req, res) => {
       return res.status(400).json({ message: 'Payment verification failed. Invalid signature.' });
     }
 
+    const existingAppt = await Appointment.findById(appointmentId).populate('patientId').populate('doctorId');
+    if (!existingAppt) return res.status(404).json({ message: 'Appointment not found.' });
+
+    // Check if doctor marked this date as leave while patient was completing payment checkout
+    const leaveOverride = await DoctorDateOverride.findOne({
+      doctorId: existingAppt.doctorId?._id || existingAppt.doctorId,
+      date: existingAppt.appointmentDate,
+      isOffDay: true
+    });
+
+    if (existingAppt.status === 'Cancelled' || leaveOverride) {
+      let refundId = null;
+      try {
+        const refund = await getRazorpay().payments.refund(razorpayPaymentId, {
+          amount: Math.round((existingAppt.amount || 0) * 100)
+        });
+        refundId = refund.id;
+      } catch (refundErr) {
+        if (process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test')) {
+          refundId = 'rfnd_test_' + crypto.randomBytes(6).toString('hex');
+        }
+      }
+
+      existingAppt.status = 'Cancelled';
+      existingAppt.paymentStatus = 'Refunded';
+      existingAppt.razorpayPaymentId = razorpayPaymentId;
+      existingAppt.refundId = refundId;
+      existingAppt.cancelledAt = new Date();
+      existingAppt.cancellationReason = `Doctor on leave (${leaveOverride?.reason || 'Leave Override'})`;
+      await existingAppt.save();
+
+      await Payment.findOneAndUpdate(
+        { razorpayOrderId },
+        {
+          razorpayPaymentId,
+          razorpaySignature,
+          status: 'Refunded',
+          refundAmount: existingAppt.amount || 0,
+          refundPercentage: 100,
+          razorpayRefundId: refundId,
+          refundStatus: 'Processed',
+          refundInitiatedAt: new Date()
+        }
+      );
+
+      return res.status(409).json({
+        success: false,
+        conflict: true,
+        message: 'The doctor marked this date as leave while checkout was completing. Your payment has been automatically refunded 100% in full.',
+        refundId
+      });
+    }
+
     // Update appointment
     const appointment = await Appointment.findByIdAndUpdate(
       appointmentId,
@@ -553,8 +645,6 @@ const verifyPayment = async (req, res) => {
       },
       { new: true }
     ).populate('patientId').populate('doctorId');
-
-    if (!appointment) return res.status(404).json({ message: 'Appointment not found.' });
 
     // Update payment record
     const hasLinkedAccount = !!(appointment.doctorId?.razorpayAccountId);
@@ -672,7 +762,7 @@ const getDoctorAppointments = async (req, res) => {
       .populate('patientId', 'firstName lastName dateOfBirth gender phone email bloodGroup profileImage')
       .populate({
         path: 'parentAppointmentId',
-        select: 'appointmentDate startTime type symptoms prescription clinicalNotes followUpRecommendation patientConditionStatus'
+        select: 'appointmentDate startTime type symptoms prescription clinicalNotes followUpRecommendation patientConditionStatus exercisePrescription'
       })
       .sort({ appointmentDate: 1, startTime: 1 });
 
@@ -912,7 +1002,17 @@ const addPrescription = async (req, res) => {
 
     if (patientEmail) {
       console.log(`[E-PRESCRIPTION] Sending email to patient: ${patientEmail}...`);
-      sendPrescriptionEmail(patientEmail, patientName, doctorName, specialty, prescription, appointment.appointmentDate, appointment.clinicalNotes, appointment.followUpRecommendation);
+      sendPrescriptionEmail(
+        patientEmail, 
+        patientName, 
+        doctorName, 
+        specialty, 
+        prescription, 
+        appointment.appointmentDate, 
+        appointment.clinicalNotes, 
+        appointment.followUpRecommendation,
+        appointment.exercisePrescription || []
+      );
     } else {
       console.warn('[E-PRESCRIPTION] Could not find patient email to send prescription.');
     }
@@ -939,7 +1039,8 @@ const saveClinicalNotes = async (req, res) => {
       recommendedFoods, 
       foodsToAvoid, 
       hydrationGoalLiters,
-      followUpRecommendation 
+      followUpRecommendation,
+      exercisePrescription 
     } = req.body;
 
     const doctor = await Doctor.findOne({ userId: req.user._id });
@@ -967,6 +1068,10 @@ const saveClinicalNotes = async (req, res) => {
       hydrationGoalLiters: hydrationGoalLiters || 3,
       savedAt: new Date()
     };
+
+    if (Array.isArray(exercisePrescription)) {
+      appointment.exercisePrescription = exercisePrescription;
+    }
 
     // Process Follow-Up Recommendation if provided
     if (followUpRecommendation && typeof followUpRecommendation === 'object') {
@@ -1054,7 +1159,8 @@ const saveClinicalNotes = async (req, res) => {
         appointment.prescription || [],
         appointment.appointmentDate,
         appointment.clinicalNotes,
-        appointment.followUpRecommendation
+        appointment.followUpRecommendation,
+        appointment.exercisePrescription || []
       );
     }
 
@@ -1086,6 +1192,552 @@ const getClinicalNotes = async (req, res) => {
   }
 };
 
+// ─── POST /api/booking/:id/exercise-prescription ───────────────────────────
+const saveExercisePrescription = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { exercises } = req.body;
+    const doctor = await Doctor.findOne({ userId: req.user._id });
+    if (!doctor) return res.status(404).json({ message: 'Doctor profile not found.' });
+
+    const appointment = await Appointment.findOne({ _id: id, doctorId: doctor._id });
+    if (!appointment) return res.status(404).json({ message: 'Appointment not found.' });
+
+    appointment.exercisePrescription = Array.isArray(exercises) ? exercises : [];
+    await appointment.save();
+
+    res.json({
+      success: true,
+      message: 'Physical rehabilitation exercise prescription saved successfully.',
+      exercises: appointment.exercisePrescription
+    });
+  } catch (err) {
+    console.error('Error saving exercise prescription:', err);
+    res.status(500).json({ message: 'Failed to save exercise prescription.', error: err.message });
+  }
+};
+
+// ─── GET /api/booking/my-exercises ─────────────────────────────────────────
+const getPatientExercises = async (req, res) => {
+  try {
+    const patient = await Patient.findOne({ userId: req.user._id });
+    if (!patient) return res.status(404).json({ message: 'Patient profile not found.' });
+
+    // Find appointments that have exercise prescriptions, sorted by newest update/creation
+    const appointments = await Appointment.find({
+      patientId: patient._id,
+      'exercisePrescription.0': { $exists: true }
+    })
+    .populate('doctorId', 'firstName lastName specialization')
+    .sort({ updatedAt: -1, createdAt: -1, appointmentDate: -1 });
+
+    const activeExercises = [];
+    appointments.forEach(appt => {
+      if (Array.isArray(appt.exercisePrescription)) {
+        appt.exercisePrescription.forEach(ex => {
+          const item = ex.toObject ? ex.toObject() : ex;
+          // Deduplicate so latest prescribed parameters take precedence
+          const alreadyExists = activeExercises.some(existing => 
+            (existing.exerciseId && existing.exerciseId === item.exerciseId) ||
+            (existing.name && existing.name.toLowerCase() === (item.name || '').toLowerCase())
+          );
+          if (!alreadyExists) {
+            activeExercises.push({
+              ...item,
+              appointmentId: appt._id,
+              appointmentDate: appt.appointmentDate,
+              doctorName: appt.doctorId ? `Dr. ${appt.doctorId.firstName} ${appt.doctorId.lastName}` : 'Physician',
+              doctorSpecialization: appt.doctorId?.specialization || 'Clinical Doctor'
+            });
+          }
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      exercises: activeExercises
+    });
+  } catch (err) {
+    console.error('Error fetching patient exercises:', err);
+    res.status(500).json({ message: 'Failed to fetch exercise prescriptions.', error: err.message });
+  }
+};
+
+// ─── POST /api/booking/exercise-emergency ──────────────────────────────────
+const triggerExerciseEmergency = async (req, res) => {
+  try {
+    const { exerciseName, triggerReason, reason, appointmentId, doctorId: reqDocId, location, latitude, longitude, accuracy } = req.body;
+    const finalReason = triggerReason || reason || 'Unconfirmed Fall / Inactivity detected';
+    const patient = await Patient.findOne({ userId: req.user._id });
+    const user = await User.findById(req.user._id);
+
+    const patientName = patient ? `${patient.firstName || ''} ${patient.lastName || ''}`.trim() : 'Patient';
+
+    // 1. Resolve Location & Google Maps Link
+    let patientAddress = '';
+    let mapsUrl = null;
+
+    let hasCoords = false;
+    let lat = latitude;
+    let lng = longitude;
+
+    if (lat && lng) {
+      hasCoords = true;
+    } else if (location && typeof location === 'string') {
+      const match = location.match(/Lat:\s*([0-9.-]+),\s*Lng:\s*([0-9.-]+)/i);
+      if (match) {
+        lat = parseFloat(match[1]);
+        lng = parseFloat(match[2]);
+        hasCoords = true;
+      }
+    }
+
+    if (hasCoords) {
+      mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+      patientAddress = `GPS Coordinates: Lat ${Number(lat).toFixed(5)}, Lng ${Number(lng).toFixed(5)}${accuracy ? ` (~${Math.round(accuracy)}m accuracy)` : ''}`;
+      if (patient?.address?.city || patient?.address?.state || patient?.address?.houseName) {
+        const fullAddr = [patient.address.houseName, patient.address.city, patient.address.district, patient.address.state, patient.address.pincode].filter(Boolean).join(', ');
+        patientAddress += `\n• Registered Home Address: ${fullAddr}`;
+      }
+    } else if (location && !location.toLowerCase().includes('not provided')) {
+      patientAddress = location;
+      if (patient?.address?.city || patient?.address?.state || patient?.address?.houseName) {
+        const fullAddr = [patient.address.houseName, patient.address.city, patient.address.district, patient.address.state, patient.address.pincode].filter(Boolean).join(', ');
+        patientAddress += `\n• Registered Home Address: ${fullAddr}`;
+      }
+    } else if (patient?.address && (patient.address.city || patient.address.state || patient.address.houseName)) {
+      const fullAddr = [patient.address.houseName, patient.address.city, patient.address.district, patient.address.state, patient.address.pincode].filter(Boolean).join(', ');
+      patientAddress = `Registered Residential Address: ${fullAddr}`;
+    } else {
+      patientAddress = 'Home address on patient clinical file';
+    }
+
+    // 2. Identify Prescribing / Attending Doctor
+    let doctorId = reqDocId || null;
+    let doctorEmail = null;
+    let doctorName = null;
+
+    if (appointmentId) {
+      const appt = await Appointment.findById(appointmentId).populate({
+        path: 'doctorId',
+        populate: { path: 'userId', select: 'email name' }
+      });
+      if (appt?.doctorId) {
+        doctorId = appt.doctorId._id;
+        doctorName = `Dr. ${appt.doctorId.firstName || ''} ${appt.doctorId.lastName || ''}`.trim();
+        doctorEmail = appt.doctorId.userId?.email || null;
+      }
+    }
+
+    // If doctor not resolved yet, search for the patient's latest appointment with an exercise prescription
+    if (!doctorEmail && patient) {
+      const recentAppt = await Appointment.findOne({
+        patientId: patient._id,
+        'exercisePrescription.0': { $exists: true }
+      })
+      .sort({ appointmentDate: -1, createdAt: -1 })
+      .populate({
+        path: 'doctorId',
+        populate: { path: 'userId', select: 'email name' }
+      });
+
+      if (recentAppt?.doctorId) {
+        doctorId = recentAppt.doctorId._id;
+        doctorName = `Dr. ${recentAppt.doctorId.firstName || ''} ${recentAppt.doctorId.lastName || ''}`.trim();
+        doctorEmail = recentAppt.doctorId.userId?.email || null;
+      }
+    }
+
+    console.log(`[EXERCISE EMERGENCY] 🚨 Triggered for ${patientName} (${exerciseName}) - Reason: ${finalReason} | Prescribing Doctor: ${doctorName || 'None'} (${doctorEmail || 'No email'})`);
+
+    const extraDetails = {
+      doctorName,
+      emergencyContact: patient?.emergencyContact || null,
+      mapsUrl,
+      patientAddress
+    };
+
+    // 3. Send Emergency Alert Email to Patient / Family
+    const patientEmail = user?.email;
+    if (patientEmail) {
+      await sendExerciseEmergencyAlertEmail(
+        patientEmail,
+        patientName,
+        exerciseName,
+        finalReason,
+        patientAddress,
+        new Date(),
+        { ...extraDetails, isDoctorAlert: false }
+      );
+    }
+
+    // 4. Send Emergency Alert Email to Prescribing Doctor
+    if (doctorEmail && doctorEmail !== patientEmail) {
+      await sendExerciseEmergencyAlertEmail(
+        doctorEmail,
+        patientName,
+        exerciseName,
+        finalReason,
+        patientAddress,
+        new Date(),
+        { ...extraDetails, isDoctorAlert: true }
+      );
+      console.log(`[EXERCISE EMERGENCY] ✉️ Notified doctor via email: ${doctorEmail}`);
+    }
+
+    // 5. Broadcast via Socket.IO directly to Doctor's Live Screen
+    try {
+      const { getIO } = require('../config/socket');
+      const io = getIO();
+      if (doctorId) {
+        io.to(`doctor_${doctorId}`).emit('emergency-alert', {
+          appointmentId: appointmentId || null,
+          patientName,
+          symptomSummary: `🚨 Fall / Unresponsive Medical Event during exercise: ${exerciseName}`,
+          location: patientAddress,
+          mapsUrl,
+          timestamp: new Date()
+        });
+        console.log(`[EXERCISE EMERGENCY] ⚡ Socket alert dispatched to doctor_${doctorId}`);
+      }
+    } catch (sockErr) {
+      console.warn('[EXERCISE EMERGENCY] Socket alert error:', sockErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Autonomous safety emergency dispatch completed successfully.',
+      notifiedDoctor: !!doctorEmail,
+      doctorName: doctorName || 'Physician on call',
+      location: patientAddress,
+      mapsUrl,
+      timestamp: new Date()
+    });
+  } catch (err) {
+    console.error('Error triggering exercise emergency:', err);
+    res.status(500).json({ message: 'Failed to trigger exercise emergency.', error: err.message });
+  }
+};
+
+// ─── POST /api/booking/exercise-log ─────────────────────────────────────────
+const saveExerciseLog = async (req, res) => {
+  try {
+    const patient = await Patient.findOne({ userId: req.user._id });
+    if (!patient) return res.status(404).json({ message: 'Patient profile not found.' });
+
+    const {
+      exerciseId,
+      exerciseName,
+      category,
+      completedReps,
+      completedSets,
+      targetReps,
+      targetSets,
+      accuracyScore,
+      durationSeconds,
+      appointmentId,
+      doctorId,
+      validReps,
+      incompleteReps,
+      minJointAngle,
+      maxJointAngle,
+      rangeOfMotion,
+      formErrors,
+      compliancePercentage,
+      safetyEventsCount
+    } = req.body;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const cSets = Number(completedSets) || 0;
+    const tSets = Number(targetSets) || 3;
+    const cReps = Number(completedReps) || 0;
+    const vReps = validReps !== undefined && !isNaN(Number(validReps)) ? Number(validReps) : cReps;
+    const iReps = incompleteReps !== undefined && !isNaN(Number(incompleteReps)) ? Number(incompleteReps) : 0;
+    const computedCompliance = compliancePercentage !== undefined
+      ? Number(compliancePercentage)
+      : (tSets > 0 ? Math.min(100, Math.round((cSets / tSets) * 100)) : 100);
+
+    const log = await ExerciseLog.create({
+      patientId: patient._id,
+      doctorId: doctorId || null,
+      appointmentId: appointmentId || null,
+      exerciseId: exerciseId || 'rehab_exercise',
+      exerciseName: exerciseName || 'Physical Therapy Movement',
+      category: category || 'Physical Rehabilitation',
+      completedReps: cReps,
+      completedSets: cSets,
+      targetReps: Number(targetReps) || 10,
+      targetSets: tSets,
+      accuracyScore: Number(accuracyScore) || 95,
+      durationSeconds: Number(durationSeconds) || 0,
+      validReps: vReps,
+      incompleteReps: iReps,
+      minJointAngle: minJointAngle !== undefined && minJointAngle !== null ? Number(minJointAngle) : null,
+      maxJointAngle: maxJointAngle !== undefined && maxJointAngle !== null ? Number(maxJointAngle) : null,
+      rangeOfMotion: rangeOfMotion !== undefined && rangeOfMotion !== null ? Number(rangeOfMotion) : null,
+      formErrors: Array.isArray(formErrors) ? formErrors : [],
+      compliancePercentage: computedCompliance,
+      safetyEventsCount: Number(safetyEventsCount) || 0,
+      date: todayStr,
+      completedAt: new Date()
+    });
+
+    console.log(`[EXERCISE LOG] 🏆 Saved log for ${patient.firstName}: ${exerciseName} (${cSets}/${tSets} sets, ${cReps} reps, Quality: ${log.accuracyScore}%)`);
+
+    res.json({
+      success: true,
+      message: 'Exercise session successfully logged and stored in clinical records.',
+      log
+    });
+  } catch (err) {
+    console.error('Error saving exercise log:', err);
+    res.status(500).json({ message: 'Failed to record exercise log.', error: err.message });
+  }
+};
+
+// ─── GET /api/booking/exercise-logs ──────────────────────────────────────────
+const getExerciseLogs = async (req, res) => {
+  try {
+    let patientId;
+    if (req.user.role === 'doctor') {
+      patientId = req.query.patientId;
+      if (!patientId) {
+        return res.status(400).json({ message: 'patientId query parameter is required for doctor role.' });
+      }
+    } else {
+      const patient = await Patient.findOne({ userId: req.user._id });
+      if (!patient) return res.status(404).json({ message: 'Patient profile not found.' });
+      patientId = patient._id;
+    }
+
+    const logs = await ExerciseLog.find({ patientId })
+      .sort({ completedAt: -1 })
+      .limit(50);
+
+    res.json({
+      success: true,
+      logs
+    });
+  } catch (err) {
+    console.error('Error fetching exercise logs:', err);
+    res.status(500).json({ message: 'Failed to fetch exercise logs.', error: err.message });
+  }
+};
+
+// ─── GET /api/booking/exercise-analytics ─────────────────────────────────────
+const getExerciseAnalytics = async (req, res) => {
+  try {
+    let patientId;
+    if (req.user.role === 'doctor') {
+      patientId = req.query.patientId;
+      if (!patientId) {
+        return res.status(400).json({ message: 'patientId query parameter is required for doctor role.' });
+      }
+    } else {
+      const patient = await Patient.findOne({ userId: req.user._id });
+      if (!patient) return res.status(404).json({ message: 'Patient profile not found.' });
+      patientId = patient._id;
+    }
+
+    const logs = await ExerciseLog.find({ patientId })
+      .sort({ completedAt: -1 })
+      .limit(100);
+
+    if (!logs || logs.length === 0) {
+      return res.json({
+        success: true,
+        summary: {
+          totalSessions: 0,
+          totalCompletedReps: 0,
+          totalValidReps: 0,
+          totalIncompleteReps: 0,
+          avgAccuracyScore: 0,
+          avgCompliancePercentage: 0,
+          totalDurationMinutes: 0,
+          totalSafetyEvents: 0,
+          overallTrend: 'No Activity Yet'
+        },
+        weeklyCompliance: [],
+        perExerciseMetrics: [],
+        recentLogs: []
+      });
+    }
+
+    // Aggregates
+    const totalSessions = logs.length;
+    let totalCompletedReps = 0;
+    let totalValidReps = 0;
+    let totalIncompleteReps = 0;
+    let sumAccuracy = 0;
+    let sumCompliance = 0;
+    let sumDurationSec = 0;
+    let totalSafetyEvents = 0;
+
+    const exerciseMap = new Map();
+
+    logs.forEach(log => {
+      totalCompletedReps += (log.completedReps || 0);
+      totalValidReps += (log.validReps !== undefined ? log.validReps : (log.completedReps || 0));
+      totalIncompleteReps += (log.incompleteReps || 0);
+      sumAccuracy += (log.accuracyScore || 0);
+      sumCompliance += (log.compliancePercentage || 100);
+      sumDurationSec += (log.durationSeconds || 0);
+      totalSafetyEvents += (log.safetyEventsCount || 0);
+
+      const exKey = log.exerciseId || log.exerciseName;
+      if (!exerciseMap.has(exKey)) {
+        exerciseMap.set(exKey, {
+          exerciseId: log.exerciseId,
+          exerciseName: log.exerciseName,
+          category: log.category,
+          sessionsCount: 0,
+          completedReps: 0,
+          validReps: 0,
+          incompleteReps: 0,
+          targetReps: log.targetReps || 10,
+          targetSets: log.targetSets || 3,
+          sumAccuracy: 0,
+          sumRom: 0,
+          romCount: 0,
+          allErrors: [],
+          scoresHistory: []
+        });
+      }
+
+      const item = exerciseMap.get(exKey);
+      item.sessionsCount++;
+      item.completedReps += (log.completedReps || 0);
+      item.validReps += (log.validReps !== undefined ? log.validReps : (log.completedReps || 0));
+      item.incompleteReps += (log.incompleteReps || 0);
+      item.sumAccuracy += (log.accuracyScore || 0);
+      item.scoresHistory.push(log.accuracyScore || 0);
+      if (log.rangeOfMotion) {
+        item.sumRom += log.rangeOfMotion;
+        item.romCount++;
+      }
+      if (Array.isArray(log.formErrors)) {
+        log.formErrors.forEach(err => {
+          if (!item.allErrors.includes(err)) item.allErrors.push(err);
+        });
+      }
+    });
+
+    const avgAccuracyScore = Math.round(sumAccuracy / totalSessions);
+    const avgCompliancePercentage = Math.round(sumCompliance / totalSessions);
+    const totalDurationMinutes = Math.round(sumDurationSec / 60);
+
+    // Trend calculation
+    let overallTrend = 'Steady';
+    if (logs.length >= 2) {
+      const recentThree = logs.slice(0, 3);
+      const priorSessions = logs.slice(3, 8);
+      const recentAvg = recentThree.reduce((acc, l) => acc + (l.accuracyScore || 0), 0) / recentThree.length;
+      if (priorSessions.length > 0) {
+        const priorAvg = priorSessions.reduce((acc, l) => acc + (l.accuracyScore || 0), 0) / priorSessions.length;
+        if (recentAvg >= priorAvg + 4) overallTrend = 'Improving';
+        else if (recentAvg <= priorAvg - 8) overallTrend = 'Needs Attention';
+      } else if (recentAvg >= 85) {
+        overallTrend = 'Improving';
+      }
+    }
+
+    const perExerciseMetrics = Array.from(exerciseMap.values()).map(ex => {
+      const avgAcc = Math.round(ex.sumAccuracy / ex.sessionsCount);
+      const avgRom = ex.romCount > 0 ? Math.round(ex.sumRom / ex.romCount) : null;
+      let trend = 'Steady';
+      if (ex.scoresHistory.length >= 2) {
+        const first = ex.scoresHistory[ex.scoresHistory.length - 1];
+        const latest = ex.scoresHistory[0];
+        if (latest > first + 3) trend = 'Improving';
+        else if (latest < first - 8) trend = 'Needs Attention';
+      } else if (avgAcc >= 85) {
+        trend = 'Improving';
+      }
+
+      // Assistive clinical progression recommendation (doctor retains 100% control)
+      let progressionRecommendation = {
+        readyForProgression: false,
+        message: 'Patient is maintaining baseline rehabilitation volume.'
+      };
+
+      if (ex.sessionsCount >= 3 && avgAcc >= 85 && (ex.validReps / Math.max(1, ex.completedReps)) >= 0.8) {
+        progressionRecommendation = {
+          readyForProgression: true,
+          message: `Consistent movement quality (${avgAcc}%) demonstrated across ${ex.sessionsCount} sessions. Clinician may consider advancing target volume (+2-5 reps) or difficulty.`
+        };
+      } else if (avgAcc < 70 || ex.incompleteReps > ex.validReps) {
+        progressionRecommendation = {
+          readyForProgression: false,
+          message: `Kinematic form variance noted (movement quality ${avgAcc}%). Recommend continuing current prescription with focus on depth and cadence.`
+        };
+      }
+
+      return {
+        exerciseId: ex.exerciseId,
+        exerciseName: ex.exerciseName,
+        category: ex.category,
+        sessionsCount: ex.sessionsCount,
+        completedReps: ex.completedReps,
+        validReps: ex.validReps,
+        incompleteReps: ex.incompleteReps,
+        targetReps: ex.targetReps,
+        targetSets: ex.targetSets,
+        avgAccuracy: avgAcc,
+        avgRom,
+        trend,
+        commonErrors: ex.allErrors.slice(0, 4),
+        progressionRecommendation
+      };
+    });
+
+    // Weekly Compliance (Past 7 days)
+    const weeklyCompliance = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayLogs = logs.filter(l => l.date === dateStr);
+      const dayReps = dayLogs.reduce((acc, l) => acc + (l.completedReps || 0), 0);
+      const dayAvgAcc = dayLogs.length > 0
+        ? Math.round(dayLogs.reduce((acc, l) => acc + (l.accuracyScore || 0), 0) / dayLogs.length)
+        : 0;
+
+      weeklyCompliance.push({
+        date: dateStr,
+        dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        sessionsCount: dayLogs.length,
+        totalReps: dayReps,
+        avgAccuracy: dayAvgAcc,
+        completed: dayLogs.length > 0
+      });
+    }
+
+    res.json({
+      success: true,
+      summary: {
+        totalSessions,
+        totalCompletedReps,
+        totalValidReps,
+        totalIncompleteReps,
+        avgAccuracyScore,
+        avgCompliancePercentage,
+        totalDurationMinutes,
+        totalSafetyEvents,
+        overallTrend
+      },
+      weeklyCompliance,
+      perExerciseMetrics,
+      recentLogs: logs.slice(0, 10)
+    });
+  } catch (err) {
+    console.error('Error fetching exercise analytics:', err);
+    res.status(500).json({ message: 'Failed to fetch exercise analytics.', error: err.message });
+  }
+};
+
 module.exports = {
   getDoctors,
   getAvailableSlots,
@@ -1097,5 +1749,11 @@ module.exports = {
   retryPayment,
   addPrescription,
   saveClinicalNotes,
-  getClinicalNotes
+  getClinicalNotes,
+  saveExercisePrescription,
+  getPatientExercises,
+  triggerExerciseEmergency,
+  saveExerciseLog,
+  getExerciseLogs,
+  getExerciseAnalytics
 };

@@ -148,6 +148,32 @@ function initSocket(server) {
       });
     });
 
+    // Relay In-Call Live Exercise Prescription Updates
+    socket.on('sync-exercise', (data) => {
+      const { appointmentId, exercises } = data || {};
+      if (!appointmentId) return;
+      const roomName = `room_${appointmentId}`;
+      socket.to(roomName).emit('exercise-updated', {
+        exercises: exercises || [],
+        doctorName: socket.data.userName || 'Doctor',
+        timestamp: new Date()
+      });
+    });
+
+    // Handle Exercise Fall / Inactivity Emergency Alert
+    socket.on('exercise-emergency', (data) => {
+      const { doctorId, patientName, exerciseName, appointmentId, reason } = data || {};
+      console.log(`[Socket.io] 🚨 Exercise Emergency Alert for ${patientName} (${exerciseName})`);
+      if (doctorId) {
+        io.to(`doctor_${doctorId}`).emit('emergency-alert', {
+          appointmentId,
+          patientName,
+          symptomSummary: `🚨 Exercise Safety Alert: ${reason || 'Fall Detected'} during ${exerciseName}`,
+          timestamp: new Date()
+        });
+      }
+    });
+
     // End Call Handler
     socket.on('end-call', async (data) => {
       const { appointmentId } = data || {};

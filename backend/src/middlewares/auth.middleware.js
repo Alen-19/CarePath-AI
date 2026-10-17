@@ -31,10 +31,8 @@ const authenticateJWT = async (req, res, next) => {
 
 const Doctor = require('../models/Doctor');
 
-const authorizeRoles = (roles = []) => {
-  if (typeof roles === 'string') {
-    roles = [roles];
-  }
+const authorizeRoles = (...rolesInput) => {
+  const roles = rolesInput.flat().filter(Boolean);
   return async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized.' });

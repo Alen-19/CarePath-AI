@@ -12,6 +12,7 @@ import {
   ClinicalNotesData
 } from '../../core/services/appointment.service';
 import { WebRtcService } from '../../core/services/webrtc.service';
+import { ReportService, MedicalReport } from '../../core/services/report.service';
 
 export interface PatientConsultationGroup {
   patientKey: string;
@@ -423,6 +424,50 @@ export class DoctorDashboardComponent implements OnInit {
   selectPatient(patientKey: string): void {
     this.selectedPatientKey = patientKey;
     this.mobileDetailViewActive = true;
+    this.loadSelectedPatientReports(patientKey);
+    this.loadSelectedPatientExerciseAnalytics(patientKey);
+  }
+
+  loadSelectedPatientReports(patientKey: string): void {
+    if (!patientKey) {
+      this.selectedPatientReports = [];
+      return;
+    }
+    this.loadingPatientReports = true;
+    this.reportService.getPatientReportsForDoctor(patientKey).subscribe({
+      next: (res) => {
+        this.loadingPatientReports = false;
+        if (res && res.success) {
+          this.selectedPatientReports = res.reports || [];
+        }
+      },
+      error: () => {
+        this.loadingPatientReports = false;
+        this.selectedPatientReports = [];
+      }
+    });
+  }
+
+  loadSelectedPatientExerciseAnalytics(patientKey: string): void {
+    if (!patientKey) {
+      this.selectedPatientExerciseAnalytics = null;
+      return;
+    }
+    this.loadingPatientExerciseAnalytics = true;
+    this.appointmentService.getExerciseAnalytics(patientKey).subscribe({
+      next: (res) => {
+        this.loadingPatientExerciseAnalytics = false;
+        if (res && res.success) {
+          this.selectedPatientExerciseAnalytics = res;
+        } else {
+          this.selectedPatientExerciseAnalytics = null;
+        }
+      },
+      error: () => {
+        this.loadingPatientExerciseAnalytics = false;
+        this.selectedPatientExerciseAnalytics = null;
+      }
+    });
   }
 
   backToPatientList(): void {
@@ -518,10 +563,19 @@ export class DoctorDashboardComponent implements OnInit {
     return (f + l).toUpperCase();
   }
 
+  // 📑 Medical Reports State for Selected Patient
+  selectedPatientReports: MedicalReport[] = [];
+  loadingPatientReports: boolean = false;
+
+  // 🏃 Rehabilitation & Exercise Telemetry Analytics State
+  selectedPatientExerciseAnalytics: any = null;
+  loadingPatientExerciseAnalytics: boolean = false;
+
   constructor(
     private authService: AuthService,
     private appointmentService: AppointmentService,
     private webRtcService: WebRtcService,
+    private reportService: ReportService,
     private router: Router
   ) {
     this.syncDoctorProfile();
@@ -765,8 +819,13 @@ export class DoctorDashboardComponent implements OnInit {
     this.profileErrMsg = '';
     this.passwordSuccess = '';
     this.passwordError = '';
-    if (tab === 'patient-records' && !this.selectedPatientKey && this.groupedPastPatients.length > 0) {
-      this.selectedPatientKey = this.groupedPastPatients[0].patientKey;
+    if (tab === 'patient-records') {
+      if (!this.selectedPatientKey && this.groupedPastPatients.length > 0) {
+        this.selectedPatientKey = this.groupedPastPatients[0].patientKey;
+      }
+      if (this.selectedPatientKey) {
+        this.loadSelectedPatientReports(this.selectedPatientKey);
+      }
     }
   }
 

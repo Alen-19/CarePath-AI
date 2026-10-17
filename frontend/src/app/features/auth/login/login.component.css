@@ -197,3 +197,43 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Google Sign-in Responsive Container */
+.google-signin-section {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+#googleBtn {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+#googleBtn iframe {
+  max-width: 100% !important;
+}
+
+@media (max-width: 480px) {
+  .auth-container {
+    padding: 1.5rem 1rem;
+  }
+
+  .auth-card {
+    padding: 1.75rem 1.25rem !important;
+    border-radius: 16px;
+  }
+
+  .auth-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .logo {
+    font-size: 1.85rem;
+  }
+}

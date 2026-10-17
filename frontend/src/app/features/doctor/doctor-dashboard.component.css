@@ -1961,6 +1961,158 @@
   border-color: #CBD5E1 !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   📱 MOBILE RESPONSIVENESS & TOUCH OPTIMIZATION (DOCTOR DASHBOARD)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Container & Navbar Compact */
+  .dashboard-container {
+    padding: 0.85rem 0.85rem !important;
+  }
+
+  .dashboard-navbar {
+    padding: 0.65rem 1rem !important;
+  }
+
+  .brand-logo {
+    font-size: 1.05rem !important;
+  }
+
+  .brand-logo-img {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .doctor-badge {
+    display: none !important;
+  }
+
+  .header-overview-btn {
+    padding: 0.45rem 0.75rem !important;
+    font-size: 0.78rem !important;
+    gap: 4px !important;
+  }
+
+  /* Welcome Banner Stacking */
+  .welcome-banner {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 1.25rem !important;
+    padding: 1.25rem 1rem !important;
+  }
+
+  .welcome-banner h1 {
+    font-size: 1.35rem !important;
+  }
+
+  .banner-actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .banner-actions button {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 0.75rem 1rem !important;
+  }
+
+  .banner-date {
+    align-items: flex-start !important;
+    margin-top: 0.25rem !important;
+  }
+
+  /* Stats Grid Compact */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .stat-card {
+    padding: 1rem !important;
+  }
+
+  .stat-value {
+    font-size: 1.4rem !important;
+  }
+
+  /* Schedule Management Modal on Mobile */
+  .modal-card.schedule-modal {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 92vh !important;
+    border-radius: 16px !important;
+  }
+
+  .modal-header {
+    padding: 1rem !important;
+  }
+
+  .modal-header h3 {
+    font-size: 1.1rem !important;
+  }
+
+  .modal-body {
+    padding: 1rem !important;
+  }
+
+  .day-sessions-container {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .override-form .form-row {
+    flex-direction: column !important;
+    gap: 0.6rem !important;
+  }
+
+  /* Conflict Warning Modal on Mobile */
+  .leave-conflict-backdrop {
+    padding: 0.75rem !important;
+  }
+
+  .leave-conflict-card {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    border-radius: 16px !important;
+  }
+
+  .leave-conflict-header {
+    padding: 1rem !important;
+  }
+
+  .leave-conflict-body {
+    padding: 1rem !important;
+    max-height: 60vh !important;
+  }
+
+  .leave-conflict-footer {
+    flex-direction: column-reverse !important;
+    gap: 0.6rem !important;
+    align-items: stretch !important;
+    padding: 0.85rem 1rem !important;
+  }
+
+  .leave-conflict-footer button {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .card-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+}
+
 
 
 

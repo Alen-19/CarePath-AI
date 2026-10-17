@@ -42,6 +42,7 @@ export class WebRtcService {
   public consultationResumed$ = new Subject<void>();
   public livePrescription$ = new BehaviorSubject<{ prescriptionList: any[]; doctorName?: string; timestamp?: string | Date }>({ prescriptionList: [] });
   public liveClinicalNotes$ = new BehaviorSubject<{ clinicalNotes: any; doctorName?: string; timestamp?: string | Date } | null>(null);
+  public liveExercises$ = new BehaviorSubject<{ exercises: any[]; doctorName?: string; timestamp?: string | Date }>({ exercises: [] });
 
   private currentAppointmentId: string | null = null;
   private currentTargetSocketId: string | null = null;
@@ -209,6 +210,12 @@ export class WebRtcService {
       console.log('[WebRtcService] 📝 Received Live Clinical Notes Update:', data);
       this.liveClinicalNotes$.next(data);
     });
+
+    // Live Exercise Prescription Updated
+    this.socket.on('exercise-updated', (data: { exercises: any[]; doctorName?: string; timestamp?: string | Date }) => {
+      console.log('[WebRtcService] 🏃 Received Live Exercise Update:', data);
+      this.liveExercises$.next(data);
+    });
   }
 
   public syncLivePrescription(appointmentId: string, prescriptionList: any[]): void {
@@ -220,6 +227,19 @@ export class WebRtcService {
   public syncLiveClinicalNotes(appointmentId: string, clinicalNotes: any): void {
     if (this.socket && appointmentId) {
       this.socket.emit('sync-clinical-notes', { appointmentId, clinicalNotes });
+    }
+  }
+
+  public syncLiveExercises(appointmentId: string, exercises: any[]): void {
+    if (this.socket && appointmentId) {
+      this.socket.emit('sync-exercise', { appointmentId, exercises });
+    }
+  }
+
+  public emitExerciseEmergency(data: { doctorId?: string; patientName: string; exerciseName: string; appointmentId?: string; reason: string }): void {
+    this.connect();
+    if (this.socket) {
+      this.socket.emit('exercise-emergency', data);
     }
   }
 
@@ -466,6 +486,7 @@ export class WebRtcService {
     this.chatMessages$.next([]);
     this.livePrescription$.next({ prescriptionList: [] });
     this.liveClinicalNotes$.next(null);
+    this.liveExercises$.next({ exercises: [] });
     this.isScreenSharing$.next(false);
 
     if (this.socket) {

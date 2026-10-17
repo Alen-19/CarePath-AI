@@ -49,4 +49,20 @@ router.get(
   appointmentController.getConsultationDetails
 );
 
+// Doctor invites next scheduled patient early via email
+router.post(
+  '/:id/invite-next-early',
+  authenticateJWT,
+  authorizeRoles(['doctor']),
+  appointmentController.inviteNextPatientEarly
+);
+
+// Doctor broadcasts delay notification to next waiting patient
+router.post(
+  '/:id/notify-delay',
+  authenticateJWT,
+  authorizeRoles(['doctor']),
+  appointmentController.notifyPatientDelay
+);
+
 module.exports = router;

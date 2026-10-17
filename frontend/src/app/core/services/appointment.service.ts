@@ -100,6 +100,7 @@ export interface BookAppointmentPayload {
   symptoms?: string;
   parentAppointmentId?: string;
   patientConditionStatus?: string;
+  attachedReportIds?: string[];
 }
 
 export interface BookingResponse {
@@ -159,6 +160,8 @@ export interface AppointmentItem {
   patientConditionStatus?: string;
   discountAmount?: number;
   originalAmount?: number;
+  attachedReportIds?: any[];
+  exercisePrescription?: ExerciseItem[];
 }
 
 export interface DoctorAppointmentItem {
@@ -171,10 +174,10 @@ export interface DoctorAppointmentItem {
     age?: number; 
     phone?: string; 
     email?: string; 
-    bloodGroup?: string;
-    gender?: string;
-    dateOfBirth?: string;
-    profileImage?: string;
+    bloodGroup?: string; 
+    gender?: string; 
+    dateOfBirth?: string; 
+    profileImage?: string; 
   };
   patientName?: string;
   appointmentDate: string;
@@ -197,6 +200,8 @@ export interface DoctorAppointmentItem {
   patientConditionStatus?: string;
   discountAmount?: number;
   originalAmount?: number;
+  attachedReportIds?: any[];
+  exercisePrescription?: ExerciseItem[];
 }
 
 export interface CancelResponse {
@@ -208,6 +213,23 @@ export interface CancelResponse {
   policy: string;
 }
 
+export interface ExerciseItem {
+  exerciseId: string;
+  name: string;
+  category?: string;
+  targetReps: number;
+  targetSets: number;
+  frequencyPerWeek: number;
+  precautions?: string;
+  videoUrl?: string;
+  targetAngleMin?: number;
+  targetAngleMax?: number;
+  appointmentId?: string;
+  appointmentDate?: string;
+  doctorName?: string;
+  doctorSpecialization?: string;
+}
+
 export interface ClinicalNotesData {
   doctorRemarks?: string;
   nutritionalTags?: string[];
@@ -216,6 +238,7 @@ export interface ClinicalNotesData {
   hydrationGoalLiters?: number;
   savedAt?: string;
   followUpRecommendation?: FollowUpRecommendation;
+  exercisePrescription?: ExerciseItem[];
 }
 
 @Injectable({
@@ -345,6 +368,19 @@ export class AppointmentService {
     appointment: any;
     meetingRoomId: string;
     callStatus: string;
+    nextAppointment?: {
+      _id: string;
+      startTime: string;
+      endTime: string;
+      type: string;
+      patientName: string;
+      patientEmail: string;
+      earlyInviteSentAt?: string;
+    } | null;
+    doctorLiveStatus?: {
+      isConsultingAnotherPatient: boolean;
+      delayNoticeMinutes: number;
+    } | null;
     iceServers: any[];
   }> {
     return this.http.get<{
@@ -352,8 +388,32 @@ export class AppointmentService {
       appointment: any;
       meetingRoomId: string;
       callStatus: string;
+      nextAppointment?: any;
+      doctorLiveStatus?: any;
       iceServers: any[];
     }>(`${this.apiUrl}/${appointmentId}/consultation`);
+  }
+
+  inviteNextPatientEarly(appointmentId: string): Observable<{
+    success: boolean;
+    message: string;
+    nextAppointment?: any;
+  }> {
+    return this.http.post<{
+      success: boolean;
+      message: string;
+      nextAppointment?: any;
+    }>(`${this.apiUrl}/${appointmentId}/invite-next-early`, {});
+  }
+
+  notifyPatientDelay(appointmentId: string, delayMinutes: number = 5): Observable<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.http.post<{
+      success: boolean;
+      message: string;
+    }>(`${this.apiUrl}/${appointmentId}/notify-delay`, { delayMinutes });
   }
 
   addPrescription(appointmentId: string, prescription: any[]): Observable<{
@@ -392,5 +452,153 @@ export class AppointmentService {
       clinicalNotes: ClinicalNotesData;
     }>(`${this.bookingUrl}/${appointmentId}/clinical-notes`);
   }
+
+  // ─── Physical Rehabilitation & Exercise Prescription ───────────────────────
+  saveExercisePrescription(appointmentId: string, exercises: ExerciseItem[]): Observable<{
+    success: boolean;
+    message: string;
+    exercises: ExerciseItem[];
+  }> {
+    return this.http.post<{
+      success: boolean;
+      message: string;
+      exercises: ExerciseItem[];
+    }>(`${this.bookingUrl}/${appointmentId}/exercise-prescription`, { exercises });
+  }
+
+  getMyPrescribedExercises(): Observable<{
+    success: boolean;
+    exercises: ExerciseItem[];
+  }> {
+    return this.http.get<{
+      success: boolean;
+      exercises: ExerciseItem[];
+    }>(`${this.bookingUrl}/my-exercises`);
+  }
+
+  triggerExerciseEmergency(payload: {
+    exerciseName: string;
+    triggerReason?: string;
+    reason?: string;
+    appointmentId?: string;
+    doctorId?: string;
+    location?: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    clientTimestamp?: string;
+  }): Observable<{
+    success: boolean;
+    message: string;
+    notifiedDoctor?: boolean;
+    doctorName?: string;
+    location?: string;
+    mapsUrl?: string;
+    timestamp: string;
+  }> {
+    return this.http.post<{
+      success: boolean;
+      message: string;
+      notifiedDoctor?: boolean;
+      doctorName?: string;
+      location?: string;
+      mapsUrl?: string;
+      timestamp: string;
+    }>(`${this.bookingUrl}/exercise-emergency`, payload);
+  }
+
+  recordExerciseLog(payload: {
+    exerciseId: string;
+    exerciseName: string;
+    category?: string;
+    completedReps: number;
+    completedSets: number;
+    targetReps?: number;
+    targetSets?: number;
+    accuracyScore?: number;
+    durationSeconds?: number;
+    appointmentId?: string;
+    doctorId?: string;
+    validReps?: number;
+    incompleteReps?: number;
+    minJointAngle?: number;
+    maxJointAngle?: number;
+    rangeOfMotion?: number;
+    formErrors?: string[];
+    compliancePercentage?: number;
+    safetyEventsCount?: number;
+  }): Observable<{
+    success: boolean;
+    message: string;
+    log: any;
+  }> {
+    return this.http.post<{
+      success: boolean;
+      message: string;
+      log: any;
+    }>(`${this.bookingUrl}/exercise-log`, payload);
+  }
+
+  getExerciseLogs(patientId?: string): Observable<{
+    success: boolean;
+    logs: any[];
+  }> {
+    const url = patientId 
+      ? `${this.bookingUrl}/exercise-logs?patientId=${patientId}` 
+      : `${this.bookingUrl}/exercise-logs`;
+    return this.http.get<{
+      success: boolean;
+      logs: any[];
+    }>(url);
+  }
+
+  getExerciseAnalytics(patientId?: string): Observable<{
+    success: boolean;
+    summary: {
+      totalSessions: number;
+      totalCompletedReps: number;
+      totalValidReps: number;
+      totalIncompleteReps: number;
+      avgAccuracyScore: number;
+      avgCompliancePercentage: number;
+      totalDurationMinutes: number;
+      totalSafetyEvents: number;
+      overallTrend: string;
+    };
+    weeklyCompliance: Array<{
+      date: string;
+      dayName: string;
+      sessionsCount: number;
+      totalReps: number;
+      avgAccuracy: number;
+      completed: boolean;
+    }>;
+    perExerciseMetrics: Array<{
+      exerciseId: string;
+      exerciseName: string;
+      category: string;
+      sessionsCount: number;
+      completedReps: number;
+      validReps: number;
+      incompleteReps: number;
+      targetReps: number;
+      targetSets: number;
+      avgAccuracy: number;
+      avgRom: number | null;
+      trend: string;
+      commonErrors: string[];
+      progressionRecommendation?: {
+        readyForProgression: boolean;
+        message: string;
+      };
+    }>;
+    recentLogs: any[];
+  }> {
+    const url = patientId 
+      ? `${this.bookingUrl}/exercise-analytics?patientId=${patientId}` 
+      : `${this.bookingUrl}/exercise-analytics`;
+    return this.http.get<any>(url);
+  }
 }
+
 

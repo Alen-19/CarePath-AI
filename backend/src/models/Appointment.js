@@ -97,6 +97,19 @@ const AppointmentSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // Early invite & Delay notification
+  earlyInviteSentAt: {
+    type: Date,
+    default: null
+  },
+  delayNoticeMinutes: {
+    type: Number,
+    default: 0
+  },
+  delayNoticeSentAt: {
+    type: Date,
+    default: null
+  },
   // Digital E-Prescription
   prescription: [{
     medicineName: { type: String, required: true },
@@ -118,6 +131,18 @@ const AppointmentSchema = new mongoose.Schema({
     hydrationGoalLiters: { type: Number, default: 3 },
     savedAt: { type: Date, default: null }
   },
+  // Physical Rehabilitation & Exercise Prescription
+  exercisePrescription: [{
+    exerciseId: { type: String, required: true },
+    name: { type: String, required: true },
+    targetReps: { type: Number, default: 10 },
+    targetSets: { type: Number, default: 3 },
+    frequencyPerWeek: { type: Number, default: 5 },
+    precautions: { type: String, default: '' },
+    videoUrl: { type: String, default: '' },
+    targetAngleMin: { type: Number, default: 80 },
+    targetAngleMax: { type: Number, default: 100 }
+  }],
   // Emergency Triage & Queue Shift fields
   isEmergency: {
     type: Boolean,
@@ -177,7 +202,11 @@ const AppointmentSchema = new mongoose.Schema({
   originalAmount: {
     type: Number,
     default: null
-  }
+  },
+  attachedReportIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'MedicalReport'
+  }]
 }, { 
   timestamps: true,
   collection: 'appointments'

@@ -1,52 +1,9 @@
-const axios = require('axios');
-
 /**
- * 🥗 Edamam Recipe Search & Nutritional CarePath Service
- * Connects to Edamam Recipe Search API v2 with intelligent fallback clinical recipes
+ * 🥗 CarePath AI Clinical Nutrition & Dietary Service
+ * Powered 100% by Google Gemini AI & Curated Clinical Nutrition Models
  */
 
-const EDAMAM_BASE_URL = 'https://api.edamam.com/api/recipes/v2';
-
-/**
- * Map Clinical Tags to Edamam Nutrient Filter Ranges
- */
-function mapTagsToEdamamNutrients(tags = []) {
-  const nutrients = {};
-
-  for (const tag of tags) {
-    const lower = tag.toLowerCase();
-
-    if (lower.includes('high-protein')) {
-      nutrients['PROCNT'] = '25+'; // 25g+ protein per serving
-    } else if (lower.includes('low-protein')) {
-      nutrients['PROCNT'] = '1-10';
-    }
-
-    if (lower.includes('low-sodium')) {
-      nutrients['NA'] = '0-400'; // Under 400mg sodium
-    }
-
-    if (lower.includes('diabetic') || lower.includes('low-carbs') || lower.includes('low-gi')) {
-      nutrients['CHOCDF'] = '5-30'; // Low glycemic index / low carb
-    }
-
-    if (lower.includes('high-fiber')) {
-      nutrients['FIBTG'] = '8+'; // 8g+ dietary fiber
-    }
-
-    if (lower.includes('high-iron')) {
-      nutrients['FE'] = '4+'; // 4mg+ iron
-    }
-
-    if (lower.includes('calcium')) {
-      nutrients['CA'] = '300+'; // 300mg+ calcium
-    }
-  }
-
-  return nutrients;
-}
-
-const { generateClinicalRecipesWithGemini } = require('./gemini.service');
+const { generateClinicalRecipesWithGemini, calculateDishMacrosWithGemini } = require('./gemini.service');
 
 /**
  * Fetch condition-tailored clinical recipes using Gemini AI Clinical Recipe Engine
@@ -178,17 +135,16 @@ function getClinicalFallbackRecipes(mealType, tags = []) {
 }
 
 /**
- * Analyze a specific food item's nutrition using Gemini AI and Edamam Food Database Parser API
- * (Used for Gemini Vision Photo Tracker)
+ * Analyze a specific food item's nutrition using Gemini AI
+ * with offline clinical dictionary fallback.
  */
 async function analyzeFoodItemNutrition(foodItemName) {
   if (!foodItemName) {
     throw new Error('Food item name is required for nutritional analysis.');
   }
 
-  // 1. Primary: Use Gemini AI for dynamic, highly accurate clinical nutrition
+  // 1. Primary: Dynamic clinical macro analysis with Google Gemini AI
   try {
-    const { calculateDishMacrosWithGemini } = require('./gemini.service');
     const geminiMacros = await calculateDishMacrosWithGemini(foodItemName);
     if (geminiMacros) {
       if (geminiMacros.isFood === false) {
@@ -205,44 +161,7 @@ async function analyzeFoodItemNutrition(foodItemName) {
     console.warn('[NUTRITION] Gemini calculation fallback:', geminiErr.message);
   }
 
-  // 2. Secondary: Query Edamam Food Database API if available
-  const appId = process.env.EDAMAM_FOOD_APP_ID || process.env.EDAMAM_APP_ID;
-  const appKey = process.env.EDAMAM_FOOD_APP_KEY || process.env.EDAMAM_APP_KEY;
-
-  if (appId && appKey) {
-    try {
-      const url = 'https://api.edamam.com/api/food-database/v2/parser';
-      const response = await axios.get(url, {
-        params: {
-          app_id: appId,
-          app_key: appKey,
-          ingr: foodItemName
-        },
-        timeout: 5000
-      });
-
-      if (response.data && response.data.parsed && response.data.parsed.length > 0) {
-        const food = response.data.parsed[0].food;
-        const nutrients = food.nutrients || {};
-
-        return {
-          foodItem: food.label || foodItemName,
-          category: food.category,
-          image: food.image,
-          calories: Math.round(nutrients.ENERC_KCAL || 0),
-          protein: Math.round(nutrients.PROCNT || 0),
-          fat: Math.round(nutrients.FAT || 0),
-          carbs: Math.round(nutrients.CHOCDF || 0),
-          fiber: Math.round(nutrients.FIBTG || 0),
-          sodium: Math.round(nutrients.NA || 0)
-        };
-      }
-    } catch (err) {
-      // Ignore 401 and fall to dictionary
-    }
-  }
-
-  // 3. Clinical Fallback Dictionary
+  // 2. Clinical Fallback Dictionary
   return getEstimatedMacros(foodItemName);
 }
 
@@ -300,6 +219,5 @@ function getEstimatedMacros(name = '') {
 
 module.exports = {
   fetchMealRecipes,
-  analyzeFoodItemNutrition,
-  mapTagsToEdamamNutrients
+  analyzeFoodItemNutrition
 };

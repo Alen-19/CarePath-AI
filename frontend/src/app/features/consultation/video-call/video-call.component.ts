@@ -4,9 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { WebRtcService, ChatMessage, PeerUser } from '../../../core/services/webrtc.service';
-import { AppointmentService } from '../../../core/services/appointment.service';
+import { AppointmentService, ExerciseItem } from '../../../core/services/appointment.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { MedicineService, MedicineItem } from '../../../core/services/medicine.service';
+import { ReportService, MedicalReport } from '../../../core/services/report.service';
 
 @Component({
   selector: 'app-video-call',
@@ -35,7 +36,26 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   isAudioMuted: boolean = false;
   isVideoOff: boolean = false;
   isScreenSharing: boolean = false;
-  activeSidebarTab: 'chat' | 'rx' | 'notes' | 'info' | 'prior' | null = 'chat';
+  activeSidebarTab: 'chat' | 'rx' | 'notes' | 'info' | 'prior' | 'reports' | 'exercise' | null = 'chat';
+
+  // 📑 Medical Reports State
+  attachedReports: MedicalReport[] = [];
+  loadingReports: boolean = false;
+
+  // ⏱️ Dynamic Queue & Scheduling States
+  nextAppointment: any = null;
+  doctorLiveStatus: any = null;
+  isCallOvertime: boolean = false;
+  overtimeAlertShown: boolean = false;
+
+  // 📧 Early Invitation Email State
+  sendingEarlyInvite: boolean = false;
+  earlyInviteSent: boolean = false;
+  earlyInviteMsg: string = '';
+
+  // ⏳ In-Call Delay Notification State
+  sendingDelayNotice: boolean = false;
+  delayNoticeSent: boolean = false;
 
   // Streams & Remote Peer
   localStream: MediaStream | null = null;
@@ -182,6 +202,88 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   unreadRxCount: number = 0;
   unreadNotesCount: number = 0;
 
+  // 🏋️ Clinical Physical Rehabilitation & AI Guided Exercises State
+  exerciseCatalog: ExerciseItem[] = [
+    {
+      exerciseId: 'squats',
+      name: 'Chair Squats (Knee & Hip Rehab)',
+      category: 'Lower Body & Joint Mobility',
+      targetReps: 10,
+      targetSets: 3,
+      frequencyPerWeek: 4,
+      precautions: 'Keep spine neutral, hinge at hips, keep knees tracking above ankles without collapsing inward.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-woman-doing-squats-in-a-gym-42795-large.mp4',
+      targetAngleMin: 85,
+      targetAngleMax: 95
+    },
+    {
+      exerciseId: 'knee_extension',
+      name: 'Seated Knee Extension (Quadriceps)',
+      category: 'Knee Strengthening & Mobility',
+      targetReps: 12,
+      targetSets: 3,
+      frequencyPerWeek: 5,
+      precautions: 'Sit upright, pause for 2 seconds at full extension. Do not kick rapidly or hyper-extend.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-young-man-exercising-in-the-gym-42823-large.mp4',
+      targetAngleMin: 160,
+      targetAngleMax: 180
+    },
+    {
+      exerciseId: 'shoulder_abduction',
+      name: 'Shoulder Lateral Abduction (Rotator Cuff)',
+      category: 'Upper Extremity Rehabilitation',
+      targetReps: 10,
+      targetSets: 3,
+      frequencyPerWeek: 3,
+      precautions: 'Lift arms to shoulder level only (90 degrees). Do not shrug shoulders or arch lower back.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-athlete-working-out-with-dumbbells-42831-large.mp4',
+      targetAngleMin: 80,
+      targetAngleMax: 95
+    },
+    {
+      exerciseId: 'bicep_curl',
+      name: 'Standing Bicep Curls (Arm Rehab)',
+      category: 'Arm Strength & Joint Conditioning',
+      targetReps: 12,
+      targetSets: 3,
+      frequencyPerWeek: 4,
+      precautions: 'Keep elbows tucked into sides. Full contraction and controlled eccentric descent.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-young-man-exercising-in-the-gym-42823-large.mp4',
+      targetAngleMin: 45,
+      targetAngleMax: 160
+    },
+    {
+      exerciseId: 'wall_pushup',
+      name: 'Wall Push-Ups (Chest & Scapular)',
+      category: 'Post-Surgical Upper Body Conditioning',
+      targetReps: 10,
+      targetSets: 2,
+      frequencyPerWeek: 4,
+      precautions: 'Maintain straight body plank line. Lower chest towards wall smoothly without sagging hips.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-woman-doing-squats-in-a-gym-42795-large.mp4',
+      targetAngleMin: 75,
+      targetAngleMax: 90
+    },
+    {
+      exerciseId: 'calf_raises',
+      name: 'Supported Calf Raises (Ankle Stability)',
+      category: 'Ankle & Achilles Rehabilitation',
+      targetReps: 15,
+      targetSets: 3,
+      frequencyPerWeek: 5,
+      precautions: 'Hold onto chair for balance. Elevate smoothly onto balls of feet, hold 1s, lower slowly.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-young-man-exercising-in-the-gym-42823-large.mp4',
+      targetAngleMin: 70,
+      targetAngleMax: 110
+    }
+  ];
+  selectedCatalogExerciseId: string = 'squats';
+  prescribedExercises: ExerciseItem[] = [];
+  liveExercisesList: ExerciseItem[] = [];
+  unreadExerciseCount: number = 0;
+  isSavingExercises: boolean = false;
+  exerciseSuccessMsg: string = '';
+
   // Timer
   callTimer: string = '00:00';
   private timerInterval: any = null;
@@ -196,6 +298,7 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     private webRtcService: WebRtcService,
     private appointmentService: AppointmentService,
     private medicineService: MedicineService,
+    private reportService: ReportService,
     private authService: AuthService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -252,7 +355,21 @@ export class VideoCallComponent implements OnInit, OnDestroy {
           if (res.iceServers) {
             this.webRtcService.setIceServers(res.iceServers);
           }
+
+          if (res.nextAppointment) {
+            this.nextAppointment = res.nextAppointment;
+          }
+          if (res.doctorLiveStatus) {
+            this.doctorLiveStatus = res.doctorLiveStatus;
+          }
+
+          if (this.appointmentDetails?.exercisePrescription && Array.isArray(this.appointmentDetails.exercisePrescription)) {
+            this.prescribedExercises = [...this.appointmentDetails.exercisePrescription];
+            this.liveExercisesList = [...this.appointmentDetails.exercisePrescription];
+          }
+
           this.initializeMedia();
+          this.loadAttachedReports();
         } else {
           this.errorMessage = 'Failed to load consultation details.';
         }
@@ -263,6 +380,25 @@ export class VideoCallComponent implements OnInit, OnDestroy {
         console.error('Error loading consultation details:', err);
         this.errorMessage = err.error?.message || 'Failed to connect to consultation room.';
         this.loading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  loadAttachedReports(): void {
+    if (!this.appointmentId) return;
+    this.loadingReports = true;
+    this.reportService.getAppointmentReports(this.appointmentId).subscribe({
+      next: (res) => {
+        this.loadingReports = false;
+        if (res && res.success) {
+          this.attachedReports = res.reports || [];
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.loadingReports = false;
+        console.warn('Could not load appointment reports:', err);
         this.cdr.detectChanges();
       }
     });
@@ -411,6 +547,19 @@ export class VideoCallComponent implements OnInit, OnDestroy {
         }
       })
     );
+
+    // 📡 Live In-Call Physical Rehabilitation & Exercises Sub (Patient View)
+    this.subs.push(
+      this.webRtcService.liveExercises$.subscribe(data => {
+        if (this.userRole === 'patient') {
+          this.liveExercisesList = data.exercises || [];
+          if (this.activeSidebarTab !== 'exercise' && this.liveExercisesList.length > 0) {
+            this.unreadExerciseCount = this.liveExercisesList.length;
+          }
+          this.cdr.detectChanges();
+        }
+      })
+    );
   }
 
   // Doctor Action: Accept Emergency Triage & Pause Current Call
@@ -494,13 +643,14 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     this.isScreenSharing = sharing;
   }
 
-  toggleSidebar(tab: 'chat' | 'rx' | 'notes' | 'info' | 'prior'): void {
+  toggleSidebar(tab: 'chat' | 'rx' | 'notes' | 'info' | 'prior' | 'reports' | 'exercise'): void {
     if (this.activeSidebarTab === tab) {
       this.activeSidebarTab = null;
     } else {
       this.activeSidebarTab = tab;
       if (tab === 'rx') this.unreadRxCount = 0;
       if (tab === 'notes') this.unreadNotesCount = 0;
+      if (tab === 'exercise') this.unreadExerciseCount = 0;
     }
   }
 
@@ -515,6 +665,62 @@ export class VideoCallComponent implements OnInit, OnDestroy {
     if (this.userRole === 'doctor' && this.appointmentId) {
       this.webRtcService.syncLiveClinicalNotes(this.appointmentId, this.clinicalNotes);
     }
+  }
+
+  broadcastLiveExercises(): void {
+    if (this.userRole === 'doctor' && this.appointmentId) {
+      this.webRtcService.syncLiveExercises(this.appointmentId, this.prescribedExercises);
+    }
+  }
+
+  addSelectedExercise(): void {
+    const item = this.exerciseCatalog.find(e => e.exerciseId === this.selectedCatalogExerciseId);
+    if (!item) return;
+    const exists = this.prescribedExercises.some(e => e.exerciseId === item.exerciseId);
+    if (!exists) {
+      this.prescribedExercises.push({ ...item });
+      this.broadcastLiveExercises();
+    }
+  }
+
+  removeExerciseFromPrescription(index: number): void {
+    this.prescribedExercises.splice(index, 1);
+    this.broadcastLiveExercises();
+  }
+
+  onExerciseItemChange(): void {
+    this.broadcastLiveExercises();
+  }
+
+  saveExercisePrescription(onComplete?: () => void): void {
+    if (!this.appointmentId) {
+      if (onComplete) onComplete();
+      return;
+    }
+    this.isSavingExercises = true;
+    this.exerciseSuccessMsg = '';
+
+    this.appointmentService.saveExercisePrescription(this.appointmentId, this.prescribedExercises).subscribe({
+      next: (res) => {
+        this.isSavingExercises = false;
+        if (res.success) {
+          this.exerciseSuccessMsg = '✅ Physical rehabilitation exercises saved & synced!';
+          this.broadcastLiveExercises();
+          setTimeout(() => {
+            this.exerciseSuccessMsg = '';
+            this.cdr.detectChanges();
+          }, 4000);
+        }
+        this.cdr.detectChanges();
+        if (onComplete) onComplete();
+      },
+      error: (err) => {
+        this.isSavingExercises = false;
+        console.error('Failed to save exercise prescription:', err);
+        this.cdr.detectChanges();
+        if (onComplete) onComplete();
+      }
+    });
   }
 
   onPrescriptionItemChange(): void {
@@ -603,19 +809,39 @@ export class VideoCallComponent implements OnInit, OnDestroy {
 
   endCall(): void {
     if (confirm('Are you sure you want to end this video consultation?')) {
-      // If doctor has added medicines to prescription list, auto-save and email patient now!
-      if (this.userRole === 'doctor' && this.prescriptionList.length > 0) {
-        this.issuePrescription(() => {
-          this.webRtcService.endCall(this.appointmentId);
-          this.isCallEnded = true;
-          this.isInCall = false;
-          this.stopTimer();
-        });
-      } else {
+      const finalizeCall = () => {
         this.webRtcService.endCall(this.appointmentId);
         this.isCallEnded = true;
         this.isInCall = false;
         this.stopTimer();
+      };
+
+      if (this.userRole === 'doctor') {
+        const hasExercises = this.prescribedExercises && this.prescribedExercises.length > 0;
+        const hasMedicines = this.prescriptionList && this.prescriptionList.length > 0;
+
+        if (hasExercises && hasMedicines) {
+          // Auto-save both exercises and medicines
+          this.saveExercisePrescription(() => {
+            this.issuePrescription(() => {
+              finalizeCall();
+            });
+          });
+        } else if (hasExercises) {
+          // Auto-save exercises
+          this.saveExercisePrescription(() => {
+            finalizeCall();
+          });
+        } else if (hasMedicines) {
+          // Auto-save medicines
+          this.issuePrescription(() => {
+            finalizeCall();
+          });
+        } else {
+          finalizeCall();
+        }
+      } else {
+        finalizeCall();
       }
     }
   }
@@ -642,8 +868,51 @@ export class VideoCallComponent implements OnInit, OnDestroy {
       if ((this.isEmergencyTriageMode || this.appointmentDetails?.isEmergency) && this.secondsElapsed >= 480) {
         this.showEmergency8MinWarning = true;
       }
+
+      // Check Overtime ONLY IF doctor has a next booked appointment today!
+      if (this.userRole === 'doctor' && this.nextAppointment && this.secondsElapsed >= 25 * 60) {
+        this.isCallOvertime = true;
+        this.overtimeAlertShown = true;
+      }
+
       this.cdr.detectChanges();
     }, 1000);
+  }
+
+  sendEarlyInviteEmail(): void {
+    if (!this.appointmentId || this.sendingEarlyInvite) return;
+    this.sendingEarlyInvite = true;
+    this.earlyInviteMsg = '';
+    this.appointmentService.inviteNextPatientEarly(this.appointmentId).subscribe({
+      next: (res) => {
+        this.sendingEarlyInvite = false;
+        this.earlyInviteSent = true;
+        this.earlyInviteMsg = res.message || 'Invitation email sent successfully!';
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.sendingEarlyInvite = false;
+        this.earlyInviteMsg = err.error?.message || 'Failed to send early invitation email.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  broadcastDelay(mins: number = 5): void {
+    if (!this.appointmentId || this.sendingDelayNotice) return;
+    this.sendingDelayNotice = true;
+    this.appointmentService.notifyPatientDelay(this.appointmentId, mins).subscribe({
+      next: () => {
+        this.sendingDelayNotice = false;
+        this.delayNoticeSent = true;
+        setTimeout(() => this.delayNoticeSent = false, 5000);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.sendingDelayNotice = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   private stopTimer(): void {
@@ -903,11 +1172,12 @@ export class VideoCallComponent implements OnInit, OnDestroy {
   }
 
   get doctorName(): string {
-    if (!this.appointmentDetails) return 'Doctor';
+    if (!this.appointmentDetails) return 'Dr. Consultant';
     const doc = this.appointmentDetails.doctorId;
-    if (!doc) return 'Doctor';
-    const name = `Dr. ${doc.firstName || doc.userId?.name || doc.name || ''} ${doc.lastName || ''}`.trim();
-    return name.length > 4 ? name : 'Dr. Consultant';
+    if (!doc) return 'Dr. Consultant';
+    const rawName = `${doc.firstName || doc.userId?.name || doc.name || ''} ${doc.lastName || ''}`.trim();
+    const cleanName = rawName.replace(/^(Dr\.?\s*)+/i, '').trim();
+    return cleanName ? `Dr. ${cleanName}` : 'Dr. Consultant';
   }
 
   get patientName(): string {

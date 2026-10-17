@@ -26,6 +26,10 @@
       <button class="nav-tab" [class.active]="activeTab === 'food-tracker'" (click)="setTab('food-tracker')">
         🥗 Daily CarePath & Health Tracker
       </button>
+      <button class="nav-tab" [class.active]="activeTab === 'reports'" (click)="setTab('reports')">
+        📑 Medical Vault
+        <span class="badge bg-primary ms-1 small" *ngIf="reports.length > 0">{{ reports.length }}</span>
+      </button>
     </div>
     <div class="pd-nav-right">
       <div class="user-menu-container position-relative">
@@ -271,6 +275,22 @@
               <span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-0.5" style="font-size: 0.7rem;">Completed</span>
             </div>
 
+            <!-- 📑 Scenario B: Attach or Upload Medical Report for this visit -->
+            <div class="mt-2.5 d-flex align-items-center justify-content-between pt-2 border-top">
+              <span class="small text-muted" style="font-size: 0.72rem;">
+                <i class="bi bi-file-earmark-medical text-primary me-1"></i>
+                <ng-container *ngIf="appt.attachedReportIds && appt.attachedReportIds.length > 0">
+                  <strong>{{ appt.attachedReportIds.length }}</strong> Report(s) attached
+                </ng-container>
+                <ng-container *ngIf="!appt.attachedReportIds || appt.attachedReportIds.length === 0">
+                  No lab reports attached
+                </ng-container>
+              </span>
+              <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-0.5 small shadow-2xs" (click)="openUploadModal(appt._id)" title="Upload a new lab report linked to this consultation">
+                <i class="bi bi-cloud-arrow-up me-1"></i> + Add Report
+              </button>
+            </div>
+
             <!-- 🔔 Doctor Recommended Follow-Up Action Card -->
             <div class="mt-3 p-3 rounded-3 bg-light border border-primary border-opacity-30 shadow-2xs" *ngIf="appt.followUpRecommendation?.isRecommended">
               <div class="d-flex justify-content-between align-items-start mb-1">
@@ -495,20 +515,37 @@
           </div>
         </div>
 
-        <!-- CARD 3: Daily Activity & Exercise Habits -->
+        <!-- CARD 3: Daily Activity & Exercise Habits (Dynamically Unified with Prescribed Physio) -->
         <div class="col-lg-4 col-md-12">
           <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white d-flex flex-column justify-content-between">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h6 class="fw-bold text-dark m-0 d-flex align-items-center gap-2">
                 <i class="bi bi-activity text-danger fs-5"></i>
-                <span>Daily Physical Habit</span>
+                <span>{{ prescribedExercisesList.length > 0 ? 'Prescribed Physio Routine' : 'Daily Physical Habit' }}</span>
               </h6>
-              <span class="badge" [ngClass]="isExerciseDone ? 'bg-success text-white' : 'bg-warning bg-opacity-25 text-dark border border-warning'">
-                {{ isExerciseDone ? '✓ Completed' : '⏳ Pending' }}
+              <span class="badge" [ngClass]="isExerciseDone ? 'bg-success text-white' : 'bg-warning text-dark border border-warning'">
+                {{ isExerciseDone ? '✓ Completed' : (prescribedExercisesList.length > 0 ? '⏳ ' + prescribedExercisesList.length + ' Routine(s) Active' : '⏳ Pending') }}
               </span>
             </div>
 
-            <div class="p-3 rounded-4 my-2 border d-flex align-items-center gap-3" [style.background]="isExerciseDone ? '#F0FDF4' : '#FFFBEB'" [style.borderColor]="isExerciseDone ? '#86EFAC' : '#FDE68A'">
+            <!-- When Doctor has Prescribed Exercises -->
+            <div *ngIf="prescribedExercisesList.length > 0" class="p-3 rounded-4 my-2 border d-flex align-items-center gap-3" [style.background]="isExerciseDone ? '#F0FDF4' : '#F0F9FF'" [style.borderColor]="isExerciseDone ? '#86EFAC' : '#BAE6FD'">
+              <div class="rounded-circle p-3 d-flex align-items-center justify-content-center fs-4 flex-shrink-0" [style.background]="isExerciseDone ? '#DCFCE7' : '#E0F2FE'">
+                {{ isExerciseDone ? '🏅' : '🤖' }}
+              </div>
+              <div>
+                <strong class="text-dark d-block">{{ prescribedExercisesList[0].name }}</strong>
+                <p class="small text-muted mb-0" *ngIf="!isExerciseDone">
+                  Doctor Order: {{ prescribedExercisesList[0].targetSets }} sets × {{ prescribedExercisesList[0].targetReps }} reps ({{ prescribedExercisesList[0].frequencyPerWeek }}x/wk)
+                </p>
+                <p class="small text-success mb-0 fw-semibold" *ngIf="isExerciseDone">
+                  Great job! Prescribed routine logged to your clinical record today.
+                </p>
+              </div>
+            </div>
+
+            <!-- When No Prescription Exists (General Daily Wellness Habit) -->
+            <div *ngIf="prescribedExercisesList.length === 0" class="p-3 rounded-4 my-2 border d-flex align-items-center gap-3" [style.background]="isExerciseDone ? '#F0FDF4' : '#FFFBEB'" [style.borderColor]="isExerciseDone ? '#86EFAC' : '#FDE68A'">
               <div class="rounded-circle p-3 d-flex align-items-center justify-content-center fs-4 flex-shrink-0" [style.background]="isExerciseDone ? '#DCFCE7' : '#FEF3C7'">
                 {{ isExerciseDone ? '🏅' : '👟' }}
               </div>
@@ -519,16 +556,272 @@
               </div>
             </div>
 
-            <button type="button" 
-                    class="btn w-100 py-2 fw-bold rounded-3 transition-all" 
-                    [ngClass]="isExerciseDone ? 'btn-outline-success' : 'btn-success shadow-sm'"
-                    (click)="toggleExercise()">
-              <i class="bi me-1" [ngClass]="isExerciseDone ? 'bi-check-circle-fill' : 'bi-play-circle-fill'"></i>
-              <span>{{ isExerciseDone ? 'Completed Today! (Click to undo)' : 'Mark Activity as Done' }}</span>
-            </button>
+            <!-- Action Button -->
+            <ng-container *ngIf="prescribedExercisesList.length > 0">
+              <button type="button" 
+                      class="btn w-100 py-2 fw-bold rounded-3 transition-all" 
+                      [ngClass]="isExerciseDone ? 'btn-outline-success' : 'btn-primary shadow-sm'"
+                      (click)="openExerciseStudio(prescribedExercisesList[0])">
+                <i class="bi me-1" [ngClass]="isExerciseDone ? 'bi-check2-circle' : 'bi-camera-video-fill'"></i>
+                <span>{{ isExerciseDone ? 'Fulfilled Today! (Re-open Studio)' : 'Start AI Physio Studio' }}</span>
+              </button>
+            </ng-container>
+
+            <ng-container *ngIf="prescribedExercisesList.length === 0">
+              <button type="button" 
+                      class="btn w-100 py-2 fw-bold rounded-3 transition-all" 
+                      [ngClass]="isExerciseDone ? 'btn-outline-success' : 'btn-success shadow-sm'"
+                      (click)="toggleExercise()">
+                <i class="bi me-1" [ngClass]="isExerciseDone ? 'bi-check-circle-fill' : 'bi-play-circle-fill'"></i>
+                <span>{{ isExerciseDone ? 'Completed Today! (Click to undo)' : 'Mark Activity as Done' }}</span>
+              </button>
+            </ng-container>
           </div>
         </div>
 
+      </div>
+
+      <!-- 🏋️ CLINICAL PHYSICAL REHABILITATION & AI-GUIDED EXERCISE SUITE -->
+      <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3">
+          <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <h5 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-activity text-danger"></i>
+                <span>Clinical Physical Rehabilitation & AI Guided Exercises</span>
+              </h5>
+              <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 rounded-pill small fw-bold" *ngIf="prescribedExercisesList.length > 0">
+                👨‍⚕️ {{ prescribedExercisesList.length }} Doctor-Prescribed Routine(s)
+              </span>
+              <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill small fw-bold" *ngIf="prescribedExercisesList.length === 0">
+                ✨ Clinical Rehabilitation Routine
+              </span>
+            </div>
+            <p class="text-muted small mb-0">Follow your doctor's prescribed physical therapy movements with looping video reference guides, live MediaPipe AI skeletal tracking, and 24/7 fall safety monitoring.</p>
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge px-3 py-2 rounded-pill small fw-semibold d-flex align-items-center gap-1.5" style="background: rgba(16, 185, 129, 0.12); color: #047857; border: 1px solid rgba(16, 185, 129, 0.3);">
+              <i class="bi bi-shield-check"></i>
+              <span>Fall Guard & Emergency Auto-Alert Active</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Prescribed Doctor Attribution Banner if Prescribed -->
+        <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-3 d-flex align-items-center justify-content-between text-dark" style="background: rgba(56, 189, 248, 0.12);" *ngIf="prescribedExercisesList.length > 0">
+          <div class="d-flex align-items-center gap-2 small">
+            <i class="bi bi-info-circle-fill text-info fs-5"></i>
+            <span>
+              <strong>Active Clinical Order:</strong> Exercises below have been calibrated for your rehabilitation by your attending specialist.
+            </span>
+          </div>
+          <span class="badge bg-info text-dark fw-bold">Live Synced</span>
+        </div>
+
+        <!-- Exercises Grid -->
+        <div class="row g-3">
+          <div class="col-lg-6 col-md-12" *ngFor="let ex of activeExercises; let i = index">
+            <div class="p-3.5 rounded-4 border bg-light bg-opacity-40 h-100 d-flex flex-column justify-content-between exercise-card-hover transition-all shadow-xs">
+              <div>
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 small mb-1">
+                      {{ ex.category || 'Physical Therapy & Rehab' }}
+                    </span>
+                    <h6 class="fw-bold text-dark mb-0 fs-6">{{ ex.name }}</h6>
+                  </div>
+                  <span class="badge bg-dark text-white rounded-pill px-2.5 py-1 small fw-semibold">
+                    {{ ex.targetReps }} Reps × {{ ex.targetSets }} Sets
+                  </span>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 text-muted small mb-2.5" style="font-size: 0.78rem;">
+                  <span><i class="bi bi-calendar-week me-1 text-primary"></i> <strong>{{ ex.frequencyPerWeek }}x</strong> / week</span>
+                  <span>•</span>
+                  <span><i class="bi bi-camera-video me-1 text-success"></i> Real-time Joint Angle Guidance</span>
+                </div>
+
+                <div class="p-2.5 rounded-3 bg-white border border-secondary border-opacity-20 mb-3 small text-secondary" style="font-size: 0.78rem; line-height: 1.45;">
+                  <strong class="text-danger d-block mb-1"><i class="bi bi-shield-exclamation me-1"></i> Precautions & Guidance:</strong>
+                  {{ ex.precautions || 'Maintain stable spinal posture and avoid sudden jerking motions.' }}
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="d-flex align-items-center gap-2 pt-2 border-top">
+                <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1 fw-semibold d-flex align-items-center justify-content-center gap-1.5 rounded-3 py-2" (click)="openDemoModal(ex)">
+                  <i class="bi bi-play-circle-fill text-danger"></i>
+                  <span>Video Guide</span>
+                </button>
+                <button type="button" class="btn btn-primary btn-sm flex-grow-1 fw-bold d-flex align-items-center justify-content-center gap-1.5 rounded-3 py-2 shadow-xs" (click)="openExerciseStudio(ex)">
+                  <i class="bi bi-camera-fill"></i>
+                  <span>Start AI Studio</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 📈 EXERCISE PERFORMANCE ANALYTICS (Feature 1 & 5) -->
+        <div class="mt-4 pt-3 border-top" *ngIf="exerciseAnalytics && exerciseAnalytics.summary">
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+            <div>
+              <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-graph-up-arrow text-primary"></i>
+                <span>Rehabilitation Performance Analytics</span>
+              </h6>
+              <p class="text-muted small mb-0" style="font-size: 0.78rem;">
+                Continuous biomechanical motion telemetry, movement quality progression, and target compliance.
+              </p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge px-3 py-1.5 rounded-pill small fw-bold" [ngClass]="exerciseAnalytics.summary.overallTrend === 'Improving' ? 'bg-success text-white' : 'bg-primary text-white'">
+                Trend: {{ exerciseAnalytics.summary.overallTrend || 'Steady' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Top Analytics KPI Grid -->
+          <div class="row g-2.5 mb-3">
+            <div class="col-6 col-md-3">
+              <div class="p-3 rounded-4 bg-light bg-opacity-70 border text-center">
+                <span class="text-secondary small d-block mb-1" style="font-size: 0.74rem;">Movement Quality</span>
+                <div class="d-flex align-items-center justify-content-center gap-1">
+                  <span class="fs-4 fw-bold text-success">{{ exerciseAnalytics.summary.avgAccuracyScore || 95 }}%</span>
+                  <i class="bi bi-patch-check-fill text-success small"></i>
+                </div>
+                <span class="text-muted small" style="font-size: 0.68rem;">Form Accuracy Average</span>
+              </div>
+            </div>
+
+            <div class="col-6 col-md-3">
+              <div class="p-3 rounded-4 bg-light bg-opacity-70 border text-center">
+                <span class="text-secondary small d-block mb-1" style="font-size: 0.74rem;">Volume Completed</span>
+                <div class="d-flex align-items-center justify-content-center gap-1">
+                  <span class="fs-4 fw-bold text-dark">{{ exerciseAnalytics.summary.totalCompletedReps || 0 }}</span>
+                  <small class="text-muted">Reps</small>
+                </div>
+                <span class="text-success small fw-semibold" style="font-size: 0.68rem;">
+                  {{ exerciseAnalytics.summary.totalValidReps || 0 }} Valid ({{ exerciseAnalytics.summary.totalIncompleteReps || 0 }} Shallow)
+                </span>
+              </div>
+            </div>
+
+            <div class="col-6 col-md-3">
+              <div class="p-3 rounded-4 bg-light bg-opacity-70 border text-center">
+                <span class="text-secondary small d-block mb-1" style="font-size: 0.74rem;">Prescription Compliance</span>
+                <div class="d-flex align-items-center justify-content-center gap-1">
+                  <span class="fs-4 fw-bold text-primary">{{ exerciseAnalytics.summary.avgCompliancePercentage || 100 }}%</span>
+                </div>
+                <span class="text-muted small" style="font-size: 0.68rem;">Target Sets Fulfilled</span>
+              </div>
+            </div>
+
+            <div class="col-6 col-md-3">
+              <div class="p-3 rounded-4 bg-light bg-opacity-70 border text-center">
+                <span class="text-secondary small d-block mb-1" style="font-size: 0.74rem;">Kinematic Active Time</span>
+                <div class="d-flex align-items-center justify-content-center gap-1">
+                  <span class="fs-4 fw-bold text-info">{{ exerciseAnalytics.summary.totalDurationMinutes || 0 }}m</span>
+                </div>
+                <span class="text-muted small" style="font-size: 0.68rem;">Total Duration</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 7-Day Consistency Bar Track (Feature 1) -->
+          <div class="p-3 rounded-4 bg-light border mb-3" *ngIf="exerciseAnalytics.weeklyCompliance && exerciseAnalytics.weeklyCompliance.length > 0">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <strong class="text-dark small"><i class="bi bi-calendar-check me-1 text-primary"></i> Past 7 Days Rehabilitation Consistency</strong>
+              <span class="small text-muted" style="font-size: 0.72rem;">Target: Daily physical rehabilitation habit</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center gap-1 text-center">
+              <div *ngFor="let day of exerciseAnalytics.weeklyCompliance" class="flex-grow-1 p-2 rounded-3 border bg-white" [style.borderColor]="day.completed ? '#86EFAC' : '#E2E8F0'">
+                <span class="d-block small text-muted fw-bold" style="font-size: 0.68rem;">{{ day.dayName }}</span>
+                <div class="my-1">
+                  <span *ngIf="day.completed" class="badge bg-success rounded-circle p-1" title="{{ day.totalReps }} reps completed">✓</span>
+                  <span *ngIf="!day.completed" class="badge bg-light text-muted border rounded-circle p-1">·</span>
+                </div>
+                <span class="d-block text-dark fw-semibold" style="font-size: 0.7rem;">{{ day.totalReps > 0 ? (day.totalReps + ' reps') : 'Rest' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 📊 Clinical Exercise Compliance & Telemetry History Log -->
+        <div class="mt-4 pt-3 border-top">
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+            <div>
+              <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-journal-medical text-primary"></i>
+                <span>Rehabilitation Telemetry & Clinical Compliance History</span>
+              </h6>
+              <p class="text-muted small mb-0" style="font-size: 0.78rem;">
+                Completed exercise sessions are saved to MongoDB and synced with your attending specialist's clinical records.
+              </p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill small fw-semibold" *ngIf="exerciseLogsHistory.length > 0">
+                <i class="bi bi-database-check me-1"></i> {{ exerciseLogsHistory.length }} Session(s) Logged
+              </span>
+              <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2.5 py-1" (click)="loadExerciseLogs()" [disabled]="loadingExerciseLogs" title="Refresh records from MongoDB">
+                <i class="bi bi-arrow-clockwise" [ngClass]="{'spinner-border spinner-border-sm': loadingExerciseLogs}"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div class="text-center py-4 px-3 rounded-4 bg-light border border-dashed" *ngIf="exerciseLogsHistory.length === 0 && !loadingExerciseLogs">
+            <span class="fs-3 d-block mb-1">🏃‍♂️</span>
+            <p class="fw-semibold text-dark mb-1 small">No exercise sessions logged yet today</p>
+            <p class="text-muted mb-0" style="font-size: 0.78rem;">Launch the AI Studio above to complete your routine. Your sets, reps, and accuracy score will be stored in MongoDB automatically.</p>
+          </div>
+
+          <!-- History Table -->
+          <div class="table-responsive rounded-3 border bg-white" *ngIf="exerciseLogsHistory.length > 0">
+            <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3 py-2 text-secondary fw-semibold">Movement & Discipline</th>
+                  <th class="py-2 text-secondary fw-semibold">Session Date</th>
+                  <th class="py-2 text-secondary fw-semibold text-center">Volume (Sets × Reps)</th>
+                  <th class="py-2 text-secondary fw-semibold text-center">Form Accuracy</th>
+                  <th class="py-2 pe-3 text-secondary fw-semibold text-end">Database Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let log of exerciseLogsHistory">
+                  <td class="ps-3 py-2.5">
+                    <div class="fw-bold text-dark">{{ log.exerciseName }}</div>
+                    <span class="badge bg-light text-secondary border small" style="font-size: 0.7rem;">{{ log.category || 'Physical Therapy' }}</span>
+                  </td>
+                  <td class="py-2.5 text-muted">
+                    <div><i class="bi bi-calendar3 me-1"></i> {{ log.date }}</div>
+                    <div class="small" style="font-size: 0.72rem;">{{ log.completedAt | date:'shortTime' }}</div>
+                  </td>
+                  <td class="py-2.5 text-center">
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1">
+                      {{ log.completedSets }}/{{ log.targetSets || log.completedSets }} sets • {{ log.completedReps }} reps
+                    </span>
+                  </td>
+                  <td class="py-2.5 text-center">
+                    <div class="d-inline-flex align-items-center gap-1.5">
+                      <div class="progress" style="width: 55px; height: 6px;">
+                        <div class="progress-bar bg-success" role="progressbar" [style.width.%]="log.accuracyScore || 95"></div>
+                      </div>
+                      <span class="fw-bold text-success small">{{ log.accuracyScore || 95 }}%</span>
+                    </div>
+                  </td>
+                  <td class="pe-3 py-2.5 text-end">
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 rounded-pill small">
+                      <i class="bi bi-check-circle-fill me-1"></i> Synced to MongoDB
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- 💊 TODAY'S PRESCRIBED MEDICATION & PILL SCHEDULE -->
@@ -872,10 +1165,10 @@
           <div class="glass-card p-4 rounded-4 bg-gradient d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 border border-success border-opacity-25" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.08));">
             <div>
               <span class="badge px-3 py-1 mb-2 fw-semibold" style="background: #ECFDF5; color: #047857; border: 1px solid #10B981;">
-                <i class="bi bi-stars me-1"></i> Gemini Vision Multi-Modal AI & Edamam Database Engine
+                <i class="bi bi-stars me-1"></i> Gemini Multi-Modal Vision & Clinical Dietary AI
               </span>
               <h2 class="fw-bold text-dark mb-1">📸 AI Food & Micronutrient Plate Scanner</h2>
-              <p class="text-secondary small mb-0">Snap or upload a photo of your meal plate. Google Gemini Vision identifies the dish, allowing you to edit portions before Edamam computes exact macronutrients.</p>
+              <p class="text-secondary small mb-0">Snap or upload a photo of your meal plate. Google Gemini Vision identifies the dish, allowing you to edit portions before CarePath AI computes exact macronutrients.</p>
             </div>
             <div class="d-flex align-items-center gap-2">
               <span class="badge bg-white shadow-sm text-dark px-3 py-2 border rounded-pill small fw-bold">
@@ -885,7 +1178,7 @@
           </div>
         </div>
 
-        <!-- Left Column: Food Photo Uploader, Gemini Recognition, & Edamam Analyzer -->
+        <!-- Left Column: Food Photo Uploader, Gemini Recognition, & Clinical Nutrition Analyzer -->
         <div class="col-lg-7">
           <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white" id="ai-food-uploader-section">
             <h5 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
@@ -1096,6 +1389,273 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- ══════════════ 📑 PATIENT MEDICAL RECORDS VAULT & AI TAB ══════════════ -->
+    <section class="pd-section animate-fade-in" *ngIf="activeTab === 'reports'">
+      
+      <!-- Vault Hero Header Banner -->
+      <div class="vault-hero-card glass-card mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+          <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="fs-3">📑</span>
+              <h2 class="m-0 fw-bold text-dark">Patient Medical Records Vault</h2>
+              <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 small">
+                🤖 Multimodal AI Powered
+              </span>
+            </div>
+            <p class="text-muted small m-0">
+              Upload blood tests, imaging scans & lab reports. Gemini AI extracts structured biomarkers, clinical insights, and suggests relevant specialists.
+            </p>
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-primary px-3.5 py-2 fw-semibold rounded-pill shadow-sm d-flex align-items-center gap-2" (click)="openUploadModal()">
+              <i class="bi bi-cloud-arrow-up-fill fs-5"></i>
+              <span>Upload Medical Report</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Vault Analytics Quick Metric Counters -->
+        <div class="vault-metrics-grid mt-4">
+          <div class="vault-metric-item">
+            <span class="metric-icon bg-blue-subtle text-primary">📑</span>
+            <div class="metric-info">
+              <strong class="metric-num">{{ reports.length }}</strong>
+              <span class="metric-lbl">Total Reports Stored</span>
+            </div>
+          </div>
+
+          <div class="vault-metric-item">
+            <span class="metric-icon bg-emerald-subtle text-success">🔬</span>
+            <div class="metric-info">
+              <strong class="metric-num">{{ totalNormalBiomarkersCount }}</strong>
+              <span class="metric-lbl">Normal Biomarkers</span>
+            </div>
+          </div>
+
+          <div class="vault-metric-item">
+            <span class="metric-icon bg-amber-subtle text-warning">⚠️</span>
+            <div class="metric-info">
+              <strong class="metric-num">{{ totalCriticalOrAttentionFlagsCount }}</strong>
+              <span class="metric-lbl">Abnormal / Flags</span>
+            </div>
+          </div>
+
+          <div class="vault-metric-item">
+            <span class="metric-icon bg-indigo-subtle text-indigo">🛡️</span>
+            <div class="metric-info">
+              <strong class="metric-num" style="font-size: 1.1rem;">Patient-Owned</strong>
+              <span class="metric-lbl">Multi-Doctor Sharing Active</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls & Filter Toolbar -->
+      <div class="vault-toolbar d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+        <!-- Search Bar -->
+        <div class="vault-search-box flex-grow-1" style="max-width: 420px;">
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0 text-muted">
+              <i class="bi bi-search"></i>
+            </span>
+            <input 
+              type="text" 
+              class="form-control border-start-0 ps-0" 
+              placeholder="Search reports, biomarkers, or summaries..." 
+              [(ngModel)]="reportSearch" 
+            />
+            <button class="btn btn-outline-secondary btn-sm" *ngIf="reportSearch" (click)="reportSearch = ''">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Category Tabs -->
+        <div class="vault-category-pills d-flex align-items-center gap-1.5 flex-wrap">
+          <button 
+            type="button" 
+            class="vault-pill-btn" 
+            [class.active]="selectedReportTypeFilter === 'all'"
+            (click)="selectedReportTypeFilter = 'all'">
+            All Reports ({{ reports.length }})
+          </button>
+          <button 
+            type="button" 
+            class="vault-pill-btn" 
+            [class.active]="selectedReportTypeFilter === 'Blood Test'"
+            (click)="selectedReportTypeFilter = 'Blood Test'">
+            🩸 Blood Tests
+          </button>
+          <button 
+            type="button" 
+            class="vault-pill-btn" 
+            [class.active]="selectedReportTypeFilter === 'Imaging (X-Ray/MRI/CT)'"
+            (click)="selectedReportTypeFilter = 'Imaging (X-Ray/MRI/CT)'">
+            🩻 Imaging & Scans
+          </button>
+          <button 
+            type="button" 
+            class="vault-pill-btn" 
+            [class.active]="selectedReportTypeFilter === 'Cardiology (ECG/Echo)'"
+            (click)="selectedReportTypeFilter = 'Cardiology (ECG/Echo)'">
+            ❤️ Cardiology
+          </button>
+          <button 
+            type="button" 
+            class="vault-pill-btn" 
+            [class.active]="selectedReportTypeFilter === 'Pathology'"
+            (click)="selectedReportTypeFilter = 'Pathology'">
+            🧪 Pathology
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div class="text-center py-5" *ngIf="loadingReports">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading vault...</span>
+        </div>
+        <p class="text-muted mt-2 small">Decrypting and loading your medical vault...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div class="vault-empty-state glass-card text-center py-5 p-4 rounded-4" *ngIf="!loadingReports && filteredReports.length === 0">
+        <div class="empty-icon-circle mx-auto mb-3">📑</div>
+        <h4 class="fw-bold text-dark mb-1">No medical reports found</h4>
+        <p class="text-muted small mb-4" style="max-width: 460px; margin: 0 auto;">
+          {{ reportSearch ? 'No reports matched your search keyword. Try a different query.' : 'Your Medical Vault is empty. Upload your first blood report, scan, or prescription to get instant AI biomarker analysis!' }}
+        </p>
+        <button type="button" class="btn btn-primary px-4 py-2 rounded-pill shadow-sm" (click)="openUploadModal()">
+          <i class="bi bi-cloud-arrow-up me-1"></i> Upload First Report
+        </button>
+      </div>
+
+      <!-- Reports Card Grid -->
+      <div class="row g-3.5" *ngIf="!loadingReports && filteredReports.length > 0">
+        <div class="col-lg-6 col-xl-6" *ngFor="let rep of filteredReports">
+          <div class="report-card glass-card h-100 p-3.5 rounded-4 transition-all position-relative">
+            
+            <!-- Card Header -->
+            <div class="d-flex align-items-start justify-content-between gap-2 mb-2.5">
+              <div class="d-flex align-items-center gap-2.5">
+                <div class="report-file-icon flex-shrink-0" [ngClass]="rep.fileType.includes('pdf') ? 'icon-pdf' : 'icon-img'">
+                  <i class="bi" [ngClass]="rep.fileType.includes('pdf') ? 'bi-file-earmark-pdf-fill' : 'bi-file-earmark-image-fill'"></i>
+                </div>
+                <div>
+                  <h5 class="report-card-title m-0 fw-bold text-dark text-truncate" [title]="rep.title">
+                    {{ rep.title }}
+                  </h5>
+                  <div class="d-flex align-items-center gap-2 text-muted small mt-0.5" style="font-size: 0.75rem;">
+                    <span>{{ rep.reportType }}</span>
+                    <span>•</span>
+                    <span>{{ rep.reportDate || (rep.createdAt | date:'mediumDate') }}</span>
+                    <span>•</span>
+                    <span>{{ formatReportFileSize(rep.fileSize) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- AI Status Badge -->
+              <span 
+                class="badge rounded-pill px-2.5 py-1 small fw-semibold"
+                [ngClass]="rep.aiAnalysis.status === 'Completed' ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25' : 'bg-warning bg-opacity-15 text-dark border border-warning'">
+                {{ rep.aiAnalysis.status === 'Completed' ? '🤖 AI Analyzed' : '⏳ Processing' }}
+              </span>
+            </div>
+
+            <!-- Plain English AI Summary Box -->
+            <div class="report-ai-summary-box p-2.5 rounded-3 mb-3 bg-light bg-opacity-75 border">
+              <div class="d-flex align-items-center gap-1.5 text-primary small fw-bold mb-1">
+                <i class="bi bi-stars"></i>
+                <span>CarePath AI Summary</span>
+              </div>
+              <p class="summary-text small text-dark mb-0 lh-sm">
+                {{ rep.aiAnalysis.summary || 'Report indexed in vault. Deep biomarker breakdown available in detail review.' }}
+              </p>
+            </div>
+
+            <!-- Biomarkers Extraction Preview Pills -->
+            <div class="mb-3" *ngIf="rep.aiAnalysis.biomarkers && rep.aiAnalysis.biomarkers.length > 0">
+              <div class="d-flex align-items-center justify-content-between mb-1.5">
+                <span class="small text-muted fw-semibold" style="font-size: 0.75rem;">Extracted Biomarkers:</span>
+                <span class="small text-muted" style="font-size: 0.72rem;">{{ rep.aiAnalysis.biomarkers.length }} Total</span>
+              </div>
+              <div class="biomarker-pills-row d-flex flex-wrap gap-1.5">
+                <span 
+                  *ngFor="let bio of rep.aiAnalysis.biomarkers.slice(0, 4)" 
+                  class="biomarker-badge px-2 py-0.5 rounded-pill small fw-semibold"
+                  [ngClass]="getBiomarkerBadgeClass(bio.flag)">
+                  {{ bio.name }}: <strong>{{ bio.value }} {{ bio.unit }}</strong>
+                  <span class="flag-icon ms-0.5" *ngIf="bio.flag === 'High'">🔴</span>
+                  <span class="flag-icon ms-0.5" *ngIf="bio.flag === 'Critical'">🚨</span>
+                  <span class="flag-icon ms-0.5" *ngIf="bio.flag === 'Borderline'">🟡</span>
+                  <span class="flag-icon ms-0.5" *ngIf="bio.flag === 'Normal'">🟢</span>
+                </span>
+                <span class="badge bg-light text-secondary border small px-2 py-1 cursor-pointer" *ngIf="rep.aiAnalysis.biomarkers.length > 4" (click)="openReportDetailModal(rep)">
+                  +{{ rep.aiAnalysis.biomarkers.length - 4 }} more
+                </span>
+              </div>
+            </div>
+
+            <!-- Scenario A Action: Recommended Specialty Match & 1-Click Consultation Booking -->
+            <div class="specialty-match-banner p-2.5 rounded-3 mb-3 d-flex align-items-center justify-content-between gap-2 border" 
+                 *ngIf="rep.aiAnalysis.recommendedSpecialty"
+                 style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(0, 128, 148, 0.08)); border-color: rgba(37, 99, 235, 0.2) !important;">
+              <div class="d-flex align-items-center gap-2">
+                <span class="fs-5">🩺</span>
+                <div>
+                  <span class="d-block small text-muted" style="font-size: 0.7rem;">AI Recommended Specialist:</span>
+                  <strong class="text-primary small">{{ rep.aiAnalysis.recommendedSpecialty }}</strong>
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-semibold small shadow-2xs" (click)="bookSpecialistForReport(rep, $event)" title="Scenario A: Find doctor and auto-attach this report">
+                <span>Book Specialist →</span>
+              </button>
+            </div>
+
+            <!-- Multi-Doctor Sharing & Consultation Status (Scenario B & C) -->
+            <div class="d-flex align-items-center justify-content-between border-top pt-2.5 mt-auto flex-wrap gap-2">
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-light text-secondary border small" title="Scenario C: Patient Ownership Sharing Status">
+                  <i class="bi bi-shield-check text-success me-1"></i>
+                  {{ rep.isSharedWithAllConsultingDoctors ? 'Shared with All Consulting Docs' : (rep.sharedWithDoctorIds.length + ' Doctors Granted') }}
+                </span>
+
+                <span class="badge bg-light text-primary border small" *ngIf="rep.linkedConsultationIds && rep.linkedConsultationIds.length > 0" title="Scenario B: Linked to consultation">
+                  <i class="bi bi-link-45deg me-0.5"></i>
+                  {{ rep.linkedConsultationIds.length }} Consultation(s)
+                </span>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="d-flex align-items-center gap-1.5 ms-auto">
+                <button type="button" class="btn btn-sm btn-light border rounded-pill px-2.5 py-1 text-secondary small" (click)="openLinkModal(rep, $event)" title="Link this report to an existing consultation (Scenario B)">
+                  <i class="bi bi-link-45deg"></i>
+                  <span class="d-none d-sm-inline ms-1">Link</span>
+                </button>
+
+                <a [href]="'http://localhost:5000' + rep.fileUrl" target="_blank" class="btn btn-sm btn-light border rounded-pill px-2.5 py-1 text-secondary small" title="View original report document">
+                  <i class="bi bi-eye"></i>
+                </a>
+
+                <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-semibold small" (click)="openReportDetailModal(rep)">
+                  <span>Details</span>
+                </button>
+
+                <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-1" (click)="deleteReport(rep._id, $event)" title="Delete report">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <!-- ══════════════ MY PROFILE TAB ══════════════ -->
@@ -1549,6 +2109,38 @@
       <p *ngIf="appointmentType !== 'Emergency Sync' && appointmentType !== 'Follow-up'" class="field-hint text-muted">
         Choose <strong>General Consultation</strong> for new visits, or <strong>Emergency Sync</strong> for urgent triage.
       </p>
+
+      <!-- 📑 Attach Medical Reports from Vault (Scenario A & B Integration) -->
+      <div class="mt-3 pt-2.5 border-top" *ngIf="reports.length > 0">
+        <div class="d-flex justify-content-between align-items-center mb-1.5">
+          <label class="field-label m-0 fw-semibold text-dark">
+            <i class="bi bi-paperclip text-primary me-1"></i> Attach Medical Reports from Vault
+          </label>
+          <span class="badge bg-light text-primary border small">{{ attachedReportIdsForBooking.length }} Selected</span>
+        </div>
+        <p class="small text-muted mb-2" style="font-size: 0.75rem;">
+          Selected reports & AI biomarker analyses will be securely shared with Dr. {{ selectedDoctor?.firstName }} for this consultation.
+        </p>
+        <div class="d-flex flex-column gap-2" style="max-height: 160px; overflow-y: auto;">
+          <div 
+            *ngFor="let rep of reports"
+            class="p-2 rounded-3 border d-flex align-items-center justify-content-between cursor-pointer transition-all"
+            [class.bg-primary-subtle]="isReportAttachedForBooking(rep._id)"
+            [class.border-primary]="isReportAttachedForBooking(rep._id)"
+            (click)="toggleReportAttachmentForBooking(rep._id)">
+            <div class="d-flex align-items-center gap-2 text-truncate pe-2">
+              <input type="checkbox" [checked]="isReportAttachedForBooking(rep._id)" class="form-check-input mt-0 flex-shrink-0" />
+              <div class="text-truncate">
+                <strong class="d-block text-dark small text-truncate" style="font-size: 0.8rem;">{{ rep.title }}</strong>
+                <span class="text-muted" style="font-size: 0.7rem;">{{ rep.reportType }} • {{ rep.reportDate || (rep.createdAt | date:'mediumDate') }}</span>
+              </div>
+            </div>
+            <span class="badge bg-secondary-subtle text-secondary small flex-shrink-0" *ngIf="rep.aiAnalysis?.recommendedSpecialty" style="font-size: 0.68rem;">
+              {{ rep.aiAnalysis.recommendedSpecialty }}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Step 2: Select Date -->
@@ -1988,7 +2580,7 @@
   </div>
 </div>
 
-<!-- ══════════════ 🥗 CLINICAL CAREPATH & EDAMAM MEAL PLANNER MODAL ══════════════ -->
+<!-- ══════════════ 🥗 CLINICAL CAREPATH & AI MEAL PLANNER MODAL ══════════════ -->
 <div class="modal-overlay" *ngIf="showCarePathModal && selectedCarePathAppt" (click)="closeCarePathModal()">
   <div class="carepath-modal-dialog" (click)="$event.stopPropagation()">
     
@@ -2020,8 +2612,8 @@
       <button 
         type="button" 
         class="carepath-tab-btn"
-        [class.active]="activeCarePathTab === 'edamam-recipes'"
-        (click)="activeCarePathTab = 'edamam-recipes'"
+        [class.active]="activeCarePathTab === 'recipes'"
+        (click)="activeCarePathTab = 'recipes'"
       >
         <i class="bi bi-stars text-warning"></i> AI Clinical Recipe Recommendations
       </button>
@@ -2085,34 +2677,34 @@
       </div>
 
       <!-- TAB 2: Dynamic AI Clinical Recipe Cards -->
-      <div *ngIf="activeCarePathTab === 'edamam-recipes'">
+      <div *ngIf="activeCarePathTab === 'recipes'">
         
-        <div *ngIf="loadingEdamamPlan" class="text-center py-5">
+        <div *ngIf="loadingMealPlan" class="text-center py-5">
           <div class="spinner-border text-success mb-3" role="status"></div>
           <p class="text-muted small">Synthesizing AI Clinical Recipe Cards based on doctor's CarePath...</p>
         </div>
 
-        <div *ngIf="!loadingEdamamPlan && edamamMealPlan" class="d-flex flex-column gap-4">
+        <div *ngIf="!loadingMealPlan && mealPlan" class="d-flex flex-column gap-4">
           
           <!-- Regional Cuisine Banner -->
-          <div *ngIf="edamamMealPlanRegion" class="d-flex align-items-center justify-content-between p-2.5 px-3 bg-success bg-opacity-10 border border-success border-opacity-25 rounded-3 mb-1">
+          <div *ngIf="mealPlanRegion" class="d-flex align-items-center justify-content-between p-2.5 px-3 bg-success bg-opacity-10 border border-success border-opacity-25 rounded-3 mb-1">
             <div class="d-flex align-items-center gap-2">
               <i class="bi bi-geo-alt-fill text-success fs-5"></i>
               <div>
                 <strong class="text-success small d-block">Hyper-Local Regional CarePath Synthesis</strong>
-                <span class="text-dark x-small" style="font-size: 0.78rem;">Recipes specifically adapted for locally accessible staples in <strong>{{ edamamMealPlanRegion }}</strong>.</span>
+                <span class="text-dark x-small" style="font-size: 0.78rem;">Recipes specifically adapted for locally accessible staples in <strong>{{ mealPlanRegion }}</strong>.</span>
               </div>
             </div>
-            <span class="badge bg-success text-white px-2.5 py-1.5 small">🌴 {{ edamamMealPlanRegion }}</span>
+            <span class="badge bg-success text-white px-2.5 py-1.5 small">🌴 {{ mealPlanRegion }}</span>
           </div>
 
           <!-- Breakfast Section -->
-          <div *ngIf="edamamMealPlan.breakfast && edamamMealPlan.breakfast.length > 0">
+          <div *ngIf="mealPlan.breakfast && mealPlan.breakfast.length > 0">
             <h6 class="fw-bold text-dark text-uppercase mb-2.5 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
               <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2.5 py-1">🌅 Breakfast Recommendations</span>
             </h6>
             <div class="d-flex flex-column gap-2">
-              <div *ngFor="let recipe of edamamMealPlan.breakfast" class="carepath-minimal-card">
+              <div *ngFor="let recipe of mealPlan.breakfast" class="carepath-minimal-card">
                 <div class="d-flex align-items-center gap-3">
                   <div class="rounded-circle bg-warning bg-opacity-10 p-2 text-warning d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;">
                     <i class="bi bi-egg-fried fs-5"></i>
@@ -2128,12 +2720,12 @@
           </div>
 
           <!-- Lunch Section -->
-          <div *ngIf="edamamMealPlan.lunch && edamamMealPlan.lunch.length > 0">
+          <div *ngIf="mealPlan.lunch && mealPlan.lunch.length > 0">
             <h6 class="fw-bold text-dark text-uppercase mb-2.5 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
               <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2.5 py-1">☀️ Lunch Recommendations</span>
             </h6>
             <div class="d-flex flex-column gap-2">
-              <div *ngFor="let recipe of edamamMealPlan.lunch" class="carepath-minimal-card">
+              <div *ngFor="let recipe of mealPlan.lunch" class="carepath-minimal-card">
                 <div class="d-flex align-items-center gap-3">
                   <div class="rounded-circle bg-success bg-opacity-10 p-2 text-success d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;">
                     <i class="bi bi-sun-fill fs-5"></i>
@@ -2149,12 +2741,12 @@
           </div>
 
           <!-- Dinner Section -->
-          <div *ngIf="edamamMealPlan.dinner && edamamMealPlan.dinner.length > 0">
+          <div *ngIf="mealPlan.dinner && mealPlan.dinner.length > 0">
             <h6 class="fw-bold text-dark text-uppercase mb-2.5 d-flex align-items-center gap-2" style="font-size: 0.85rem; letter-spacing: 0.03em;">
               <span class="badge bg-primary bg-opacity-25 text-dark border border-primary px-2.5 py-1">🌙 Dinner Recommendations</span>
             </h6>
             <div class="d-flex flex-column gap-2">
-              <div *ngFor="let recipe of edamamMealPlan.dinner" class="carepath-minimal-card">
+              <div *ngFor="let recipe of mealPlan.dinner" class="carepath-minimal-card">
                 <div class="d-flex align-items-center gap-3">
                   <div class="rounded-circle bg-primary bg-opacity-10 p-2 text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;">
                     <i class="bi bi-moon-stars-fill fs-5"></i>
@@ -2282,4 +2874,997 @@
     </div>
   </div>
 </div>
+
+<!-- ══════════════ 📑 MODAL 1: UPLOAD MEDICAL REPORT (WITH GEMINI AI) ══════════════ -->
+<div class="modal-overlay" *ngIf="showUploadModal" (click)="closeUploadModal()">
+  <div class="vault-modal glass-card" (click)="$event.stopPropagation()" style="max-width: 620px; width: 95%;">
+    
+    <!-- Modal Header -->
+    <div class="modal-header d-flex justify-content-between align-items-center pb-3 border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <span class="fs-4">📑</span>
+        <div>
+          <h3 class="modal-title m-0 fw-bold text-dark fs-5">Upload Medical Report</h3>
+          <p class="modal-sub m-0 text-muted small">Gemini Multimodal AI will extract clinical observations & biomarkers</p>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-light rounded-circle p-1 border-0" (click)="closeUploadModal()" [disabled]="uploadingReport">✕</button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="modal-body py-3">
+      
+      <!-- Error Alert -->
+      <div *ngIf="uploadErrorMsg" class="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2 mb-3 rounded-3">
+        <i class="bi bi-exclamation-circle-fill"></i>
+        <span>{{ uploadErrorMsg }}</span>
+      </div>
+
+      <!-- Drag & Drop Zone -->
+      <div class="report-dropzone mb-3 text-center p-4 rounded-4 border border-2 border-dashed transition-all"
+           [class.has-file]="selectedFileToUpload"
+           (click)="fileInput.click()">
+        <input #fileInput type="file" accept=".pdf,image/png,image/jpeg,image/jpg,image/webp" class="d-none" (change)="onReportFileSelected($event)" />
+        
+        <div *ngIf="!selectedFileToUpload">
+          <div class="dropzone-icon mb-2 fs-1 text-primary">📁</div>
+          <strong class="d-block text-dark small fw-bold">Click or drag & drop medical report</strong>
+          <span class="text-muted small d-block mt-0.5">Supports PDF, PNG, JPG, WebP (up to 25MB)</span>
+        </div>
+
+        <div *ngIf="selectedFileToUpload" class="selected-file-info d-flex align-items-center justify-content-center gap-3">
+          <div class="file-thumb-icon fs-2 text-primary">
+            <i class="bi" [ngClass]="selectedFileToUpload.type.includes('pdf') ? 'bi-file-earmark-pdf-fill text-danger' : 'bi-file-earmark-image-fill text-primary'"></i>
+          </div>
+          <div class="text-start">
+            <strong class="d-block text-dark small text-truncate" style="max-width: 320px;">{{ selectedFileToUpload.name }}</strong>
+            <span class="text-muted small">{{ formatReportFileSize(selectedFileToUpload.size) }}</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-0.5 small ms-2" (click)="$event.stopPropagation(); selectedFileToUpload = null; selectedFilePreviewUrl = null;">
+            Change
+          </button>
+        </div>
+
+        <div *ngIf="selectedFilePreviewUrl" class="mt-2 text-center">
+          <img [src]="selectedFilePreviewUrl" class="rounded-3 shadow-xs border" style="max-height: 120px; object-fit: contain;" alt="Report Preview" />
+        </div>
+      </div>
+
+      <!-- Form Fields -->
+      <div class="row g-2.5">
+        <div class="col-12">
+          <label class="form-label fw-semibold small text-dark mb-1">Report Title / Test Name</label>
+          <input type="text" class="form-control form-control-sm rounded-3" placeholder="e.g. Complete Blood Count (CBC) or Lipid Panel" [(ngModel)]="uploadTitle" [disabled]="uploadingReport" />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small text-dark mb-1">Report Category</label>
+          <select class="form-select form-select-sm rounded-3" [(ngModel)]="uploadReportType" [disabled]="uploadingReport">
+            <option value="Blood Test">🩸 Blood Test</option>
+            <option value="Imaging (X-Ray/MRI/CT)">🩻 Imaging (X-Ray/MRI/CT)</option>
+            <option value="Cardiology (ECG/Echo)">❤️ Cardiology (ECG/Echo)</option>
+            <option value="Pathology">🧪 Pathology</option>
+            <option value="Urine/Renal">💧 Urine / Renal Function</option>
+            <option value="Prescription/Discharge">📋 Prescription / Discharge</option>
+            <option value="Other">📄 Other</option>
+          </select>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small text-dark mb-1">Test Date</label>
+          <input type="date" class="form-control form-control-sm rounded-3" [(ngModel)]="uploadReportDate" [max]="maxDobDate" [disabled]="uploadingReport" />
+        </div>
+
+        <!-- Scenario B Option: Link to Consultation -->
+        <div class="col-12 mt-2" *ngIf="myAppointments.length > 0">
+          <label class="form-label fw-semibold small text-dark mb-1">
+            🔗 Link to Consultation (Scenario B Follow-Up)
+          </label>
+          <select class="form-select form-select-sm rounded-3" [(ngModel)]="uploadAppointmentId" [disabled]="uploadingReport">
+            <option value="">-- None (Standalone Vault Record) --</option>
+            <option *ngFor="let a of myAppointments" [value]="a._id">
+              {{ a.appointmentDate }} ({{ a.startTime }}) — Dr. {{ a.doctorId.firstName }} {{ a.doctorId.lastName }} ({{ a.type }})
+            </option>
+          </select>
+          <small class="text-muted d-block mt-0.5" style="font-size: 0.72rem;">Linking allows the consulting doctor to review this report directly in your session chart.</small>
+        </div>
+
+        <!-- Scenario C Option: Universal Doctor Sharing Toggle -->
+        <div class="col-12 mt-2">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="shareAllDoctorsCheck" [(ngModel)]="isSharedAllToggle" [disabled]="uploadingReport">
+            <label class="form-check-label small fw-semibold text-dark cursor-pointer" for="shareAllDoctorsCheck">
+              🛡️ Allow all my consulting doctors to view this report (Patient-Centric Vault)
+            </label>
+          </div>
+          <small class="text-muted d-block ps-4" style="font-size: 0.7rem;">You can grant or revoke doctor access anytime from your vault.</small>
+        </div>
+      </div>
+
+      <!-- AI Analyzing Progress Indicator -->
+      <div *ngIf="uploadingReport" class="upload-analyzing-box p-3 mt-3 rounded-4 text-center border animate-fade-in" style="background: linear-gradient(135deg, rgba(37,99,235,0.06), rgba(0,128,148,0.08));">
+        <div class="spinner-border text-primary spinner-border-sm mb-2" role="status"></div>
+        <strong class="d-block text-primary small fw-bold">🤖 CarePath Multimodal AI Analyzing Report...</strong>
+        <p class="text-muted small m-0" style="font-size: 0.75rem;">Reading lab parameters, matching reference ranges, and generating clinical impressions.</p>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer d-flex justify-content-between pt-3 border-top">
+      <button type="button" class="btn btn-sm btn-light rounded-pill px-3" (click)="closeUploadModal()" [disabled]="uploadingReport">Cancel</button>
+      <button type="button" class="btn btn-sm btn-primary rounded-pill px-4 fw-semibold" (click)="submitUploadReport()" [disabled]="uploadingReport || !selectedFileToUpload">
+        <span>{{ uploadingReport ? 'Analyzing & Uploading...' : 'Upload & Analyze 🚀' }}</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════ 📑 MODAL 2: REPORT DETAIL & BIOMARKERS DEEP DIVE ══════════════ -->
+<div class="modal-overlay" *ngIf="showReportDetailModal && selectedReportDetail" (click)="closeReportDetailModal()">
+  <div class="vault-modal glass-card" (click)="$event.stopPropagation()" style="max-width: 820px; width: 95%; max-height: 90vh; overflow-y: auto;">
+    
+    <!-- Header -->
+    <div class="modal-header d-flex justify-content-between align-items-start pb-3 border-bottom">
+      <div>
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+          <h3 class="modal-title m-0 fw-bold text-dark fs-5">{{ selectedReportDetail.title }}</h3>
+          <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 small">
+            {{ selectedReportDetail.reportType }}
+          </span>
+          <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 small" *ngIf="selectedReportDetail.aiAnalysis?.status === 'Completed'">
+            🤖 AI Analyzed
+          </span>
+        </div>
+        <div class="d-flex align-items-center gap-2 text-muted small" style="font-size: 0.75rem;">
+          <span>Date: <strong>{{ selectedReportDetail.reportDate || (selectedReportDetail.createdAt | date:'mediumDate') }}</strong></span>
+          <span>•</span>
+          <span>File: {{ selectedReportDetail.originalFilename }} ({{ formatReportFileSize(selectedReportDetail.fileSize) }})</span>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <a [href]="'http://localhost:5000' + selectedReportDetail.fileUrl" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3 small">
+          <i class="bi bi-file-earmark-arrow-down me-1"></i> View Document
+        </a>
+        <button class="btn btn-sm btn-light rounded-circle p-1 border-0" (click)="closeReportDetailModal()">✕</button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body py-3">
+
+      <!-- Critical Alerts if any -->
+      <div *ngIf="selectedReportDetail.aiAnalysis?.criticalAlerts && selectedReportDetail.aiAnalysis.criticalAlerts.length > 0" class="alert alert-danger p-2.5 rounded-3 mb-3 d-flex align-items-start gap-2">
+        <i class="bi bi-exclamation-triangle-fill fs-5 text-danger flex-shrink-0 mt-0.5"></i>
+        <div>
+          <strong class="d-block small text-danger fw-bold">Critical Alert Flagged by AI:</strong>
+          <ul class="m-0 ps-3 small text-danger">
+            <li *ngFor="let alert of selectedReportDetail.aiAnalysis.criticalAlerts">{{ alert }}</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Plain English AI Summary -->
+      <div class="p-3 rounded-4 mb-3 bg-light bg-opacity-75 border">
+        <div class="d-flex align-items-center gap-2 text-primary fw-bold small mb-1">
+          <i class="bi bi-chat-heart-fill"></i>
+          <span>Patient-Friendly Summary</span>
+        </div>
+        <p class="m-0 text-dark small lh-base">
+          {{ selectedReportDetail.aiAnalysis.summary || 'No plain-English summary available.' }}
+        </p>
+      </div>
+
+      <!-- Clinical Impression for Doctors -->
+      <div class="p-3 rounded-4 mb-3 border" style="background: rgba(37,99,235,0.03);">
+        <div class="d-flex align-items-center gap-2 text-indigo fw-bold small mb-1">
+          <i class="bi bi-clipboard2-pulse-fill"></i>
+          <span>Clinical Impression (For Clinicians)</span>
+        </div>
+        <p class="m-0 text-dark small lh-base">
+          {{ selectedReportDetail.aiAnalysis.clinicalImpression || 'Standard clinical review recommended.' }}
+        </p>
+      </div>
+
+      <!-- Structured Biomarkers Table -->
+      <div class="mb-3" *ngIf="selectedReportDetail.aiAnalysis.biomarkers && selectedReportDetail.aiAnalysis.biomarkers.length > 0">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <strong class="small fw-bold text-dark">🔬 Extracted Biomarkers & Reference Ranges</strong>
+          <span class="badge bg-light text-secondary border small">{{ selectedReportDetail.aiAnalysis.biomarkers.length }} Parameters</span>
+        </div>
+        <div class="table-responsive rounded-3 border">
+          <table class="table table-sm table-hover m-0 align-middle small">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3 py-2">Parameter</th>
+                <th class="py-2">Observed Value</th>
+                <th class="py-2">Standard Range</th>
+                <th class="pe-3 py-2 text-end">Flag / Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let bio of selectedReportDetail.aiAnalysis.biomarkers">
+                <td class="ps-3 py-2 fw-semibold text-dark">{{ bio.name }}</td>
+                <td class="py-2 fw-bold" [ngClass]="{'text-danger': bio.flag === 'High' || bio.flag === 'Critical', 'text-warning': bio.flag === 'Borderline', 'text-success': bio.flag === 'Normal'}">
+                  {{ bio.value }} <span class="text-muted small fw-normal">{{ bio.unit }}</span>
+                </td>
+                <td class="py-2 text-muted">{{ bio.referenceRange || 'Standard Lab Range' }}</td>
+                <td class="pe-3 py-2 text-end">
+                  <span class="biomarker-badge px-2 py-0.5 rounded-pill small fw-semibold" [ngClass]="getBiomarkerBadgeClass(bio.flag)">
+                    {{ bio.flag }}
+                    <span class="flag-icon ms-0.5" *ngIf="bio.flag === 'High'">🔴</span>
+                    <span class="flag-icon ms-0.5" *ngIf="bio.flag === 'Critical'">🚨</span>
+                    <span class="flag-icon ms-0.5" *ngIf="bio.flag === 'Borderline'">🟡</span>
+                    <span class="flag-icon ms-0.5" *ngIf="bio.flag === 'Normal'">🟢</span>
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Scenario A: Suggested Specialist Booking -->
+      <div class="specialty-match-banner p-3 rounded-4 mb-3 d-flex align-items-center justify-content-between gap-3 border"
+           *ngIf="selectedReportDetail.aiAnalysis.recommendedSpecialty"
+           style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(0, 128, 148, 0.08)); border-color: rgba(37, 99, 235, 0.2) !important;">
+        <div class="d-flex align-items-center gap-2.5">
+          <span class="fs-4">🩺</span>
+          <div>
+            <span class="d-block small text-muted">Scenario A — Clinical Recommendation:</span>
+            <strong class="text-primary fs-6">{{ selectedReportDetail.aiAnalysis.recommendedSpecialty }}</strong>
+            <p class="small text-muted mb-0">Book a consultation with a verified specialist and have this report pre-attached automatically.</p>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary rounded-pill px-3.5 py-1.5 fw-semibold small shadow-sm flex-shrink-0" (click)="closeReportDetailModal(); bookSpecialistForReport(selectedReportDetail, $event)">
+          <span>Book Specialist Now →</span>
+        </button>
+      </div>
+
+      <!-- Scenario C: Patient-Centric Multi-Doctor Sharing Manager -->
+      <div class="doctor-sharing-manager p-3 rounded-4 border bg-light bg-opacity-50">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+          <div>
+            <strong class="d-block small fw-bold text-dark">🛡️ Doctor Access & Sharing Permissions (Scenario C)</strong>
+            <span class="text-muted small" style="font-size: 0.72rem;">You own this report. Control which doctors can inspect your lab parameters.</span>
+          </div>
+          <div class="form-check form-switch m-0">
+            <input class="form-check-input" type="checkbox" id="modalShareAllToggle" 
+                   [checked]="selectedReportDetail.isSharedWithAllConsultingDoctors"
+                   (change)="toggleShareAllDoctors(selectedReportDetail)">
+            <label class="form-check-label small fw-semibold text-dark cursor-pointer" for="modalShareAllToggle">
+              Share with all my consulting doctors
+            </label>
+          </div>
+        </div>
+
+        <!-- Shared Doctors List -->
+        <div class="shared-docs-row d-flex flex-wrap gap-2 mt-2" *ngIf="selectedReportDetail.sharedWithDoctorIds && selectedReportDetail.sharedWithDoctorIds.length > 0">
+          <div *ngFor="let doc of selectedReportDetail.sharedWithDoctorIds" class="p-2 rounded-3 border bg-white d-flex align-items-center gap-2 shadow-2xs">
+            <div class="doc-mini-avatar rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold" style="width: 28px; height: 28px; font-size: 0.75rem;">
+              {{ doc.firstName.charAt(0) }}
+            </div>
+            <div>
+              <strong class="d-block text-dark small" style="font-size: 0.78rem;">Dr. {{ doc.firstName }} {{ doc.lastName }}</strong>
+              <span class="text-muted" style="font-size: 0.68rem;">{{ doc.specialization }}</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1 ms-1" (click)="toggleDoctorSharing(selectedReportDetail, doc._id, true)" title="Revoke doctor access">
+              <i class="bi bi-x-circle"></i>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="!selectedReportDetail.isSharedWithAllConsultingDoctors && (!selectedReportDetail.sharedWithDoctorIds || selectedReportDetail.sharedWithDoctorIds.length === 0)" class="text-muted small fst-italic mt-1">
+          No individual doctors currently granted access. Turn on universal sharing or attach to a consultation.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer d-flex justify-content-between pt-3 border-top">
+      <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" (click)="deleteReport(selectedReportDetail._id)">
+        <i class="bi bi-trash me-1"></i> Delete from Vault
+      </button>
+      <button type="button" class="btn btn-sm btn-secondary rounded-pill px-4" (click)="closeReportDetailModal()">Close</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════ 📑 MODAL 3: LINK REPORT TO CONSULTATION (SCENARIO B) ══════════════ -->
+<div class="modal-overlay" *ngIf="showLinkModal && linkingReport" (click)="closeLinkModal()">
+  <div class="vault-modal glass-card" (click)="$event.stopPropagation()" style="max-width: 520px; width: 95%;">
+    
+    <div class="modal-header d-flex justify-content-between align-items-center pb-3 border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <span class="fs-4">🔗</span>
+        <div>
+          <h3 class="modal-title m-0 fw-bold text-dark fs-5">Link Report to Consultation</h3>
+          <p class="modal-sub m-0 text-muted small">Scenario B — Attach to follow-up or recent session</p>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-light rounded-circle p-1 border-0" (click)="closeLinkModal()">✕</button>
+    </div>
+
+    <div class="modal-body py-3">
+      <p class="small text-muted mb-3">
+        Linking <strong>"{{ linkingReport.title }}"</strong> will share the report and AI analysis with the attending doctor so they can review and adjust your treatment plan.
+      </p>
+
+      <div *ngIf="myAppointments.length === 0" class="text-center py-4 text-muted small">
+        No appointments found in your account history to link to.
+      </div>
+
+      <div class="appointment-picker-list d-flex flex-column gap-2" *ngIf="myAppointments.length > 0" style="max-height: 260px; overflow-y: auto;">
+        <div 
+          *ngFor="let appt of myAppointments"
+          class="p-2.5 rounded-3 border cursor-pointer transition-all d-flex align-items-center justify-content-between"
+          [class.bg-primary-subtle]="targetAppointmentIdForLink === appt._id"
+          [class.border-primary]="targetAppointmentIdForLink === appt._id"
+          (click)="targetAppointmentIdForLink = appt._id">
+          <div>
+            <strong class="d-block text-dark small">Dr. {{ appt.doctorId.firstName }} {{ appt.doctorId.lastName }}</strong>
+            <span class="text-muted small" style="font-size: 0.72rem;">
+              {{ appt.appointmentDate }} ({{ appt.startTime }}) • {{ appt.type }}
+            </span>
+          </div>
+          <span class="badge rounded-pill small" [ngClass]="appt.status === 'Completed' ? 'bg-success' : 'bg-primary'">
+            {{ appt.status }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer d-flex justify-content-between pt-3 border-top">
+      <button type="button" class="btn btn-sm btn-light rounded-pill px-3" (click)="closeLinkModal()">Cancel</button>
+      <button type="button" class="btn btn-sm btn-primary rounded-pill px-4 fw-semibold" [disabled]="!targetAppointmentIdForLink || linkingInProgress" (click)="confirmLinkToConsultation()">
+        <span>{{ linkingInProgress ? 'Linking...' : 'Confirm Link 🔗' }}</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════ 🎥 MODAL: VIDEO DEMONSTRATION & REHAB GUIDE ══════════════ -->
+<div class="modal-overlay animate-fade-in" *ngIf="showDemoModal && selectedDemoExercise" (click)="closeDemoModal()">
+  <div class="vault-modal glass-card" (click)="$event.stopPropagation()" style="max-width: 680px; width: 95%;">
+    <div class="modal-header d-flex justify-content-between align-items-center pb-3 border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <span class="fs-4">🎥</span>
+        <div>
+          <h4 class="modal-title m-0 fw-bold text-dark fs-5">{{ selectedDemoExercise.name }}</h4>
+          <p class="modal-sub m-0 text-muted small">{{ selectedDemoExercise.category || 'Rehabilitation Movement' }} • Video Reference Guide</p>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-light rounded-circle p-1 border-0" (click)="closeDemoModal()">✕</button>
+    </div>
+
+    <div class="modal-body py-3">
+      <!-- Visual Mode Switcher (Biomechanical Kinematics vs Video Clip) -->
+      <div class="d-flex align-items-center justify-content-between mb-2.5">
+        <div class="btn-group btn-group-sm p-1 rounded-pill bg-light border shadow-2xs">
+          <button type="button" class="btn btn-sm rounded-pill px-3 py-1 fw-bold transition-all" 
+                  [ngClass]="demoActiveTab === 'kinematics' ? 'btn-primary shadow-xs' : 'btn-light text-secondary border-0'" 
+                  (click)="demoActiveTab = 'kinematics'">
+            🧬 AI Biomechanical Simulation
+          </button>
+          <button type="button" class="btn btn-sm rounded-pill px-3 py-1 fw-bold transition-all" 
+                  [ngClass]="demoActiveTab === 'video' ? 'btn-primary shadow-xs' : 'btn-light text-secondary border-0'" 
+                  (click)="demoActiveTab = 'video'">
+            🎥 Video Clip
+          </button>
+        </div>
+
+        <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-1 fw-semibold d-flex align-items-center gap-1"
+                (click)="previewExerciseVoiceCue(selectedDemoExercise)" title="Test AI verbal coaching cues for this exercise">
+          <i class="bi bi-volume-up-fill"></i>
+          <span>Sample Audio Cue</span>
+        </button>
+      </div>
+
+      <!-- TAB 1: 🧬 Biomechanical Kinematics Visualizer (Guaranteed 100% Reliable & Dynamic) -->
+      <div *ngIf="demoActiveTab === 'kinematics'" class="kinematic-visualizer-container mb-3">
+        <div class="kinematic-grid-bg"></div>
+
+        <!-- Floating Telemetry Pills -->
+        <div class="position-absolute top-0 start-0 m-2.5 d-flex align-items-center gap-2">
+          <span class="kinematic-telemetry-pill d-flex align-items-center gap-1.5">
+            <span class="phase-pill-dot"></span>
+            <span>Target Joint: <strong>{{ selectedDemoExercise.exerciseId === 'bicep_curl' ? 'Elbow' : (selectedDemoExercise.exerciseId === 'shoulder_abduction' ? 'Shoulder' : 'Knee') }} Flexion</strong></span>
+          </span>
+          <span class="badge bg-dark bg-opacity-75 text-info border border-info border-opacity-25 px-2 py-1 small">
+            {{ selectedDemoExercise.targetAngleMin || 85 }}° – {{ selectedDemoExercise.targetAngleMax || 95 }}° Window
+          </span>
+        </div>
+
+        <!-- SVG 1: Chair Squats Dynamic Silhouette -->
+        <svg *ngIf="selectedDemoExercise.exerciseId === 'squats' || (!['knee_extension', 'shoulder_abduction', 'bicep_curl'].includes(selectedDemoExercise.exerciseId))" 
+             viewBox="0 0 320 220" class="kinematic-svg-stage">
+          <!-- Reference Floor & Depth Target Line -->
+          <line x1="50" y1="205" x2="270" y2="205" stroke="#334155" stroke-width="2" stroke-dasharray="4 4" />
+          <line x1="120" y1="165" x2="200" y2="165" stroke="#10b981" stroke-width="1.5" stroke-dasharray="2 2" />
+          <text x="205" y="168" fill="#10b981" font-size="10" font-family="Outfit, sans-serif">90° Chair Plane</text>
+
+          <!-- Squat Animated Group -->
+          <g class="anim-squat-torso">
+            <!-- Head -->
+            <circle cx="160" cy="55" r="14" fill="#38bdf8" />
+            <!-- Spine / Torso -->
+            <line x1="160" y1="69" x2="160" y2="135" class="kinematic-bone-active" />
+            <!-- Arm / Balance Guard -->
+            <line x1="160" y1="85" x2="195" y2="105" class="kinematic-bone" />
+            <circle cx="195" cy="105" r="4" class="kinematic-joint" />
+          </g>
+
+          <!-- Hip to Knee (Femur) -->
+          <g class="anim-squat-femur">
+            <circle cx="160" cy="135" r="6" class="kinematic-joint-accent" />
+            <line x1="160" y1="135" x2="185" y2="175" class="kinematic-bone-active" />
+          </g>
+
+          <!-- Knee Joint & Tibia to Foot -->
+          <g class="anim-squat-tibia">
+            <circle cx="185" cy="175" r="7" class="kinematic-joint-accent" />
+            <!-- Knee Angle Arc -->
+            <path d="M 175 168 A 12 12 0 0 1 185 185" class="kinematic-arc" />
+            <line x1="185" y1="175" x2="185" y2="205" class="kinematic-bone" />
+            <!-- Foot -->
+            <line x1="185" y1="205" x2="210" y2="205" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" />
+            <circle cx="185" cy="205" r="4" class="kinematic-joint" />
+          </g>
+        </svg>
+
+        <!-- SVG 2: Seated Knee Extension Dynamic Silhouette -->
+        <svg *ngIf="selectedDemoExercise.exerciseId === 'knee_extension'" viewBox="0 0 320 220" class="kinematic-svg-stage">
+          <!-- Chair Base -->
+          <path d="M 120 120 L 120 180 L 165 180 L 165 205" stroke="#475569" stroke-width="3" fill="none" />
+          <!-- Torso -->
+          <circle cx="135" cy="55" r="14" fill="#38bdf8" />
+          <line x1="135" y1="69" x2="135" y2="140" class="kinematic-bone" />
+          <!-- Thigh -->
+          <line x1="135" y1="140" x2="175" y2="140" class="kinematic-bone-active" />
+          <circle cx="175" cy="140" r="7" class="kinematic-joint-accent" />
+          <!-- Knee Extension Leg Pivot -->
+          <g class="anim-knee-ext-leg">
+            <line x1="175" y1="140" x2="175" y2="195" class="kinematic-bone-active" />
+            <circle cx="175" cy="195" r="5" class="kinematic-joint" />
+            <line x1="175" y1="195" x2="195" y2="195" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round" />
+            <!-- Extension Target Arc -->
+            <path d="M 185 140 A 20 20 0 0 1 175 160" class="kinematic-arc" />
+          </g>
+          <text x="185" y="132" fill="#10b981" font-size="10" font-family="Outfit, sans-serif">180° Full Lockout</text>
+        </svg>
+
+        <!-- SVG 3: Shoulder Lateral Abduction Dynamic Silhouette -->
+        <svg *ngIf="selectedDemoExercise.exerciseId === 'shoulder_abduction'" viewBox="0 0 320 220" class="kinematic-svg-stage">
+          <!-- Head & Torso -->
+          <circle cx="160" cy="55" r="14" fill="#38bdf8" />
+          <line x1="160" y1="69" x2="160" y2="155" class="kinematic-bone" />
+          <line x1="160" y1="155" x2="145" y2="205" class="kinematic-bone" />
+          <line x1="160" y1="155" x2="175" y2="205" class="kinematic-bone" />
+
+          <!-- Left Shoulder & Arm -->
+          <circle cx="140" cy="95" r="6" class="kinematic-joint-accent" />
+          <g class="anim-arm-left">
+            <line x1="140" y1="95" x2="140" y2="150" class="kinematic-bone-active" />
+            <circle cx="140" cy="150" r="5" class="kinematic-joint" />
+          </g>
+
+          <!-- Right Shoulder & Arm -->
+          <circle cx="180" cy="95" r="6" class="kinematic-joint-accent" />
+          <g class="anim-arm-right">
+            <line x1="180" y1="95" x2="180" y2="150" class="kinematic-bone-active" />
+            <circle cx="180" cy="150" r="5" class="kinematic-joint" />
+          </g>
+          <!-- 90 Deg Target Arcs -->
+          <path d="M 115 95 A 30 30 0 0 1 140 125" class="kinematic-arc" />
+          <path d="M 205 95 A 30 30 0 0 0 180 125" class="kinematic-arc" />
+          <text x="120" y="25" fill="#38bdf8" font-size="11" font-family="Outfit, sans-serif">90° Coronal Plane</text>
+        </svg>
+
+        <!-- SVG 4: Standing Bicep Curl Dynamic Silhouette -->
+        <svg *ngIf="selectedDemoExercise.exerciseId === 'bicep_curl'" viewBox="0 0 320 220" class="kinematic-svg-stage">
+          <circle cx="150" cy="50" r="14" fill="#38bdf8" />
+          <line x1="150" y1="64" x2="150" y2="155" class="kinematic-bone" />
+          <line x1="150" y1="155" x2="140" y2="205" class="kinematic-bone" />
+          <line x1="150" y1="155" x2="160" y2="205" class="kinematic-bone" />
+
+          <!-- Upper Arm (Fixed) -->
+          <circle cx="165" cy="85" r="5" class="kinematic-joint" />
+          <line x1="165" y1="85" x2="165" y2="125" class="kinematic-bone" />
+          <circle cx="165" cy="125" r="7" class="kinematic-joint-accent" />
+
+          <!-- Forearm (Articulating) -->
+          <g class="anim-forearm-curl">
+            <line x1="165" y1="125" x2="165" y2="165" class="kinematic-bone-active" />
+            <circle cx="165" cy="165" r="6" fill="#10b981" />
+            <!-- Dumbbell Token -->
+            <rect x="157" y="160" width="16" height="8" rx="2" fill="#38bdf8" />
+          </g>
+          <path d="M 165 140 A 15 15 0 0 1 150 125" class="kinematic-arc" />
+          <text x="175" y="115" fill="#10b981" font-size="10" font-family="Outfit, sans-serif">45° Peak Contraction</text>
+        </svg>
+
+        <!-- Bottom Phase Telemetry Strip -->
+        <div class="position-absolute bottom-0 w-100 p-2 d-flex justify-content-between align-items-center bg-black bg-opacity-60 px-3">
+          <div class="d-flex align-items-center gap-1.5 small text-light" style="font-size: 0.73rem;">
+            <i class="bi bi-arrow-repeat text-info"></i>
+            <span>Continuous Kinetic Loop: <strong>Eccentric ➔ Isometric Hold ➔ Concentric Return</strong></span>
+          </div>
+          <span class="badge bg-success bg-opacity-20 text-success border border-success border-opacity-30 small px-2 py-0.5">
+            Calibrated Form
+          </span>
+        </div>
+      </div>
+
+      <!-- TAB 2: 🎥 Video Player (With graceful CORS / 403 error fallback) -->
+      <div *ngIf="demoActiveTab === 'video'" class="video-guide-wrapper rounded-4 overflow-hidden mb-3 bg-black position-relative shadow-sm" style="min-height: 280px; max-height: 320px;">
+        <div *ngIf="demoVideoFailed" class="p-4 text-center text-white h-100 d-flex flex-column align-items-center justify-content-center" style="min-height: 280px;">
+          <i class="bi bi-exclamation-triangle text-warning fs-1 mb-2"></i>
+          <h6 class="fw-bold mb-1">External Video Stream Protected</h6>
+          <p class="text-white-50 small mb-3" style="max-width: 420px;">
+            The remote video server has CORS hotlink security enabled. You can rely on our full <strong>AI Biomechanical Simulation</strong> for complete movement kinematics.
+          </p>
+          <button type="button" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold" (click)="demoActiveTab = 'kinematics'">
+            🧬 Open Biomechanical Simulation
+          </button>
+        </div>
+
+        <video *ngIf="!demoVideoFailed"
+          [src]="selectedDemoExercise.videoUrl || ''" 
+          autoplay 
+          loop 
+          muted 
+          playsinline 
+          controls
+          (error)="onDemoVideoError()"
+          class="w-100 h-100" 
+          style="object-fit: cover; max-height: 320px; display: block;">
+        </video>
+
+        <div *ngIf="!demoVideoFailed" class="position-absolute top-0 start-0 m-2.5">
+          <span class="badge bg-dark bg-opacity-75 text-white border border-light border-opacity-25 px-2.5 py-1 small">
+            🔄 Video Stream
+          </span>
+        </div>
+      </div>
+
+      <!-- Prescribed Prescription Details -->
+      <div class="row g-2 mb-3 text-center">
+        <div class="col-4">
+          <div class="p-2 rounded-3 bg-light border">
+            <span class="d-block small text-muted">Target Reps</span>
+            <strong class="text-dark fs-5">{{ selectedDemoExercise.targetReps }}</strong>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="p-2 rounded-3 bg-light border">
+            <span class="d-block small text-muted">Target Sets</span>
+            <strong class="text-dark fs-5">{{ selectedDemoExercise.targetSets }}</strong>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="p-2 rounded-3 bg-light border">
+            <span class="d-block small text-muted">Weekly Frequency</span>
+            <strong class="text-dark fs-5">{{ selectedDemoExercise.frequencyPerWeek }}x</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Clinical Execution Checklist -->
+      <div class="p-3 rounded-3 bg-light border mb-3">
+        <h6 class="small fw-bold text-dark text-uppercase mb-2"><i class="bi bi-check2-circle text-success me-1"></i> Form & Technique Guidance</h6>
+        <ul class="list-unstyled small mb-0 d-flex flex-column gap-1.5 text-secondary">
+          <li class="d-flex align-items-start gap-2">
+            <i class="bi bi-arrow-right-circle text-primary mt-0.5"></i>
+            <span><strong>Starting Posture:</strong> Stand/sit 2 meters away from camera with feet firmly grounded.</span>
+          </li>
+          <li class="d-flex align-items-start gap-2">
+            <i class="bi bi-arrow-right-circle text-primary mt-0.5"></i>
+            <span><strong>Movement Execution:</strong> Move through full range of motion. Do not rush or lock joints.</span>
+          </li>
+          <li class="d-flex align-items-start gap-2">
+            <i class="bi bi-arrow-right-circle text-primary mt-0.5"></i>
+            <span><strong>Breathing:</strong> Exhale during effort, inhale during return. Never hold your breath.</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Precautions Alert -->
+      <div class="alert alert-warning border-0 py-2.5 px-3 m-0 d-flex align-items-start gap-2 small text-dark" style="background: rgba(245, 158, 11, 0.15);">
+        <i class="bi bi-shield-exclamation text-warning fs-5 flex-shrink-0"></i>
+        <div>
+          <strong>Doctor's Clinical Precaution:</strong>
+          <p class="mb-0 mt-0.5">{{ selectedDemoExercise.precautions || 'Stop immediately if you feel acute joint pain, chest discomfort, or dizziness.' }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer d-flex justify-content-between pt-3 border-top">
+      <button type="button" class="btn btn-sm btn-light rounded-pill px-3" (click)="closeDemoModal()">Close</button>
+      <button type="button" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold shadow-sm" (click)="openExerciseStudio(selectedDemoExercise)">
+        <i class="bi bi-camera-fill me-1"></i> Start AI Studio Session
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ ⚡ FULL-SCREEN INTERACTIVE AI PHYSIO STUDIO ══════════════ -->
+<div class="studio-fullscreen-overlay animate-fade-in" *ngIf="isExerciseStudioOpen && activeStudioExercise">
+  <div class="studio-container">
+    <!-- Top HUD Header -->
+    <header class="studio-header d-flex justify-content-between align-items-center px-4 py-3">
+      <div class="d-flex align-items-center gap-3">
+        <div class="studio-logo-icon">
+          <i class="bi bi-activity text-info fs-3"></i>
+        </div>
+        <div>
+          <h4 class="text-white fw-bold m-0 fs-5 d-flex align-items-center gap-2">
+            <span>{{ activeStudioExercise.name }}</span>
+            <span class="badge bg-primary text-white small" style="font-size: 0.72rem;">AI Pose Studio</span>
+            <span *ngIf="prescribedExercisesList.length > 1" class="badge bg-secondary text-light small" style="font-size: 0.72rem;">
+              Exercise {{ studioRoutineIndex + 1 }} of {{ prescribedExercisesList.length }}
+            </span>
+          </h4>
+          <span class="text-secondary small">
+            Set <strong>{{ studioCurrentSets }} of {{ studioTargetSets }}</strong> • Rep Target: <strong>{{ studioTargetReps }}</strong>
+          </span>
+        </div>
+      </div>
+
+      <!-- Center Status Badges -->
+      <div class="d-none d-md-flex align-items-center gap-2">
+        <span class="badge studio-tracker-badge px-3 py-1.5 rounded-pill small fw-bold shadow-sm">
+          <i class="bi bi-camera-video-fill me-1"></i> MediaPipe 33-Point Skeletal Tracker
+        </span>
+        <span class="badge studio-guard-badge px-3 py-1.5 rounded-pill small fw-bold shadow-sm">
+          <i class="bi bi-shield-check me-1"></i> Autonomous Fall Guard ON
+        </span>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3 py-1.5 fw-bold" (click)="showDevSimControls = !showDevSimControls" title="Toggle Test Mode Simulators">
+          <i class="bi bi-cpu me-1"></i> {{ showDevSimControls ? 'Hide Test Mode' : 'Test Mode' }}
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger px-3 py-1.5 rounded-pill fw-bold" (click)="triggerSafetyVerification('Manual SOS Request')">
+          <i class="bi bi-bell-fill me-1"></i> Emergency SOS
+        </button>
+        <button type="button" class="btn btn-sm btn-light rounded-pill px-3 py-1.5 fw-bold" (click)="closeExerciseStudio()">
+          <i class="bi bi-x-lg me-1"></i> Exit Studio
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Stage Content -->
+    <div class="studio-stage-layout">
+      <!-- Left: Camera Feed & Canvas Skeleton Stage -->
+      <div class="studio-video-stage">
+        <div class="camera-frame-box position-relative overflow-hidden" [class.frame-good]="studioFeedbackStatus === 'good'" [class.frame-adjust]="studioFeedbackStatus === 'adjust'">
+          <!-- Video element -->
+          <video #studioVideo playsinline autoplay muted class="studio-video-feed"></video>
+          <!-- Canvas overlay for skeleton & angles -->
+          <canvas #studioCanvas class="studio-canvas-overlay"></canvas>
+
+          <!-- 🧪 Biomechanical Validation / Test Mode Toolbar (Feature 8) -->
+          <div class="studio-simulator-toolbar p-2 rounded-4 glass-card d-flex align-items-center gap-2 flex-wrap shadow-lg" *ngIf="showDevSimControls" style="position: absolute; top: 16px; left: 16px; z-index: 40; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(56, 189, 248, 0.4); backdrop-filter: blur(8px);">
+            <span class="badge bg-info text-dark fw-bold me-1">🧪 Test Mode</span>
+            <button type="button" class="btn btn-sm btn-success rounded-pill px-2.5 py-1 fw-semibold small" (click)="runSimulatorRep('valid')">
+              + Valid Rep (90°)
+            </button>
+            <button type="button" class="btn btn-sm btn-warning rounded-pill px-2.5 py-1 fw-semibold text-dark small" (click)="runSimulatorRep('shallow')">
+              + Shallow Rep (118°)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-1 small" (click)="runSimulatorRest()">
+              Simulate Rest (30s)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2.5 py-1 small" (click)="runSimulatorSafetyTest()">
+              Test Safety SOS
+            </button>
+          </div>
+
+          <!-- ⏸ Inter-Set Rest Recovery Overlay (Feature 7) -->
+          <div class="rest-recovery-overlay animate-fade-in" *ngIf="studioPhase === 'SET_REST'" style="position: absolute; inset: 0; z-index: 35; background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center;">
+            <div class="glass-card text-center p-4 rounded-4 shadow-2xl" style="max-width: 440px; background: rgba(30, 41, 59, 0.92); border: 1px solid rgba(56, 189, 248, 0.35);">
+              <div class="mb-2">
+                <span class="fs-1">⏸️</span>
+              </div>
+              <h3 class="fw-bold text-white mb-1">Set {{ studioCurrentSets }} Complete!</h3>
+              <p class="text-white-50 small mb-3">Planned rest interval before Set {{ studioCurrentSets + 1 }}. Catch your breath and shake out tension.</p>
+
+              <div class="my-2 py-2 px-4 rounded-pill bg-black bg-opacity-40 d-inline-block border border-info border-opacity-30">
+                <span class="display-5 fw-bold text-info">{{ restCountdownSeconds }}</span>
+                <span class="text-white-50 small ms-2">seconds remaining</span>
+              </div>
+
+              <div class="p-2.5 rounded-3 my-3 bg-black bg-opacity-30 border border-success border-opacity-30 small text-success text-center">
+                <i class="bi bi-shield-check me-1"></i> Inactivity safety alarms are paused during planned recovery.
+              </div>
+
+              <button type="button" class="btn btn-primary btn-lg rounded-pill px-4 fw-bold shadow-sm w-100" (click)="skipInterSetRest()">
+                <i class="bi bi-play-fill me-1"></i> Skip Rest & Start Set {{ studioCurrentSets + 1 }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Floating Live Angle Pill (Top Right) -->
+          <div class="angle-floating-pill" *ngIf="studioCurrentAngle > 0">
+            <span class="angle-val">{{ studioCurrentAngle }}°</span>
+            <span class="angle-sub">{{ studioAngleTargetLabel }}</span>
+          </div>
+
+          <!-- Live Form Feedback Banner (Bottom Center) -->
+          <div class="feedback-floating-banner" [ngClass]="'banner-' + studioFeedbackStatus">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi fs-5" [ngClass]="{
+                'bi-check-circle-fill text-success': studioFeedbackStatus === 'good',
+                'bi-exclamation-triangle-fill text-warning': studioFeedbackStatus === 'adjust',
+                'bi-info-circle-fill text-info': studioFeedbackStatus === 'neutral'
+              }"></i>
+              <strong class="feedback-text">{{ studioFeedbackText }}</strong>
+            </div>
+          </div>
+
+          <!-- Camera Loading / Error Overlay -->
+          <div *ngIf="cameraErrorMsg" class="camera-error-overlay p-4 text-center text-white">
+            <i class="bi bi-camera-video-off display-4 text-danger mb-2"></i>
+            <h5 class="fw-bold">Camera Access Required</h5>
+            <p class="small text-light">{{ cameraErrorMsg }}</p>
+            <button class="btn btn-outline-light btn-sm rounded-pill px-3" (click)="initPoseDetection()">Retry Camera</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Control, Target Gauge, & Metrics Sidebar -->
+      <div class="studio-metrics-sidebar">
+        <!-- Rep Counter Ring Card -->
+        <div class="glass-card p-3 mb-3 text-center">
+          <span class="text-secondary small text-uppercase fw-bold d-block mb-1">Current Reps</span>
+          <div class="rep-display my-2">
+            <span class="rep-current">{{ studioCurrentReps }}</span>
+            <span class="rep-divider">/</span>
+            <span class="rep-target">{{ studioTargetReps }}</span>
+          </div>
+          <!-- Rep progress bar -->
+          <div class="progress rounded-pill mb-2" style="height: 8px; background: rgba(255,255,255,0.1);">
+            <div class="progress-bar bg-success rounded-pill transition-all" [style.width.%]="(studioCurrentReps / studioTargetReps) * 100"></div>
+          </div>
+          <span class="small text-light">Set <strong>{{ studioCurrentSets }}</strong> of <strong>{{ studioTargetSets }}</strong></span>
+        </div>
+
+        <!-- Angle Gauge Card -->
+        <div class="glass-card p-3 mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong class="text-light small"><i class="bi bi-compass me-1 text-info"></i> Joint Angle Gauge</strong>
+            <span class="badge" [ngClass]="studioFeedbackStatus === 'good' ? 'bg-success' : 'bg-warning text-dark'">
+              {{ studioCurrentAngle }}°
+            </span>
+          </div>
+          <div class="progress rounded-pill mb-2" style="height: 10px; background: rgba(255,255,255,0.1);">
+            <div class="progress-bar rounded-pill transition-all" 
+                 [style.width.%]="(studioCurrentAngle / 180) * 100"
+                 [ngClass]="studioFeedbackStatus === 'good' ? 'bg-success' : 'bg-warning'">
+            </div>
+          </div>
+          <span class="small text-secondary d-block" style="font-size: 0.72rem;">{{ studioAngleTargetLabel }}</span>
+        </div>
+
+        <!-- Precautions Card -->
+        <div class="glass-card p-3 mb-3">
+          <strong class="text-warning small d-block mb-1"><i class="bi bi-shield-exclamation me-1"></i> Doctor's Precautions</strong>
+          <p class="small text-light mb-0" style="font-size: 0.76rem; line-height: 1.4;">
+            {{ activeStudioExercise.precautions || 'Maintain smooth pace, keep spine straight, and do not lock knees.' }}
+          </p>
+        </div>
+
+        <!-- Next Exercise in Routine Runner Card -->
+        <div *ngIf="hasNextRoutineExercise && nextRoutineExercise" class="glass-card p-3 mb-3 border border-info border-opacity-50 animate-fade-in" style="background: rgba(14, 165, 233, 0.12);">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="badge bg-info text-dark fw-bold">Next in Routine</span>
+            <small class="text-white-50">Exercise {{ studioRoutineIndex + 2 }} of {{ prescribedExercisesList.length }}</small>
+          </div>
+          <strong class="text-white d-block mb-1">{{ nextRoutineExercise.name }}</strong>
+          <span class="text-secondary small d-block mb-2">{{ nextRoutineExercise.targetSets }} sets × {{ nextRoutineExercise.targetReps }} reps ({{ nextRoutineExercise.category }})</span>
+          <button type="button" class="btn btn-sm btn-primary w-100 rounded-pill fw-bold shadow-sm" (click)="startNextRoutineExercise()">
+            <i class="bi bi-play-circle-fill me-1"></i> Start Next Exercise
+          </button>
+        </div>
+
+        <!-- Routine Completed Celebration Card -->
+        <div *ngIf="isRoutineCompleted" class="glass-card p-3 mb-3 border border-success border-opacity-50 text-center animate-fade-in" style="background: rgba(16, 185, 129, 0.12);">
+          <div class="display-6 mb-1">🎉 🏆</div>
+          <strong class="text-white d-block mb-1">Full Routine Completed!</strong>
+          <p class="text-white-50 small mb-2">All prescribed physical rehabilitation exercises for today have been logged to your medical record.</p>
+          <button type="button" class="btn btn-sm btn-success w-100 rounded-pill fw-bold shadow-sm" (click)="closeExerciseStudio()">
+            <i class="bi bi-check2-circle me-1"></i> Complete & Exit Studio
+          </button>
+        </div>
+
+        <!-- Safety Guard Info -->
+        <div class="glass-card p-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="pulse-dot-green"></span>
+            <strong class="text-light small">Fall & Inactivity Guard</strong>
+          </div>
+          <p class="small text-secondary mb-0" style="font-size: 0.72rem; line-height: 1.35;">
+            Continuous skeletal velocity tracking is active. If a fall or 15s inactivity occurs, the system initiates a safety countdown and dispatches emergency assistance.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🏆 MODAL: STRUCTURED EXERCISE SESSION SUMMARY (Feature 9) -->
+  <div class="safety-alert-backdrop animate-fade-in" *ngIf="studioPhase === 'SUMMARY' && sessionSummaryData" style="z-index: 10000;">
+    <div class="glass-card p-4 rounded-4 shadow-2xl text-start" style="max-width: 580px; width: 92%; background: rgba(15, 23, 42, 0.96); border: 1px solid rgba(56, 189, 248, 0.35); backdrop-filter: blur(16px);">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+          <span class="badge bg-success bg-opacity-20 text-success border border-success border-opacity-30 px-3 py-1 rounded-pill small fw-bold mb-1">
+            🏆 Routine Finished & Logged
+          </span>
+          <h4 class="text-white fw-bold m-0">{{ sessionSummaryData.exerciseName }}</h4>
+          <span class="text-white-50 small">{{ sessionSummaryData.category }}</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-light rounded-circle" (click)="closeExerciseStudio()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <!-- Key Metrics Row -->
+      <div class="row g-2 mb-3">
+        <div class="col-4">
+          <div class="p-3 rounded-3 bg-black bg-opacity-40 border border-white border-opacity-10 text-center">
+            <span class="text-secondary small d-block" style="font-size: 0.72rem;">Movement Quality</span>
+            <strong class="fs-4 fw-bold text-success">{{ sessionSummaryData.accuracyScore }}%</strong>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="p-3 rounded-3 bg-black bg-opacity-40 border border-white border-opacity-10 text-center">
+            <span class="text-secondary small d-block" style="font-size: 0.72rem;">Volume Completed</span>
+            <strong class="fs-4 fw-bold text-white">{{ sessionSummaryData.totalCompletedReps }} <small class="fs-6 text-white-50">Reps</small></strong>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="p-3 rounded-3 bg-black bg-opacity-40 border border-white border-opacity-10 text-center">
+            <span class="text-secondary small d-block" style="font-size: 0.72rem;">Sets Fulfilled</span>
+            <strong class="fs-4 fw-bold text-info">{{ sessionSummaryData.completedSets }}/{{ sessionSummaryData.targetSets }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Biomechanical Telemetry Breakdown -->
+      <div class="p-3 rounded-3 bg-white bg-opacity-5 border border-white border-opacity-10 mb-3 small text-light">
+        <div class="d-flex justify-content-between py-1 border-bottom border-white border-opacity-10">
+          <span class="text-white-50">Valid Target Reps:</span>
+          <strong class="text-success">{{ sessionSummaryData.validReps }} reps</strong>
+        </div>
+        <div class="d-flex justify-content-between py-1 border-bottom border-white border-opacity-10">
+          <span class="text-white-50">Incomplete / Shallow Reps:</span>
+          <strong class="text-warning">{{ sessionSummaryData.incompleteReps }} reps</strong>
+        </div>
+        <div class="d-flex justify-content-between py-1 border-bottom border-white border-opacity-10" *ngIf="sessionSummaryData.rangeOfMotion">
+          <span class="text-white-50">Peak Joint Range of Motion:</span>
+          <strong class="text-info">{{ sessionSummaryData.rangeOfMotion }}° (Min: {{ sessionSummaryData.minJointAngle }}°, Max: {{ sessionSummaryData.maxJointAngle }}°)</strong>
+        </div>
+        <div class="d-flex justify-content-between py-1 border-bottom border-white border-opacity-10">
+          <span class="text-white-50">Active Session Duration:</span>
+          <strong class="text-white">{{ sessionSummaryData.durationSeconds }}s</strong>
+        </div>
+        <div class="d-flex justify-content-between py-1">
+          <span class="text-white-50">Safety Monitoring Guard:</span>
+          <span class="badge" [ngClass]="sessionSummaryData.safetyEventsCount === 0 ? 'bg-success' : 'bg-warning text-dark'">
+            {{ sessionSummaryData.safetyEventsCount === 0 ? '0 Incidents (Safe) ✅' : sessionSummaryData.safetyEventsCount + ' Safety Check(s)' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Observations & Form Notes -->
+      <div class="p-2.5 rounded-3 bg-warning bg-opacity-10 border border-warning border-opacity-25 mb-3 small text-warning" *ngIf="sessionSummaryData.formErrors.length > 0">
+        <strong class="d-block mb-1"><i class="bi bi-info-circle me-1"></i> Kinematic Form Quality Notes:</strong>
+        <ul class="mb-0 ps-3">
+          <li *ngFor="let err of sessionSummaryData.formErrors">{{ err }}</li>
+        </ul>
+      </div>
+
+      <!-- Actions -->
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-primary flex-grow-1 fw-bold rounded-pill py-2.5 shadow-sm" *ngIf="hasNextRoutineExercise && nextRoutineExercise" (click)="startNextRoutineExercise()">
+          <i class="bi bi-play-circle-fill me-1"></i> Start Next: {{ nextRoutineExercise.name }}
+        </button>
+        <button type="button" class="btn btn-outline-light flex-grow-1 fw-bold rounded-pill py-2.5" (click)="closeExerciseStudio()">
+          <i class="bi bi-check2-circle me-1"></i> Save & Return to Dashboard
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🚨 MODAL: 15-SECOND SAFETY VERIFICATION DIALOG ("Are You OK?") -->
+  <div class="safety-alert-backdrop animate-fade-in" *ngIf="isSafetyVerificationActive">
+    <div class="glass-card safety-alert-card text-center p-4">
+      <div class="pulse-danger-icon mb-3">
+        <i class="bi bi-exclamation-triangle-fill display-3 text-warning"></i>
+      </div>
+      <h3 class="fw-bold text-white mb-2">Safety Verification Alert</h3>
+      <p class="text-light mb-3" style="max-width: 420px; margin: 0 auto; line-height: 1.5;">
+        CarePath AI detected a sudden drop or motionless state during your exercise routine. Are you OK?
+      </p>
+
+      <!-- Big Countdown Circle -->
+      <div class="countdown-circle-box my-3">
+        <span class="countdown-number">{{ safetyCountdownSeconds }}</span>
+        <span class="countdown-label">seconds to emergency dispatch</span>
+      </div>
+
+      <!-- Prominent Cancel / I Am OK Button -->
+      <button type="button" class="btn btn-success btn-lg w-100 py-3 fw-bold rounded-pill shadow-lg mb-2" (click)="dismissSafetyVerification()">
+        <i class="bi bi-check-circle-fill me-2"></i> I Am OK — Continue Exercise
+      </button>
+
+      <span class="text-secondary small d-block" style="font-size: 0.72rem;">
+        If unconfirmed, your doctor and registered emergency contact will receive an automated SOS dispatch with your location coordinates.
+      </span>
+    </div>
+  </div>
+
+  <!-- 🚨 MODAL: EMERGENCY DISPATCH CONFIRMATION -->
+  <div class="safety-alert-backdrop animate-fade-in" *ngIf="isEmergencyDispatched">
+    <div class="glass-card emergency-dispatched-card text-center p-4">
+      <div class="pulse-danger-icon mb-3">
+        <i class="bi bi-shield-fill-x display-3 text-danger"></i>
+      </div>
+      <h3 class="fw-bold text-white mb-2">Autonomous Emergency Dispatched</h3>
+      <p class="text-light mb-3" style="max-width: 440px; margin: 0 auto; line-height: 1.5;">
+        Emergency notification and GPS coordinates have been sent to your primary care team and registered emergency contacts via automated dispatch.
+      </p>
+
+      <div class="p-3 rounded-3 bg-black bg-opacity-40 border border-danger border-opacity-50 text-start mb-3 small text-light">
+        <div class="mb-1"><strong>Status:</strong> <span class="badge bg-danger">HIGH PRIORITY SOS DISPATCHED</span></div>
+        <div class="mb-1"><strong>Reason:</strong> Fall / Medical Inactivity during {{ activeStudioExercise.name }}</div>
+        <div class="mb-1" *ngIf="emergencyDispatchDetails?.notifiedDoctor">
+          <strong>Doctor Alerted:</strong> <span class="text-info fw-bold">{{ emergencyDispatchDetails.doctorName }}</span> notified via immediate email.
+        </div>
+        <div class="mb-1" *ngIf="emergencyDispatchDetails?.location">
+          <strong>Location Details:</strong> {{ emergencyDispatchDetails.location }}
+        </div>
+        <div *ngIf="emergencyDispatchDetails?.mapsUrl" class="mt-2">
+          <a [href]="emergencyDispatchDetails.mapsUrl" target="_blank" class="btn btn-xs btn-danger text-white rounded-pill px-3 py-1 fw-bold text-decoration-none shadow-sm">
+            📍 Open in Google Maps
+          </a>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-outline-light btn-lg w-100 py-2.5 rounded-pill fw-bold" (click)="closeExerciseStudio()">
+        I Am Safe Now — Dismiss Alert & Exit Studio
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════ 📱 MOBILE APP BOTTOM NAVIGATION BAR ══════════════ -->
+  <nav class="mobile-bottom-nav d-md-none" aria-label="Mobile Navigation">
+    <button type="button" class="mobile-nav-item" [class.active]="activeTab === 'find-doctors'" (click)="setTab('find-doctors')">
+      <i class="bi bi-search"></i>
+      <span>Doctors</span>
+    </button>
+    <button type="button" class="mobile-nav-item" [class.active]="activeTab === 'my-appointments'" (click)="setTab('my-appointments')">
+      <i class="bi bi-calendar-check"></i>
+      <span>Bookings</span>
+    </button>
+    <button type="button" class="mobile-nav-item" [class.active]="activeTab === 'food-tracker'" (click)="setTab('food-tracker')">
+      <i class="bi bi-activity"></i>
+      <span>CarePath</span>
+    </button>
+    <button type="button" class="mobile-nav-item position-relative" [class.active]="activeTab === 'reports'" (click)="setTab('reports')">
+      <i class="bi bi-file-earmark-medical"></i>
+      <span>Vault</span>
+      <span class="mobile-badge" *ngIf="reports.length > 0">{{ reports.length }}</span>
+    </button>
+    <button type="button" class="mobile-nav-item" [class.active]="activeTab === 'profile'" (click)="setTab('profile')">
+      <i class="bi bi-person-circle"></i>
+      <span>Profile</span>
+    </button>
+  </nav>
+</div>
+
 

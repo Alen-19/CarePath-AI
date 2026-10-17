@@ -548,6 +548,160 @@
             </div>
           </div>
 
+          <!-- 📑 Shared Patient Medical Reports Vault (Scenario C: Multi-Doctor Clinical Dossier) -->
+          <div class="patient-reports-dossier-card p-3 rounded-4 border mb-3" style="background: linear-gradient(135deg, rgba(239, 246, 255, 0.7), rgba(240, 253, 250, 0.7)); border-color: rgba(37, 99, 235, 0.2) !important;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="d-flex align-items-center gap-2">
+                <span class="fs-5">📑</span>
+                <div>
+                  <strong class="text-dark small d-block">Shared Lab Reports & AI Biomarker Vault</strong>
+                  <span class="text-muted small" style="font-size: 0.72rem;">Patient-centric records shared with you for clinical review</span>
+                </div>
+              </div>
+              <span class="badge bg-white text-primary border px-2.5 py-1 small fw-semibold shadow-2xs">
+                {{ selectedPatientReports.length }} {{ selectedPatientReports.length === 1 ? 'Report' : 'Reports' }}
+              </span>
+            </div>
+
+            <!-- Loading reports -->
+            <div *ngIf="loadingPatientReports" class="text-center py-3 text-muted small">
+              <div class="spinner-border spinner-border-sm text-primary me-1" role="status"></div>
+              <span>Fetching patient's shared reports...</span>
+            </div>
+
+            <!-- Empty reports -->
+            <div *ngIf="!loadingPatientReports && selectedPatientReports.length === 0" class="p-3 text-center text-muted small bg-white rounded-3 border">
+              No lab reports currently shared by this patient.
+            </div>
+
+            <!-- Reports horizontal list / grid -->
+            <div class="d-flex flex-column gap-2" *ngIf="!loadingPatientReports && selectedPatientReports.length > 0" style="max-height: 220px; overflow-y: auto;">
+              <div *ngFor="let rep of selectedPatientReports" class="p-2.5 rounded-3 bg-white border d-flex flex-column gap-1.5 shadow-2xs">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <div>
+                    <strong class="d-block text-dark small" style="font-size: 0.85rem;">{{ rep.title }}</strong>
+                    <span class="text-muted small" style="font-size: 0.72rem;">{{ rep.reportType }} • {{ rep.reportDate || (rep.createdAt | date:'mediumDate') }}</span>
+                  </div>
+                  <a [href]="'http://localhost:5000' + rep.fileUrl" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-0.5 small" style="font-size: 0.72rem;">
+                    <i class="bi bi-file-earmark-arrow-down me-1"></i> View Report
+                  </a>
+                </div>
+
+                <!-- AI Summary Snippet -->
+                <div class="p-1.5 px-2 rounded bg-light small text-dark" style="font-size: 0.75rem;" *ngIf="rep.aiAnalysis?.summary">
+                  <span class="text-primary fw-bold">🤖 AI Insight: </span>{{ rep.aiAnalysis.summary }}
+                </div>
+
+                <!-- Biomarker Badges -->
+                <div class="d-flex flex-wrap gap-1 mt-0.5" *ngIf="rep.aiAnalysis?.biomarkers && rep.aiAnalysis.biomarkers.length > 0">
+                  <span *ngFor="let b of rep.aiAnalysis.biomarkers" class="badge" [ngClass]="{'bg-danger text-white': b.flag === 'High' || b.flag === 'Critical', 'bg-warning text-dark': b.flag === 'Borderline', 'bg-success text-white': b.flag === 'Normal', 'bg-info text-dark': b.flag === 'Low'}" style="font-size: 0.68rem;">
+                    {{ b.name }}: {{ b.value }} {{ b.unit }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 🏃 CLINICAL PHYSICAL REHABILITATION & TELEMETRY PROGRESS (Features 2 & 6) -->
+          <div class="patient-physio-telemetry-card p-3 rounded-4 border mb-3" style="background: linear-gradient(135deg, rgba(240, 253, 244, 0.7), rgba(240, 249, 255, 0.7)); border-color: rgba(16, 185, 129, 0.25) !important;">
+            <div class="d-flex justify-content-between align-items-center mb-2.5 flex-wrap gap-2">
+              <div class="d-flex align-items-center gap-2">
+                <span class="fs-5">🏃‍♂️</span>
+                <div>
+                  <strong class="text-dark small d-block">Physical Rehabilitation & AI Telemetry Review</strong>
+                  <span class="text-muted small" style="font-size: 0.72rem;">Computer vision kinematic telemetry recorded during patient's prescribed exercise sessions</span>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-1.5" *ngIf="selectedPatientExerciseAnalytics && selectedPatientExerciseAnalytics.summary">
+                <span class="badge" [ngClass]="{'bg-success text-white': selectedPatientExerciseAnalytics.summary.overallTrend === 'Improving', 'bg-warning text-dark': selectedPatientExerciseAnalytics.summary.overallTrend === 'Needs Attention', 'bg-primary text-white': selectedPatientExerciseAnalytics.summary.overallTrend === 'Steady'}">
+                  Trend: {{ selectedPatientExerciseAnalytics.summary.overallTrend }}
+                </span>
+                <span class="badge bg-white text-secondary border small">
+                  {{ selectedPatientExerciseAnalytics.summary.totalSessions }} Sessions Logged
+                </span>
+              </div>
+            </div>
+
+            <!-- Loading State -->
+            <div *ngIf="loadingPatientExerciseAnalytics" class="text-center py-3 text-muted small">
+              <div class="spinner-border spinner-border-sm text-success me-1" role="status"></div>
+              <span>Fetching patient's rehabilitation telemetry...</span>
+            </div>
+
+            <!-- Empty State -->
+            <div *ngIf="!loadingPatientExerciseAnalytics && (!selectedPatientExerciseAnalytics || !selectedPatientExerciseAnalytics.summary || selectedPatientExerciseAnalytics.summary.totalSessions === 0)" class="p-3 text-center text-muted small bg-white rounded-3 border">
+              No physical therapy exercise logs recorded for this patient yet. Prescribe movements during video consultation to track patient movement quality.
+            </div>
+
+            <!-- Analytics Content when data exists -->
+            <div *ngIf="!loadingPatientExerciseAnalytics && selectedPatientExerciseAnalytics && selectedPatientExerciseAnalytics.summary && selectedPatientExerciseAnalytics.summary.totalSessions > 0">
+              <!-- KPI Row -->
+              <div class="row g-2 mb-3">
+                <div class="col-6 col-md-3">
+                  <div class="p-2.5 rounded-3 bg-white border text-center shadow-2xs">
+                    <span class="text-muted small d-block" style="font-size: 0.7rem;">Movement Quality</span>
+                    <strong class="fs-5 fw-bold text-success">{{ selectedPatientExerciseAnalytics.summary.avgAccuracyScore }}%</strong>
+                    <span class="d-block text-muted" style="font-size: 0.65rem;">Form Accuracy Avg</span>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="p-2.5 rounded-3 bg-white border text-center shadow-2xs">
+                    <span class="text-muted small d-block" style="font-size: 0.7rem;">Completed Volume</span>
+                    <strong class="fs-5 fw-bold text-dark">{{ selectedPatientExerciseAnalytics.summary.totalCompletedReps }}</strong>
+                    <span class="d-block text-success fw-semibold" style="font-size: 0.65rem;">
+                      {{ selectedPatientExerciseAnalytics.summary.totalValidReps }} Valid / {{ selectedPatientExerciseAnalytics.summary.totalIncompleteReps }} Shallow
+                    </span>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="p-2.5 rounded-3 bg-white border text-center shadow-2xs">
+                    <span class="text-muted small d-block" style="font-size: 0.7rem;">Plan Compliance</span>
+                    <strong class="fs-5 fw-bold text-primary">{{ selectedPatientExerciseAnalytics.summary.avgCompliancePercentage }}%</strong>
+                    <span class="d-block text-muted" style="font-size: 0.65rem;">Prescribed Sets Met</span>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="p-2.5 rounded-3 bg-white border text-center shadow-2xs">
+                    <span class="text-muted small d-block" style="font-size: 0.7rem;">Safety Incidents</span>
+                    <strong class="fs-5 fw-bold" [ngClass]="selectedPatientExerciseAnalytics.summary.totalSafetyEvents === 0 ? 'text-success' : 'text-danger'">
+                      {{ selectedPatientExerciseAnalytics.summary.totalSafetyEvents }}
+                    </strong>
+                    <span class="d-block text-muted" style="font-size: 0.65rem;">Autonomous SOS Events</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Assistive Progression Recommendation Banner (Feature 6) -->
+              <div *ngFor="let ex of selectedPatientExerciseAnalytics.perExerciseMetrics">
+                <div class="p-2.5 rounded-3 mb-2 border d-flex align-items-start gap-2 small"
+                     [ngClass]="ex.progressionRecommendation?.readyForProgression ? 'bg-success bg-opacity-10 border-success border-opacity-30 text-success' : 'bg-white border-secondary border-opacity-20 text-dark'">
+                  <i class="bi fs-5 flex-shrink-0" [ngClass]="ex.progressionRecommendation?.readyForProgression ? 'bi-stars text-success' : 'bi-info-circle text-primary'"></i>
+                  <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <strong class="text-dark">{{ ex.exerciseName }}:</strong>
+                      <span class="badge" [ngClass]="ex.trend === 'Improving' ? 'bg-success' : 'bg-secondary'" style="font-size: 0.65rem;">
+                        {{ ex.trend }}
+                      </span>
+                    </div>
+                    <span class="text-secondary d-block mt-0.5" style="font-size: 0.75rem;">
+                      {{ ex.progressionRecommendation?.message }}
+                    </span>
+                    <div class="d-flex align-items-center gap-3 mt-1 text-muted" style="font-size: 0.7rem;">
+                      <span>Quality: <strong class="text-success">{{ ex.avgAccuracy }}%</strong></span>
+                      <span *ngIf="ex.avgRom">Avg ROM: <strong class="text-info">{{ ex.avgRom }}°</strong></span>
+                      <span>Reps: <strong>{{ ex.validReps }} valid</strong> ({{ ex.incompleteReps }} shallow)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Clinician Governance Notice -->
+              <div class="d-flex align-items-center justify-content-between pt-1 text-muted" style="font-size: 0.68rem;">
+                <span><i class="bi bi-shield-check text-primary me-1"></i> Assistive Telemetry Decision Support — Clinician retains 100% control over prescriptions.</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Longitudinal Timeline Header -->
           <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
             <span class="small fw-bold text-secondary text-uppercase tracking-wider">
@@ -1340,6 +1494,32 @@
             </div>
           </div>
         </div>
+
+        <!-- Prescribed Physical Rehabilitation Exercises -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted text-uppercase d-flex justify-content-between">
+            <span>Physical Rehabilitation Exercises</span>
+            <span class="badge bg-success" *ngIf="selectedPastAppointment.exercisePrescription">{{ selectedPastAppointment.exercisePrescription.length }} Items</span>
+          </label>
+          <div *ngIf="!selectedPastAppointment.exercisePrescription || selectedPastAppointment.exercisePrescription.length === 0" class="p-3 text-center bg-light rounded text-muted small border">
+            No physical therapy exercises were prescribed during this session.
+          </div>
+          <div *ngIf="selectedPastAppointment.exercisePrescription && selectedPastAppointment.exercisePrescription.length > 0" class="d-flex flex-column gap-2">
+            <div class="p-2.5 bg-white border rounded" *ngFor="let ex of selectedPastAppointment.exercisePrescription">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <strong class="text-dark">🏋️ {{ ex.name }}</strong>
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">{{ ex.targetReps }} Reps × {{ ex.targetSets }} Sets</span>
+              </div>
+              <div class="small text-muted d-flex justify-content-between">
+                <span>Frequency: {{ ex.frequencyPerWeek }}x / week</span>
+                <span>Target Angle: {{ ex.targetAngleMin }}° – {{ ex.targetAngleMax }}°</span>
+              </div>
+              <div class="small text-secondary mt-1" *ngIf="ex.precautions">
+                <em>Guidance: {{ ex.precautions }}</em>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top">
@@ -1594,6 +1774,26 @@
                 <span class="small text-muted d-block">{{ med.instructions || med.dosage }}</span>
               </div>
               <span class="badge bg-light text-dark border">{{ med.duration || 'Standard' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prior Physical Rehabilitation Exercises -->
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted text-uppercase d-flex justify-content-between">
+            <span>Prescribed Rehabilitation Exercises</span>
+            <span class="badge bg-success" *ngIf="selectedPriorAppt.exercisePrescription">{{ selectedPriorAppt.exercisePrescription.length }} Routine(s)</span>
+          </label>
+          <div *ngIf="!selectedPriorAppt.exercisePrescription || selectedPriorAppt.exercisePrescription.length === 0" class="p-2 text-center text-muted small bg-light rounded border">
+            No physical therapy exercises were prescribed in the prior visit.
+          </div>
+          <div *ngIf="selectedPriorAppt.exercisePrescription && selectedPriorAppt.exercisePrescription.length > 0" class="d-flex flex-column gap-1.5">
+            <div class="p-2 bg-white border rounded d-flex justify-content-between align-items-center" *ngFor="let ex of selectedPriorAppt.exercisePrescription">
+              <div>
+                <strong class="text-dark small">🏋️ {{ ex.name }}</strong>
+                <span class="small text-muted d-block">{{ ex.frequencyPerWeek }}x/week • {{ ex.precautions || 'Steady pace' }}</span>
+              </div>
+              <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">{{ ex.targetReps }} Reps × {{ ex.targetSets }} Sets</span>
             </div>
           </div>
         </div>

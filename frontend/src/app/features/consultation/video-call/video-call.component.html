@@ -39,13 +39,27 @@
       </div>
 
       <div class="header-center" *ngIf="isInCall">
-        <div class="timer-badge" [class.bg-danger]="isEmergencyTriageMode || appointmentDetails?.isEmergency">
+        <div class="timer-badge" 
+             [class.bg-danger]="isEmergencyTriageMode || appointmentDetails?.isEmergency"
+             [class.bg-warning]="isCallOvertime && nextAppointment"
+             [class.text-dark]="isCallOvertime && nextAppointment">
           <span class="live-dot"></span>
           <span>{{ (isEmergencyTriageMode || appointmentDetails?.isEmergency) ? '🚨 Emergency: ' + callTimer + ' / 10:00' : callTimer }}</span>
         </div>
+
         <div *ngIf="showEmergency8MinWarning" class="alert alert-warning py-1 px-2.5 ms-2 mb-0 border-0 small text-dark fw-bold d-inline-flex align-items-center gap-1 shadow-sm">
           <i class="bi bi-exclamation-triangle-fill text-danger"></i>
           <span>2 mins remaining in triage. Direct acute cases to ER.</span>
+        </div>
+
+        <!-- Overtime indicator: ONLY shown to Doctor if next patient is booked -->
+        <div *ngIf="userRole === 'doctor' && isCallOvertime && nextAppointment" class="alert alert-warning py-1 px-2.5 ms-2 mb-0 border-0 small text-dark fw-semibold d-inline-flex align-items-center gap-2 shadow-sm rounded-pill">
+          <i class="bi bi-clock-history text-danger"></i>
+          <span>Scheduled 25m reached • Next: <strong>{{ nextAppointment.patientName }} ({{ nextAppointment.startTime }})</strong></span>
+          <button *ngIf="!delayNoticeSent" type="button" class="btn btn-xs btn-outline-dark rounded-pill py-0 px-2 fw-bold" (click)="broadcastDelay(5)" [disabled]="sendingDelayNotice">
+            <span>{{ sendingDelayNotice ? 'Notifying...' : '+5m Delay Notice' }}</span>
+          </button>
+          <span *ngIf="delayNoticeSent" class="badge bg-success text-white py-0.5 px-2">✔ Sent</span>
         </div>
       </div>
 
@@ -150,15 +164,69 @@
         <div class="remote-video-container">
           <video #remoteVideo autoplay playsinline class="remote-video" [class.d-none]="!remoteStream || isCallPaused"></video>
           
-          <!-- Remote Video Off / Waiting Placeholder -->
-          <div *ngIf="!remoteStream && !isCallPaused" class="remote-placeholder">
-            <div class="avatar-ring pulse">
+          <!-- Remote Video Off / Waiting Placeholder (Smart Virtual Waiting Room) -->
+          <div *ngIf="!remoteStream && !isCallPaused" class="remote-placeholder p-4 text-center">
+            <div class="avatar-ring pulse mb-3">
               <i class="bi bi-person-fill display-3 text-light"></i>
             </div>
-            <h4 class="text-light mt-3">
-              Waiting for {{ userRole === 'patient' ? doctorName : patientName }} to join...
+
+            <!-- Doctor Live Status Banner (Shown if Doctor is concluding another clinical session) -->
+            <div *ngIf="doctorLiveStatus?.isConsultingAnotherPatient" class="doctor-waiting-banner mb-3 px-3.5 py-2 rounded-pill d-inline-flex align-items-center gap-2 small">
+              <span class="spinner-grow spinner-grow-sm doctor-waiting-spinner" role="status"></span>
+              <span class="doctor-waiting-text">{{ doctorName }} is currently concluding a clinical session • You will connect automatically</span>
+            </div>
+
+            <div *ngIf="doctorLiveStatus?.delayNoticeMinutes > 0" class="doctor-delay-banner mb-3 px-3.5 py-1.5 rounded-pill d-inline-flex align-items-center gap-2 small">
+              <i class="bi bi-info-circle-fill"></i>
+              <span>Doctor estimated a brief {{ doctorLiveStatus.delayNoticeMinutes }}-minute delay. Thank you for your patience!</span>
+            </div>
+
+            <h4 class="text-light mb-1">
+              {{ doctorLiveStatus?.isConsultingAnotherPatient ? doctorName + ' will be with you shortly' : 'Waiting for ' + (userRole === 'patient' ? doctorName : patientName) + ' to join...' }}
             </h4>
-            <p class="text-secondary small">Your call is end-to-end encrypted</p>
+            <p class="text-secondary small mb-3">Your telehealth connection is secure & end-to-end encrypted</p>
+
+            <!-- Productive Waiting Pre-Consultation Card for Patient -->
+            <div *ngIf="userRole === 'patient'" class="productive-waiting-card text-start mx-auto p-3 rounded-4 border" style="max-width: 480px; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); border-color: rgba(255, 255, 255, 0.1) !important;">
+              <div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom border-secondary border-opacity-25">
+                <span class="fs-5">📋</span>
+                <div>
+                  <strong class="text-light small d-block">Pre-Consultation Readiness</strong>
+                  <span class="text-white-50" style="font-size: 0.72rem;">Make the most of your session while waiting for the doctor</span>
+                </div>
+              </div>
+
+              <!-- Device Status Check -->
+              <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-black bg-opacity-25 mb-2">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-camera-video-fill text-success"></i>
+                  <span class="text-light small">Camera & Microphone</span>
+                </div>
+                <span class="badge status-pill-success small">
+                  {{ (!isAudioMuted && !isVideoOff) ? '✔ Tested & Working' : 'Active' }}
+                </span>
+              </div>
+
+              <!-- Recorded Symptoms Review -->
+              <div class="p-2 rounded-3 bg-black bg-opacity-25 mb-2" *ngIf="appointmentDetails?.symptoms">
+                <span class="text-white-50 d-block" style="font-size: 0.7rem; text-transform: uppercase;">Recorded Symptoms for Visit:</span>
+                <span class="text-light small fw-medium">"{{ appointmentDetails.symptoms }}"</span>
+              </div>
+
+              <!-- Reports Vault Link -->
+              <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-primary bg-opacity-10 border border-primary border-opacity-20">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-file-earmark-medical-fill text-warning"></i>
+                  <div>
+                    <strong class="text-white small d-block">Medical Reports Vault</strong>
+                    <span class="text-white-50" style="font-size: 0.7rem;">{{ attachedReports.length }} report(s) attached for doctor</span>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-xs btn-outline-warning rounded-pill px-2.5 py-1 small fw-semibold" (click)="toggleSidebar('reports')">
+                  <span>View / Add Reports</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Remote Peer Audio Muted Indicator -->
@@ -303,7 +371,7 @@
                   <div *ngFor="let item of (livePrescriptionList.length > 0 ? livePrescriptionList : appointmentDetails.prescription); let i = index" class="glass-card p-3 mb-2 border border-success border-opacity-25 animate-fade-in shadow-sm">
                     <div class="d-flex justify-content-between align-items-start mb-1">
                       <strong class="text-success d-block fs-6"><i class="bi bi-capsule me-1"></i> {{ i + 1 }}. {{ item.medicineName }}</strong>
-                      <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50 px-2 py-0.5" style="font-size: 0.7rem;">Active Rx</span>
+                      <span class="badge status-pill-success" style="font-size: 0.7rem; padding: 3px 8px;">Active Rx</span>
                     </div>
 
                     <div *ngIf="item.composition && item.composition.length > 0" class="mb-2">
@@ -451,7 +519,7 @@
                     <div *ngIf="(liveClinicalNotes?.nutritionalTags?.length || clinicalNotes.nutritionalTags.length)" class="mb-3">
                       <h6 class="text-success small fw-bold text-uppercase d-flex align-items-center gap-1"><i class="bi bi-tag-fill"></i> Prescribed Dietary Focus</h6>
                       <div class="d-flex flex-wrap gap-1">
-                        <span *ngFor="let tag of (liveClinicalNotes?.nutritionalTags || clinicalNotes.nutritionalTags)" class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50 me-1 mb-1 px-2 py-1">{{ tag }}</span>
+                        <span *ngFor="let tag of (liveClinicalNotes?.nutritionalTags || clinicalNotes.nutritionalTags)" class="badge status-pill-success-subtle me-1 mb-1 px-2 py-1">{{ tag }}</span>
                       </div>
                     </div>
 
@@ -587,6 +655,204 @@
               <p class="mb-0">No prior consultation record was linked for this session.</p>
             </div>
           </div>
+
+          <!-- 📑 Attached Lab Reports & Biomarkers Panel -->
+          <div *ngIf="activeSidebarTab === 'reports'" class="sidebar-content reports-content">
+            <div class="panel-header d-flex align-items-center justify-content-between">
+              <h6 class="m-0 text-light d-flex align-items-center gap-2">
+                <i class="bi bi-file-earmark-medical-fill text-warning"></i>
+                <span>Attached Medical Reports</span>
+                <span class="badge bg-warning text-dark small" *ngIf="attachedReports.length > 0">{{ attachedReports.length }}</span>
+              </h6>
+              <button class="btn-close btn-close-white btn-sm" (click)="activeSidebarTab = null"></button>
+            </div>
+
+            <div class="p-3 text-light small sidebar-body-scroll">
+              <div *ngIf="loadingReports" class="text-center py-4">
+                <div class="spinner-border spinner-border-sm text-warning" role="status"></div>
+                <div class="text-secondary small mt-1">Loading attached reports...</div>
+              </div>
+
+              <div *ngIf="!loadingReports && attachedReports.length === 0" class="p-4 text-center text-secondary small bg-black bg-opacity-25 rounded-3 border border-secondary border-opacity-25">
+                <i class="bi bi-file-earmark-text fs-3 d-block mb-2 text-secondary"></i>
+                <strong class="d-block text-light mb-1">No reports attached</strong>
+                <p class="mb-0">No lab reports have been attached to this consultation yet.</p>
+              </div>
+
+              <div *ngIf="!loadingReports && attachedReports.length > 0" class="d-flex flex-column gap-3">
+                <div *ngFor="let rep of attachedReports" class="p-3 rounded-3 bg-black bg-opacity-40 border border-secondary border-opacity-35">
+                  <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    <div>
+                      <strong class="d-block text-light" style="font-size: 0.9rem;">{{ rep.title }}</strong>
+                      <span class="text-secondary" style="font-size: 0.72rem;">{{ rep.reportType }} • {{ rep.reportDate || (rep.createdAt | date:'mediumDate') }}</span>
+                    </div>
+                    <a [href]="'http://localhost:5000' + rep.fileUrl" target="_blank" class="btn btn-xs btn-outline-info rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">
+                      <i class="bi bi-eye me-0.5"></i> View
+                    </a>
+                  </div>
+
+                  <!-- AI Summary -->
+                  <div class="p-2.5 rounded-3 mb-2.5" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3) !important;" *ngIf="rep.aiAnalysis?.summary">
+                    <span class="d-block text-warning fw-bold mb-1" style="font-size: 0.72rem;">🤖 AI Summary:</span>
+                    <p class="mb-0" style="font-size: 0.78rem; line-height: 1.45; color: #f8fafc !important;">{{ rep.aiAnalysis.summary }}</p>
+                  </div>
+
+                  <!-- Clinical Impression -->
+                  <div class="p-2.5 rounded-3 mb-2.5" style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3) !important;" *ngIf="rep.aiAnalysis?.clinicalImpression">
+                    <span class="d-block text-info fw-bold mb-1" style="font-size: 0.72rem;">🩺 Clinical Impression:</span>
+                    <p class="mb-0" style="font-size: 0.78rem; line-height: 1.45; color: #f8fafc !important;">{{ rep.aiAnalysis.clinicalImpression }}</p>
+                  </div>
+
+                  <!-- Biomarkers Pills -->
+                  <div *ngIf="rep.aiAnalysis?.biomarkers && rep.aiAnalysis.biomarkers.length > 0">
+                    <span class="d-block text-secondary fw-semibold mb-1" style="font-size: 0.7rem;">Extracted Biomarkers:</span>
+                    <div class="d-flex flex-wrap gap-1">
+                      <span *ngFor="let bio of rep.aiAnalysis.biomarkers" class="badge" [ngClass]="{'bg-danger text-white': bio.flag === 'High' || bio.flag === 'Critical', 'bg-warning text-dark': bio.flag === 'Borderline', 'bg-success text-white': bio.flag === 'Normal', 'bg-info text-dark': bio.flag === 'Low'}" style="font-size: 0.68rem;">
+                        {{ bio.name }}: {{ bio.value }} {{ bio.unit }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 🏋️ Physical Rehabilitation & Exercises Panel (Doctor & Patient View) -->
+          <div *ngIf="activeSidebarTab === 'exercise'" class="sidebar-content exercise-content">
+            <div class="panel-header d-flex align-items-center justify-content-between">
+              <h6 class="m-0 text-light d-flex align-items-center gap-2">
+                <i class="bi bi-activity text-info"></i>
+                <span>{{ userRole === 'doctor' ? 'Physical Rehabilitation Prescription' : 'Prescribed Exercises & Physio' }}</span>
+              </h6>
+              <button class="btn-close btn-close-white btn-sm" (click)="activeSidebarTab = null"></button>
+            </div>
+
+            <div class="p-3 text-light sidebar-body-scroll">
+              <!-- Success Alert -->
+              <div *ngIf="exerciseSuccessMsg" class="alert alert-success py-2 px-3 mb-3 small">
+                <i class="bi bi-check-circle-fill me-1"></i> {{ exerciseSuccessMsg }}
+              </div>
+
+              <!-- DOCTOR VIEW: Exercise Selector & Builder -->
+              <div *ngIf="userRole === 'doctor'">
+                <label class="form-label small text-secondary fw-semibold">Select Rehabilitation Exercise</label>
+                <div class="d-flex gap-2 mb-3">
+                  <select class="form-select form-select-sm glass-input text-light" [(ngModel)]="selectedCatalogExerciseId">
+                    <option *ngFor="let ex of exerciseCatalog" [value]="ex.exerciseId">
+                      {{ ex.name }} ({{ ex.category }})
+                    </option>
+                  </select>
+                  <button type="button" class="btn btn-sm btn-info fw-bold text-nowrap" (click)="addSelectedExercise()">
+                    <i class="bi bi-plus-lg me-1"></i> Add
+                  </button>
+                </div>
+
+                <!-- Prescribed List -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h6 class="small text-secondary fw-bold text-uppercase m-0">Prescribed Routine ({{ prescribedExercises.length }})</h6>
+                  <span class="badge bg-secondary text-light small" *ngIf="prescribedExercises.length > 0">Live Synced</span>
+                </div>
+
+                <div *ngIf="prescribedExercises.length === 0" class="text-center py-4 text-secondary glass-card p-3 mb-3">
+                  <i class="bi bi-activity display-6 text-muted"></i>
+                  <p class="small mt-2 mb-0">Select an exercise from the clinical catalog above to prescribe targets & guidance.</p>
+                </div>
+
+                <div *ngFor="let ex of prescribedExercises; let i = index" class="glass-card p-3 mb-2.5 prescription-item-card border border-secondary border-opacity-35">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                      <strong class="text-light text-truncate d-block" style="font-size: 0.88rem;">{{ i + 1 }}. {{ ex.name }}</strong>
+                      <span class="text-info small" style="font-size: 0.72rem;">{{ ex.category }}</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger border-0 p-0" (click)="removeExerciseFromPrescription(i)" title="Remove">
+                      <i class="bi bi-trash-fill"></i>
+                    </button>
+                  </div>
+
+                  <div class="row g-2 mb-2">
+                    <div class="col-4">
+                      <label class="small text-secondary" style="font-size: 0.7rem;">Target Reps</label>
+                      <input type="number" min="1" max="50" class="form-control form-control-sm glass-input text-light" [(ngModel)]="ex.targetReps" (ngModelChange)="onExerciseItemChange()">
+                    </div>
+                    <div class="col-4">
+                      <label class="small text-secondary" style="font-size: 0.7rem;">Target Sets</label>
+                      <input type="number" min="1" max="10" class="form-control form-control-sm glass-input text-light" [(ngModel)]="ex.targetSets" (ngModelChange)="onExerciseItemChange()">
+                    </div>
+                    <div class="col-4">
+                      <label class="small text-secondary" style="font-size: 0.7rem;">Per Week</label>
+                      <input type="number" min="1" max="7" class="form-control form-control-sm glass-input text-light" [(ngModel)]="ex.frequencyPerWeek" (ngModelChange)="onExerciseItemChange()">
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="small text-secondary" style="font-size: 0.7rem;">Clinical Precautions & Guidance</label>
+                    <textarea class="form-control form-control-sm glass-input text-light" rows="2" [(ngModel)]="ex.precautions" (ngModelChange)="onExerciseItemChange()" placeholder="e.g. Keep back straight, avoid locking knees..."></textarea>
+                  </div>
+                </div>
+
+                <!-- Save Action Button -->
+                <div class="mt-3" *ngIf="prescribedExercises.length > 0">
+                  <button class="btn btn-info w-100 pill-btn fw-bold text-dark" [disabled]="isSavingExercises" (click)="saveExercisePrescription()">
+                    <span *ngIf="isSavingExercises" class="spinner-border spinner-border-sm me-2"></span>
+                    <i *ngIf="!isSavingExercises" class="bi bi-broadcast me-2"></i> Save & Broadcast to Patient
+                  </button>
+                </div>
+              </div>
+
+              <!-- PATIENT VIEW: Live Prescribed Exercises Stream -->
+              <div *ngIf="userRole !== 'doctor'">
+                <div class="d-flex align-items-center justify-content-between mb-3 p-2 px-3 rounded glass-panel-sm border border-info border-opacity-50" style="background: rgba(99, 102, 241, 0.15);">
+                  <span class="badge bg-primary text-white fw-bold d-flex align-items-center gap-1.5 py-1 px-2">
+                    <span class="spinner-grow spinner-grow-sm text-light" style="width: 0.55rem; height: 0.55rem;"></span>
+                    🔴 LIVE REHABILITATION PRESCRIPTION
+                  </span>
+                  <small class="text-light fw-semibold" style="font-size: 0.75rem;">
+                    {{ doctorName }}
+                  </small>
+                </div>
+
+                <div *ngIf="liveExercisesList.length === 0" class="text-center py-5 text-secondary glass-card p-4">
+                  <div class="spinner-grow text-info mb-3" style="width: 2rem; height: 2rem;" role="status"></div>
+                  <h6 class="text-light fw-bold">Awaiting Doctor's Guidance</h6>
+                  <p class="small text-secondary mt-2 mb-0">Exercises recommended by your doctor will stream here in real time and will be available in your Patient Dashboard Physio Studio with AI camera guidance.</p>
+                </div>
+
+                <div *ngIf="liveExercisesList.length > 0" class="d-flex flex-column gap-2.5">
+                  <div *ngFor="let ex of liveExercisesList; let i = index" class="glass-card p-3 border border-primary border-opacity-35">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <div>
+                        <strong class="text-light d-block" style="font-size: 0.92rem;">{{ i + 1 }}. {{ ex.name }}</strong>
+                        <span class="text-info small" style="font-size: 0.72rem;">{{ ex.category }}</span>
+                      </div>
+                      <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-50 small">
+                        {{ ex.targetReps }} reps × {{ ex.targetSets }} sets
+                      </span>
+                    </div>
+
+                    <div class="p-2 rounded bg-black bg-opacity-25 mb-2 small text-light" style="font-size: 0.78rem;">
+                      <strong class="text-warning d-block mb-0.5"><i class="bi bi-shield-exclamation me-1"></i> Precautions:</strong>
+                      {{ ex.precautions || 'Maintain proper posture and follow video demonstration.' }}
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
+                      <span class="text-secondary" style="font-size: 0.72rem;">Frequency: <strong>{{ ex.frequencyPerWeek }}x / week</strong></span>
+                      <span class="badge status-pill-success" style="font-size: 0.72rem; padding: 4px 10px;">
+                        <i class="bi bi-camera-video me-1"></i> AI Studio Ready
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="alert alert-info physio-guide-alert py-2.5 px-3 mt-2 small border-0">
+                    <i class="bi bi-info-circle-fill text-info flex-shrink-0 mt-0.5"></i>
+                    <div class="alert-text-body">
+                      You can open the <strong class="text-info fw-bold">AI-Guided Physio Studio</strong> from your Patient Dashboard anytime to exercise in front of your camera with real-time pose guidance and safety fall monitoring.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
         </div>
       </div>
 
@@ -635,6 +901,20 @@
             </span>
           </button>
 
+          <!-- 🏋️ Clinical Physical Rehabilitation & Exercises Toggle -->
+          <button
+            [class]="activeSidebarTab === 'exercise' ? 'btn btn-primary toolbar-btn position-relative' : 'btn btn-dark toolbar-btn position-relative'"
+            (click)="toggleSidebar('exercise')"
+            title="Physical Rehabilitation & Exercise Prescription"
+            [style.background]="activeSidebarTab === 'exercise' ? '#6366f1' : ''"
+          >
+            <i class="bi bi-activity text-info"></i>
+            <span class="btn-label">Exercises</span>
+            <span *ngIf="unreadExerciseCount > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary border border-dark">
+              {{ unreadExerciseCount }}
+            </span>
+          </button>
+
           <!-- Prior Visit History Toggle (Follow-Up Mode) -->
           <button
             *ngIf="isFollowUp || priorConsultation"
@@ -649,6 +929,19 @@
             </span>
           </button>
 
+          <!-- 📑 Attached Lab Reports Toggle -->
+          <button
+            [class]="activeSidebarTab === 'reports' ? 'btn btn-primary toolbar-btn position-relative' : 'btn btn-dark toolbar-btn position-relative'"
+            (click)="toggleSidebar('reports')"
+            title="Attached Lab Reports & AI Biomarkers"
+          >
+            <i class="bi bi-file-earmark-medical-fill text-warning"></i>
+            <span class="btn-label">Reports</span>
+            <span *ngIf="attachedReports.length > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark border border-dark" style="font-size: 0.65rem;">
+              {{ attachedReports.length }}
+            </span>
+          </button>
+
           <!-- End Call Button -->
           <button class="btn btn-danger end-call-btn" (click)="endCall()" title="End Consultation">
             <i class="bi bi-telephone-x-fill"></i>
@@ -660,12 +953,42 @@
 
     <!-- POST-CALL SUMMARY MODAL -->
     <div *ngIf="isCallEnded" class="center-state">
-      <div class="glass-card post-call-card p-4 text-center text-light">
+      <div class="glass-card post-call-card p-4 text-center text-light" style="max-width: 520px; width: 90%;">
         <div class="success-icon mb-3">
           <i class="bi bi-check-circle-fill text-success display-3"></i>
         </div>
-        <h3>Consultation Session Completed</h3>
+        <h3 class="fw-bold">Consultation Session Completed</h3>
         <p class="text-secondary">Total Duration: <strong>{{ callTimer }}</strong></p>
+
+        <!-- Doctor Mode: Early Finish & Next Patient Email Invite Action -->
+        <div *ngIf="userRole === 'doctor' && nextAppointment" class="p-3 my-3 rounded-4 text-start border" style="background: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.25) !important;">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <div>
+              <span class="badge bg-primary text-white mb-1">Next Scheduled Patient</span>
+              <h6 class="m-0 text-white fw-bold">{{ nextAppointment.patientName }}</h6>
+              <span class="text-info small">{{ nextAppointment.startTime }} • {{ nextAppointment.type || 'Consultation' }}</span>
+            </div>
+            
+            <button 
+              *ngIf="!earlyInviteSent" 
+              type="button" 
+              class="btn btn-sm btn-success rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-sm"
+              [disabled]="sendingEarlyInvite"
+              (click)="sendEarlyInviteEmail()">
+              <i class="bi bi-envelope-check-fill"></i>
+              <span>{{ sendingEarlyInvite ? 'Sending Email...' : 'Invite Patient Early via Email' }}</span>
+            </button>
+            <span *ngIf="earlyInviteSent" class="badge status-pill-success px-3 py-1.5">
+              ✔ Email Sent to {{ nextAppointment.patientName }}!
+            </span>
+          </div>
+          <p class="mb-0 text-white-50 small" style="font-size: 0.78rem;">
+            Since you concluded this session ahead of schedule, you can send an automated email invitation to {{ nextAppointment.patientName }} with a direct link to join early.
+          </p>
+          <div *ngIf="earlyInviteMsg" class="mt-2 text-success small fw-semibold">
+            {{ earlyInviteMsg }}
+          </div>
+        </div>
 
         <div class="d-flex justify-content-center gap-3 mt-4">
           <button class="btn btn-primary pill-btn px-4" (click)="leaveRoom()">

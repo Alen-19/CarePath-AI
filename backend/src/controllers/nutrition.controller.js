@@ -2,7 +2,7 @@ const Appointment = require('../models/Appointment');
 const CarePlan = require('../models/CarePlan');
 const FoodLog = require('../models/FoodLog');
 const Patient = require('../models/Patient');
-const { fetchMealRecipes, analyzeFoodItemNutrition } = require('../services/edamam.service');
+const { fetchMealRecipes, analyzeFoodItemNutrition } = require('../services/clinical-nutrition.service');
 const { identifyFoodFromImage } = require('../services/gemini.service');
 const fs = require('fs');
 
@@ -134,7 +134,7 @@ const logMeal = async (req, res) => {
 
 /**
  * POST /api/nutrition/analyze-food
- * Analyzes food name or Gemini Vision output using Edamam Food Database Parser API
+ * Analyzes food name or Gemini Vision output using Google Gemini Clinical Nutrition Engine
  */
 const analyzeFood = async (req, res) => {
   try {

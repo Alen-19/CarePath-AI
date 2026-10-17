@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-export interface EdamamRecipe {
+export interface ClinicalRecipe {
   title: string;
   image: string;
   source?: string;
@@ -28,9 +28,9 @@ export interface DynamicMealPlanResponse {
     hydrationGoalLiters?: number;
   };
   mealPlan: {
-    breakfast: EdamamRecipe[];
-    lunch: EdamamRecipe[];
-    dinner: EdamamRecipe[];
+    breakfast: ClinicalRecipe[];
+    lunch: ClinicalRecipe[];
+    dinner: ClinicalRecipe[];
   };
 }
 

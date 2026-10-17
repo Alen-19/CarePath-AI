@@ -7,7 +7,7 @@ const DoctorDateOverride = require('../models/DoctorDateOverride');
 const Appointment = require('../models/Appointment');
 const Payment = require('../models/Payment');
 const Razorpay = require('razorpay');
-const { sendDoctorLeaveCancellationEmail } = require('../config/mailer');
+const { sendDoctorLeaveCancellationEmail, sendEarlyConsultationInviteEmail } = require('../config/mailer');
 const { getIO } = require('../config/socket');
 
 let _razorpay = null;
@@ -273,7 +273,7 @@ exports.checkOverrideConflicts = async (req, res) => {
     const confirmedAppts = await Appointment.find({
       doctorId: doctor._id,
       appointmentDate: date,
-      status: 'Confirmed'
+      status: { $in: ['Confirmed', 'Pending Payment'] }
     })
       .populate({
         path: 'patientId',
@@ -282,7 +282,9 @@ exports.checkOverrideConflicts = async (req, res) => {
       })
       .sort({ startTime: 1 });
 
-    const totalRefundAmount = confirmedAppts.reduce((sum, a) => sum + (a.amount || 0), 0);
+    const totalRefundAmount = confirmedAppts
+      .filter(a => a.paymentStatus === 'Paid' || a.status === 'Confirmed')
+      .reduce((sum, a) => sum + (a.amount || 0), 0);
 
     res.json({
       success: true,
@@ -340,11 +342,11 @@ exports.saveDateOverride = async (req, res) => {
     let totalRefunded = 0;
 
     if (isOffDay) {
-      // Check for active confirmed bookings on this date
+      // Check for active confirmed bookings or appointments in payment checkout on this date
       const confirmedAppts = await Appointment.find({
         doctorId: doctor._id,
         appointmentDate: date,
-        status: 'Confirmed'
+        status: { $in: ['Confirmed', 'Pending Payment'] }
       }).populate({
         path: 'patientId',
         select: 'firstName lastName phone bloodGroup profileImage userId',
@@ -357,7 +359,7 @@ exports.saveDateOverride = async (req, res) => {
           conflict: true,
           count: confirmedAppts.length,
           appointments: confirmedAppts,
-          message: `You have ${confirmedAppts.length} confirmed patient appointment(s) on ${date}. Marking this day as leave requires cancelling them with 100% full refund.`
+          message: `You have ${confirmedAppts.length} active patient appointment(s) on ${date}. Marking this day as leave requires cancelling them with 100% full refund.`
         });
       }
 
@@ -370,10 +372,11 @@ exports.saveDateOverride = async (req, res) => {
 
         for (const appt of confirmedAppts) {
           let razorpayRefundId = null;
-          const refundAmt = appt.amount || 0;
+          const isPaid = appt.paymentStatus === 'Paid';
+          const refundAmt = isPaid ? (appt.amount || 0) : 0;
 
           // Initiate 100% full Razorpay refund if paid
-          if (appt.paymentStatus === 'Paid' && appt.razorpayPaymentId && refundAmt > 0) {
+          if (isPaid && appt.razorpayPaymentId && refundAmt > 0) {
             try {
               const refund = await getRazorpay().payments.refund(appt.razorpayPaymentId, {
                 amount: Math.round(refundAmt * 100) // in paise
@@ -393,7 +396,7 @@ exports.saveDateOverride = async (req, res) => {
 
           // Update Appointment
           appt.status = 'Cancelled';
-          appt.paymentStatus = refundAmt > 0 ? 'Refunded' : appt.paymentStatus;
+          appt.paymentStatus = isPaid && refundAmt > 0 ? 'Refunded' : (isPaid ? 'Refunded' : 'Cancelled');
           appt.cancelledAt = new Date();
           appt.cancellationReason = `Doctor Leave: ${effectiveReason}`;
           appt.refundId = razorpayRefundId;
@@ -664,7 +667,8 @@ exports.getConsultationDetails = async (req, res) => {
       .populate({
         path: 'parentAppointmentId',
         select: 'appointmentDate startTime type symptoms prescription clinicalNotes followUpRecommendation patientConditionStatus'
-      });
+      })
+      .populate('attachedReportIds');
 
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found.' });
@@ -683,16 +687,201 @@ exports.getConsultationDetails = async (req, res) => {
       { urls: 'stun:stun2.l.google.com:19302' }
     ];
 
+    // 1. Detect if this doctor has a NEXT booked appointment today
+    const currentMins = parseTimeToMinutes(appointment.startTime);
+    const doctorObjId = appointment.doctorId?._id || appointment.doctorId;
+
+    let nextAppointment = null;
+    if (doctorObjId) {
+      const todayAppointments = await Appointment.find({
+        doctorId: doctorObjId,
+        appointmentDate: appointment.appointmentDate,
+        status: { $in: ['Confirmed', 'Pending Payment'] },
+        _id: { $ne: appointment._id }
+      }).populate({
+        path: 'patientId',
+        populate: { path: 'userId', select: 'name email profileImage' }
+      });
+
+      const upcoming = todayAppointments
+        .filter(a => parseTimeToMinutes(a.startTime) >= currentMins)
+        .sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
+
+      if (upcoming.length > 0) {
+        const next = upcoming[0];
+        const nextPatientUser = next.patientId?.userId;
+        nextAppointment = {
+          _id: next._id,
+          startTime: next.startTime,
+          endTime: next.endTime,
+          type: next.type,
+          patientName: nextPatientUser?.name || 'Patient',
+          patientEmail: nextPatientUser?.email || '',
+          earlyInviteSentAt: next.earlyInviteSentAt
+        };
+      }
+    }
+
+    // 2. Check doctor live status for Patient (is doctor currently in another call?)
+    let doctorLiveStatus = {
+      isConsultingAnotherPatient: false,
+      delayNoticeMinutes: appointment.delayNoticeMinutes || 0
+    };
+
+    if (doctorObjId) {
+      const otherActiveCall = await Appointment.findOne({
+        doctorId: doctorObjId,
+        _id: { $ne: appointment._id },
+        callStatus: 'In Progress'
+      });
+      if (otherActiveCall) {
+        doctorLiveStatus.isConsultingAnotherPatient = true;
+      }
+    }
+
     res.json({
       success: true,
       appointment,
       meetingRoomId: appointment.meetingRoomId,
       callStatus: appointment.callStatus,
+      nextAppointment,
+      doctorLiveStatus,
       iceServers
     });
   } catch (error) {
     console.error('Error fetching consultation details:', error);
     res.status(500).json({ message: 'Failed to fetch consultation details.', error: error.message });
+  }
+};
+
+/**
+ * POST /api/appointments/:id/invite-next-early
+ * Doctor sends early consultation invitation email to next patient
+ */
+exports.inviteNextPatientEarly = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const currentAppointment = await Appointment.findById(id).populate('doctorId');
+    if (!currentAppointment) {
+      return res.status(404).json({ message: 'Current appointment not found.' });
+    }
+
+    const currentMins = parseTimeToMinutes(currentAppointment.startTime);
+    const doctorObjId = currentAppointment.doctorId?._id || currentAppointment.doctorId;
+
+    // Find next appointment for today
+    const todayAppointments = await Appointment.find({
+      doctorId: doctorObjId,
+      appointmentDate: currentAppointment.appointmentDate,
+      status: { $in: ['Confirmed', 'Pending Payment'] },
+      _id: { $ne: currentAppointment._id }
+    }).populate({
+      path: 'patientId',
+      populate: { path: 'userId', select: 'email' }
+    });
+
+    const upcoming = todayAppointments
+      .filter(a => parseTimeToMinutes(a.startTime) >= currentMins)
+      .sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
+
+    if (upcoming.length === 0) {
+      return res.status(400).json({ message: 'No upcoming scheduled patient found for today.' });
+    }
+
+    const nextAppt = upcoming[0];
+    const patientUser = nextAppt.patientId?.userId;
+    const patientEmail = patientUser?.email || nextAppt.patientId?.email;
+    const patientFullName = (nextAppt.patientId?.firstName || nextAppt.patientId?.lastName)
+      ? `${nextAppt.patientId.firstName || ''} ${nextAppt.patientId.lastName || ''}`.trim()
+      : (nextAppt.patientName || 'Patient');
+
+    if (!patientEmail) {
+      return res.status(400).json({ message: 'Next patient does not have a registered email address.' });
+    }
+
+    // Resolve doctor name & specialization
+    const doc = currentAppointment.doctorId;
+    const doctorFullName = (doc?.firstName || doc?.lastName)
+      ? `${doc.firstName || ''} ${doc.lastName || ''}`.trim()
+      : (doc?.name || 'Doctor');
+    const specialty = doc?.specialization || doc?.specialty || 'Medical Specialist';
+
+    // Send email
+    const emailSent = await sendEarlyConsultationInviteEmail({
+      patientEmail,
+      patientName: patientFullName,
+      doctorName: doctorFullName,
+      specialty,
+      appointmentDate: nextAppt.appointmentDate,
+      startTime: nextAppt.startTime,
+      appointmentId: nextAppt._id
+    });
+
+    if (emailSent) {
+      nextAppt.earlyInviteSentAt = new Date();
+      await nextAppt.save();
+    }
+
+    res.json({
+      success: true,
+      message: `Invitation email sent successfully to ${patientFullName} (${patientEmail}).`,
+      nextAppointment: {
+        _id: nextAppt._id,
+        patientName: patientFullName,
+        patientEmail,
+        startTime: nextAppt.startTime,
+        earlyInviteSentAt: nextAppt.earlyInviteSentAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Error inviting next patient early:', error);
+    res.status(500).json({ message: 'Failed to send early invitation email.', error: error.message });
+  }
+};
+
+/**
+ * POST /api/appointments/:id/notify-delay
+ * Doctor notifies next patient of an in-call delay (+5 or +10 mins)
+ */
+exports.notifyPatientDelay = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { delayMinutes = 5 } = req.body;
+
+    const currentAppointment = await Appointment.findById(id);
+    if (!currentAppointment) {
+      return res.status(404).json({ message: 'Appointment not found.' });
+    }
+
+    const currentMins = parseTimeToMinutes(currentAppointment.startTime);
+    const doctorObjId = currentAppointment.doctorId;
+
+    const todayAppointments = await Appointment.find({
+      doctorId: doctorObjId,
+      appointmentDate: currentAppointment.appointmentDate,
+      status: { $in: ['Confirmed', 'Pending Payment'] },
+      _id: { $ne: currentAppointment._id }
+    });
+
+    const upcoming = todayAppointments
+      .filter(a => parseTimeToMinutes(a.startTime) >= currentMins)
+      .sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
+
+    if (upcoming.length > 0) {
+      const nextAppt = upcoming[0];
+      nextAppt.delayNoticeMinutes = delayMinutes;
+      nextAppt.delayNoticeSentAt = new Date();
+      await nextAppt.save();
+    }
+
+    res.json({
+      success: true,
+      message: `Delay notice of +${delayMinutes} mins broadcasted to next patient.`
+    });
+  } catch (error) {
+    console.error('Error notifying patient delay:', error);
+    res.status(500).json({ message: 'Failed to broadcast delay notice.', error: error.message });
   }
 };
 

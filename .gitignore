@@ -28,3 +28,7 @@ Thumbs.db
 # Large Datasets (>100MB)
 frontend/public/assets/data/medicines.json
 *.json.bak
+
+# Screen recordings & media
+/*.mp4
+

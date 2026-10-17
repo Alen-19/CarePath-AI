@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, NgZone, ChangeDetectorRef } from '@angular/core';
+import { Component, AfterViewInit, NgZone, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
@@ -267,31 +267,50 @@ export class RegisterComponent implements AfterViewInit {
     }
   }
 
+  private resizeTimer: any;
+
+  @HostListener('window:resize')
+  onResize() {
+    clearTimeout(this.resizeTimer);
+    this.resizeTimer = setTimeout(() => {
+      this.renderGoogleBtnResponsive();
+    }, 150);
+  }
+
   ngAfterViewInit() {
     this.initializeGoogleSignIn();
   }
 
   initializeGoogleSignIn() {
-    const renderGoogleBtn = () => {
+    const checkAndRender = () => {
       if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-        const btnContainer = document.getElementById('googleBtnRegister');
-        if (btnContainer) {
-          google.accounts.id.initialize({
-            client_id: '823212847150-alqfjevhndr4koevhv7thk851oikggch.apps.googleusercontent.com',
-            callback: (response: any) => this.handleGoogleCredential(response.credential)
-          });
-          google.accounts.id.renderButton(
-            btnContainer,
-            { theme: 'outline', size: 'large', type: 'standard', width: 470 }
-          );
-        }
+        this.renderGoogleBtnResponsive();
       } else {
-        // Script is still loading asynchronously, retry in 100ms
-        setTimeout(renderGoogleBtn, 100);
+        setTimeout(checkAndRender, 100);
       }
     };
+    checkAndRender();
+  }
 
-    renderGoogleBtn();
+  renderGoogleBtnResponsive() {
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) return;
+    const btnContainer = document.getElementById('googleBtnRegister');
+    if (!btnContainer) return;
+
+    google.accounts.id.initialize({
+      client_id: '823212847150-alqfjevhndr4koevhv7thk851oikggch.apps.googleusercontent.com',
+      callback: (response: any) => this.handleGoogleCredential(response.credential)
+    });
+
+    const parentWidth = btnContainer.parentElement?.clientWidth || btnContainer.clientWidth || 320;
+    // Google Identity Services limits width between 200px and 400px
+    const computedWidth = Math.min(Math.max(Math.floor(parentWidth), 200), 400);
+
+    btnContainer.innerHTML = '';
+    google.accounts.id.renderButton(
+      btnContainer,
+      { theme: 'outline', size: 'large', type: 'standard', width: computedWidth }
+    );
   }
 
   isPendingApproval = false;

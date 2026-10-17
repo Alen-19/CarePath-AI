@@ -320,7 +320,7 @@ const sendAppointmentReceiptEmail = async (details) => {
   }
 };
 
-const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, specialty, prescriptionList, dateStr, clinicalNotes = null, followUp = null) => {
+const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, specialty, prescriptionList, dateStr, clinicalNotes = null, followUp = null, exerciseList = []) => {
   try {
     const transporter = await createTransporter();
     if (!transporter) return false;
@@ -419,8 +419,44 @@ const sendPrescriptionEmail = async (patientEmail, patientName, doctorName, spec
         </table>
         ` : ''}
 
+        ${exerciseList && exerciseList.length > 0 ? `
+        <h3 style="color: #0F172A; font-size: 1rem; margin-bottom: 10px; margin-top: 15px;">🏋️ Prescribed Physical Rehabilitation Exercises</h3>
+        <table width="100%" style="border-collapse: collapse; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; overflow: hidden; margin-bottom: 25px;">
+          <thead>
+            <tr style="background: #F0FDF4; color: #16A34A; font-size: 0.82rem; text-transform: uppercase;">
+              <th style="padding: 10px; text-align: left;">Movement</th>
+              <th style="padding: 10px; text-align: center;">Target Volume</th>
+              <th style="padding: 10px; text-align: center;">Frequency</th>
+              <th style="padding: 10px; text-align: left;">Clinical Guidance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${exerciseList.map((ex, idx) => `
+              <tr style="border-bottom: 1px solid #E2E8F0;">
+                <td style="padding: 12px; font-weight: 700; color: #0F172A;">
+                  ${idx + 1}. ${ex.name}
+                  <div style="font-size: 0.72rem; color: #2563EB; font-weight: normal;">${ex.category || 'Physical Therapy & Rehab'}</div>
+                </td>
+                <td style="padding: 12px; color: #16A34A; font-weight: 700; text-align: center;">
+                  ${ex.targetReps || 10} Reps × ${ex.targetSets || 3} Sets
+                </td>
+                <td style="padding: 12px; color: #64748B; text-align: center;">
+                  ${ex.frequencyPerWeek || 4}x / week
+                </td>
+                <td style="padding: 12px; color: #475569; font-size: 0.82rem;">
+                  ${ex.precautions || 'Follow AI joint angle guidance with steady pacing.'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 12px 14px; margin-bottom: 20px; font-size: 0.82rem; color: #1E40AF;">
+          <strong>🤖 AI Physio Studio:</strong> You can practice these exercises live with camera-guided joint tracking and fall monitoring on your CarePath AI Patient Dashboard.
+        </div>
+        ` : ''}
+
         <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 15px; font-size: 0.82rem; color: #15803D; margin-bottom: 20px;">
-          ✔ Verified by <strong>${doctorName}</strong>. Please follow all dosage timings and dietary advice specified above. Contact carepathaiadmin@gmail.com for support.
+          ✔ Verified by <strong>${doctorName}</strong>. Please follow all dosage timings, exercises, and dietary advice specified above. Contact carepathaiadmin@gmail.com for support.
         </div>
       </div>
     `;
@@ -703,11 +739,258 @@ const sendDoctorLeaveCancellationEmail = async ({
   }
 };
 
+/**
+ * Sends Early Consultation Invitation Email to next patient
+ */
+const sendEarlyConsultationInviteEmail = async ({
+  patientEmail,
+  patientName,
+  doctorName,
+  specialty,
+  appointmentDate,
+  startTime,
+  appointmentId
+}) => {
+  try {
+    const transporter = await createTransporter();
+    if (!transporter) {
+      console.error('[MAILER] Transporter unavailable. Cannot send early invite email.');
+      return false;
+    }
+
+    const cleanDoctorName = (doctorName || 'Doctor').replace(/^Dr\.?\s*/i, '');
+    const consultUrl = `http://localhost:4200/consultation/${appointmentId}`;
+
+    const logoHtml = hasLogoCircle
+      ? `<img src="cid:carepath_logo_circle" alt="CarePath AI Logo" style="width: 52px; height: 52px; border-radius: 50%; vertical-align: middle; object-fit: cover;" />`
+      : `<span style="font-size: 24px; color: #ffffff; line-height: 46px; display: block;">✦</span>`;
+
+    const htmlContent = `
+      <div style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; color: #0F172A; padding: 40px 20px;">
+        <div style="max-width: 540px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);">
+          
+          <!-- Top Header -->
+          <div style="background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%); padding: 26px; text-align: center; color: #FFFFFF;">
+            <div style="margin-bottom: 10px;">${logoHtml}</div>
+            <h2 style="margin: 0; font-size: 1.35rem; font-weight: 700; color: #FFFFFF;">CarePath AI Telehealth</h2>
+            <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #E0F2FE;">Early Consultation Invitation</p>
+          </div>
+
+          <!-- Body -->
+          <div style="padding: 28px;">
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-left: 4px solid #16A34A; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
+              <strong style="color: #15803D; font-size: 0.95rem; display: block;">⚡ Good News! Your Doctor is Ready Early</strong>
+              <p style="color: #166534; font-size: 0.85rem; margin: 4px 0 0 0; line-height: 1.4;">
+                Dear <strong>${patientName || 'Patient'}</strong>, Dr. ${cleanDoctorName} has completed their earlier consultation ahead of schedule and is available in the telehealth room right now.
+              </p>
+            </div>
+
+            <!-- Details Card -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 22px;">
+              <table style="width: 100%; font-size: 0.86rem; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 5px 0; color: #64748B;">Attending Doctor:</td>
+                  <td style="padding: 5px 0; text-align: right; font-weight: 700; color: #0F172A;">Dr. ${cleanDoctorName} (${specialty || 'Specialist'})</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #64748B;">Date:</td>
+                  <td style="padding: 5px 0; text-align: right; font-weight: 600; color: #0F172A;">${appointmentDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #64748B;">Original Scheduled Time:</td>
+                  <td style="padding: 5px 0; text-align: right; font-weight: 700; color: #0284C7;">${startTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #64748B;">Current Status:</td>
+                  <td style="padding: 5px 0; text-align: right; font-weight: 700; color: #16A34A;">● Doctor Available Online Now</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Call to Action -->
+            <div style="text-align: center; margin-bottom: 20px;">
+              <a href="${consultUrl}" style="background: #0284C7; color: #FFFFFF; padding: 14px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 0.95rem; display: inline-block; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);">
+                🎥 Enter Consultation Room Now →
+              </a>
+            </div>
+
+            <p style="font-size: 0.8rem; color: #64748B; line-height: 1.5; text-align: center; margin-bottom: 0;">
+              📌 <strong>No pressure:</strong> If you are busy or commuting right now, your original appointment time of <strong>${startTime}</strong> remains fully reserved for you.
+            </p>
+          </div>
+
+          <div style="background: #F1F5F9; border-top: 1px solid #E2E8F0; padding: 16px; text-align: center; font-size: 0.75rem; color: #94A3B8;">
+            CarePath AI Telehealth System • Support: carepathaiadmin@gmail.com
+          </div>
+        </div>
+      </div>
+    `;
+
+    const attachments = [];
+    if (hasLogoCircle) {
+      attachments.push({ filename: 'logo_circle.png', path: logoCirclePath, cid: 'carepath_logo_circle' });
+    }
+
+    await transporter.sendMail({
+      from: '"CarePath AI Telehealth" <carepathaiadmin@gmail.com>',
+      to: patientEmail,
+      subject: `⚡ Dr. ${cleanDoctorName} is ready to see you early! (${appointmentDate})`,
+      html: htmlContent,
+      attachments
+    });
+
+    console.log(`[MAILER] Early consultation invite email sent to ${patientEmail}`);
+    return true;
+  } catch (err) {
+    console.error('[MAILER] Failed to send early consultation invite email:', err);
+    return false;
+  }
+};
+
+/**
+ * 🚨 Send Exercise Fall / Medical Emergency Alert Email
+ */
+const sendExerciseEmergencyAlertEmail = async (
+  recipientEmail,
+  patientName,
+  exerciseName,
+  triggerReason,
+  patientAddress,
+  timestamp,
+  extraDetails = {}
+) => {
+  try {
+    const transporter = await createTransporter();
+    if (!transporter) return false;
+
+    const logoHtml = hasLogoCircle 
+      ? `<img src="cid:carepath_logo_circle" alt="CarePath AI Logo" style="width: 52px; height: 52px; border-radius: 50%; vertical-align: middle; object-fit: cover;" />`
+      : `<span style="font-size: 24px; color: #ef4444; line-height: 46px; display: block;">🚨</span>`;
+
+    const formattedTime = timestamp ? new Date(timestamp).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      dateStyle: 'full',
+      timeStyle: 'medium'
+    }) : new Date().toLocaleString('en-IN');
+
+    const mapsButtonHtml = extraDetails.mapsUrl
+      ? `<div style="margin-top: 8px;">
+           <a href="${extraDetails.mapsUrl}" target="_blank" style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; padding: 7px 15px; border-radius: 6px; font-weight: 700; font-size: 13px;">
+             📍 Open GPS Location in Google Maps
+           </a>
+         </div>`
+      : '';
+
+    const doctorInfoRow = extraDetails.doctorName
+      ? `<tr style="border-bottom: 1px solid #334155;">
+           <td style="padding: 10px 0; color: #94a3b8;">Prescribing Doctor:</td>
+           <td style="padding: 10px 0; color: #38bdf8; font-weight: 600;">${extraDetails.doctorName}</td>
+         </tr>`
+      : '';
+
+    const emergencyContactRow = extraDetails.emergencyContact?.phone
+      ? `<tr style="border-bottom: 1px solid #334155;">
+           <td style="padding: 10px 0; color: #94a3b8;">Emergency Contact:</td>
+           <td style="padding: 10px 0; color: #facc15; font-weight: 600;">
+             ${extraDetails.emergencyContact.name || 'Primary Contact'} (${extraDetails.emergencyContact.relation || 'Emergency'}): 
+             <a href="tel:${extraDetails.emergencyContact.phone}" style="color: #facc15; text-decoration: underline;">${extraDetails.emergencyContact.phone}</a>
+           </td>
+         </tr>`
+      : '';
+
+    const roleBanner = extraDetails.isDoctorAlert
+      ? `<div style="background-color: #dc2626; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; margin-bottom: 12px;">
+           🚨 Attending Physician Emergency Dispatch
+         </div>`
+      : '';
+
+    const htmlContent = `
+      <div style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 36px 20px; border-radius: 12px; max-width: 560px; margin: 0 auto; border: 2px solid #ef4444;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          ${logoHtml}
+          ${roleBanner ? `<div style="margin-top: 10px;">${roleBanner}</div>` : ''}
+          <h2 style="color: #ef4444; margin: 8px 0 4px 0; font-size: 22px; text-transform: uppercase; letter-spacing: 0.05em;">🚨 Immediate Safety Alert</h2>
+          <p style="color: #94a3b8; font-size: 13px; margin: 0;">CarePath AI Autonomous Physical Rehab Monitoring</p>
+        </div>
+
+        <div style="background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; padding: 18px; margin-bottom: 20px;">
+          <p style="color: #fca5a5; font-size: 15px; font-weight: 600; margin: 0 0 8px 0;">
+            ⚠️ An unconfirmed fall or sudden inactivity event was detected and remained unanswered.
+          </p>
+          <p style="color: #cbd5e1; font-size: 13px; line-height: 1.5; margin: 0;">
+            During a home rehabilitation exercise session, <strong>${patientName}</strong> triggered an autonomous safety countdown which expired without patient confirmation. Please verify their physical safety immediately.
+          </p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 14px;">
+          <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 10px 0; color: #94a3b8; width: 40%;">Patient Name:</td>
+            <td style="padding: 10px 0; color: #ffffff; font-weight: 600;">${patientName}</td>
+          </tr>
+          ${doctorInfoRow}
+          <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 10px 0; color: #94a3b8;">Active Exercise:</td>
+            <td style="padding: 10px 0; color: #38bdf8; font-weight: 600;">${exerciseName || 'Physical Therapy Movement'}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 10px 0; color: #94a3b8;">Detection Reason:</td>
+            <td style="padding: 10px 0; color: #ef4444; font-weight: 600;">${triggerReason || 'Sudden Fall / Landmark Drop'}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 10px 0; color: #94a3b8;">Incident Timestamp:</td>
+            <td style="padding: 10px 0; color: #ffffff;">${formattedTime} IST</td>
+          </tr>
+          ${emergencyContactRow}
+          <tr>
+            <td style="padding: 10px 0; color: #94a3b8; vertical-align: top;">Location Details:</td>
+            <td style="padding: 10px 0; color: #ffffff; line-height: 1.5;">
+              ${patientAddress || 'Home Residence on file'}
+              ${mapsButtonHtml}
+            </td>
+          </tr>
+        </table>
+
+        <div style="text-align: center; padding: 14px; background-color: #1e293b; border-radius: 8px;">
+          <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+            This autonomous dispatch was issued by the CarePath AI Safety Monitoring Daemon.<br/>If medical assistance is required, contact local emergency services immediately.
+          </p>
+        </div>
+      </div>
+    `;
+
+    const attachments = [];
+    if (hasLogoCircle) {
+      attachments.push({ filename: 'logo_circle.png', path: logoCirclePath, cid: 'carepath_logo_circle' });
+    }
+
+    const emailList = Array.isArray(recipientEmail) ? recipientEmail : [recipientEmail];
+    for (const email of emailList) {
+      if (!email) continue;
+      const subjectPrefix = extraDetails.isDoctorAlert ? `🚨 [DOCTOR URGENT ALERT]` : `🚨 [URGENT SAFETY ALERT]`;
+      await transporter.sendMail({
+        from: '"CarePath AI Emergency Daemon" <carepathaiadmin@gmail.com>',
+        to: email,
+        subject: `${subjectPrefix} Fall / Safety Alert for ${patientName} (${exerciseName})`,
+        html: htmlContent,
+        attachments
+      });
+      console.log(`[MAILER] 🚨 Exercise emergency alert email sent to ${email}`);
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[MAILER] Failed to send exercise emergency alert email:', err.message);
+    return false;
+  }
+};
+
 module.exports = {
   sendResetOtpEmail,
   sendAppointmentReceiptEmail,
   sendPrescriptionEmail,
   sendMedicationDigestEmail,
-  sendDoctorLeaveCancellationEmail
+  sendDoctorLeaveCancellationEmail,
+  sendEarlyConsultationInviteEmail,
+  sendExerciseEmergencyAlertEmail
 };
 

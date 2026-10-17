@@ -1,4 +1,4 @@
-import { Component, OnInit, NgZone, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone, HostListener, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -9,17 +9,21 @@ import {
   DoctorCard,
   BookingSlot,
   AppointmentItem,
-  BookAppointmentPayload
+  BookAppointmentPayload,
+  ExerciseItem
 } from '../../core/services/appointment.service';
-import { NutritionService, EdamamRecipe } from '../../core/services/nutrition.service';
+import { NutritionService, ClinicalRecipe } from '../../core/services/nutrition.service';
 import {
   MedicationService,
   MedicationDoseItem,
   DoctorMedFilterItem,
   MedicationScheduleResponse
 } from '../../core/services/medication.service';
+import { ReportService, MedicalReport, Biomarker } from '../../core/services/report.service';
 
 declare var Razorpay: any;
+declare var Pose: any;
+declare var Camera: any;
 
 @Component({
   selector: 'app-patient-dashboard',
@@ -28,18 +32,176 @@ declare var Razorpay: any;
   templateUrl: './patient-dashboard.component.html',
   styleUrls: ['./patient-dashboard.component.css']
 })
-export class PatientDashboardComponent implements OnInit {
+export class PatientDashboardComponent implements OnInit, OnDestroy {
   patientName = '';
   patientId = '';
   patientEmail = '';
-  activeTab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'profile' | 'symptom-checker' = 'find-doctors';
+  activeTab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'reports' | 'profile' | 'symptom-checker' = 'find-doctors';
   showUserDropdown = false;
+
+  // ─── 📑 Medical Records Vault & Multimodal AI State ─────────────────────────
+  reports: MedicalReport[] = [];
+  loadingReports: boolean = false;
+  reportSearch: string = '';
+  selectedReportTypeFilter: string = 'all';
+
+  // Upload modal state
+  showUploadModal: boolean = false;
+  uploadingReport: boolean = false;
+  uploadErrorMsg: string = '';
+  selectedFileToUpload: File | null = null;
+  selectedFilePreviewUrl: string | null = null;
+  uploadTitle: string = '';
+  uploadReportType: 'Blood Test' | 'Imaging (X-Ray/MRI/CT)' | 'Pathology' | 'Cardiology (ECG/Echo)' | 'Urine/Renal' | 'Prescription/Discharge' | 'Other' = 'Blood Test';
+  uploadReportDate: string = '';
+  uploadAppointmentId: string = '';
+  isSharedAllToggle: boolean = true;
+
+  // Detail Drawer / Modal
+  selectedReportDetail: MedicalReport | null = null;
+  showReportDetailModal: boolean = false;
+
+  // Link to Consultation Modal (Scenario B)
+  showLinkModal: boolean = false;
+  linkingReport: MedicalReport | null = null;
+  targetAppointmentIdForLink: string = '';
+  linkingInProgress: boolean = false;
+
+  // Booking Modal Attachment (Pre-Consultation Scenario A & Follow-Up Scenario B)
+  attachedReportIdsForBooking: string[] = [];
 
   // ─── 🌟 Daily CarePath & Lifestyle Goal Center State ────────────────────────
   todayWaterMl: number = 0;
   isExerciseDone: boolean = false;
   dailyExerciseMinutes: number = 30;
   mealChecklistState: { [key: string]: boolean } = {};
+
+  // ─── 🏋️ Clinical Physical Rehabilitation & AI Guided Studio State ──────────
+  @ViewChild('studioVideo') studioVideoRef!: ElementRef<HTMLVideoElement>;
+  @ViewChild('studioCanvas') studioCanvasRef!: ElementRef<HTMLCanvasElement>;
+
+  prescribedExercisesList: ExerciseItem[] = [];
+  loadingExercises: boolean = false;
+
+  defaultCatalogExercises: ExerciseItem[] = [
+    {
+      exerciseId: 'squats',
+      name: 'Chair Squats (Knee & Hip Rehab)',
+      category: 'Lower Body & Joint Mobility',
+      targetReps: 10,
+      targetSets: 3,
+      frequencyPerWeek: 4,
+      precautions: 'Keep spine neutral, hinge at hips, maintain knees aligned with toes without collapsing inward.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-woman-doing-squats-in-a-gym-42795-large.mp4',
+      targetAngleMin: 85,
+      targetAngleMax: 95
+    },
+    {
+      exerciseId: 'knee_extension',
+      name: 'Seated Knee Extension (Quadriceps)',
+      category: 'Knee Strengthening & Mobility',
+      targetReps: 12,
+      targetSets: 3,
+      frequencyPerWeek: 5,
+      precautions: 'Sit upright, pause for 2 seconds at full extension. Do not kick rapidly or hyper-extend.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-young-man-exercising-in-the-gym-42823-large.mp4',
+      targetAngleMin: 160,
+      targetAngleMax: 180
+    },
+    {
+      exerciseId: 'shoulder_abduction',
+      name: 'Shoulder Lateral Abduction (Rotator Cuff)',
+      category: 'Upper Extremity Rehabilitation',
+      targetReps: 10,
+      targetSets: 3,
+      frequencyPerWeek: 3,
+      precautions: 'Lift arms to shoulder level only (90 degrees). Do not shrug shoulders or arch lower back.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-athlete-working-out-with-dumbbells-42831-large.mp4',
+      targetAngleMin: 80,
+      targetAngleMax: 95
+    },
+    {
+      exerciseId: 'bicep_curl',
+      name: 'Standing Bicep Curls (Arm Rehab)',
+      category: 'Arm Strength & Joint Conditioning',
+      targetReps: 12,
+      targetSets: 3,
+      frequencyPerWeek: 4,
+      precautions: 'Keep elbows tucked into sides. Full contraction and controlled eccentric descent.',
+      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-young-man-exercising-in-the-gym-42823-large.mp4',
+      targetAngleMin: 45,
+      targetAngleMax: 160
+    }
+  ];
+
+  // Video Demonstration Modal & Biomechanical Visualizer
+  showDemoModal: boolean = false;
+  selectedDemoExercise: ExerciseItem | null = null;
+  demoVideoFailed: boolean = false;
+  demoActiveTab: 'kinematics' | 'video' = 'kinematics';
+
+  // Clinical Rehabilitation Telemetry History
+  exerciseLogsHistory: any[] = [];
+  loadingExerciseLogs: boolean = false;
+
+  // AI Interactive Studio State
+  isExerciseStudioOpen: boolean = false;
+  activeStudioExercise: ExerciseItem | null = null;
+  studioCurrentReps: number = 0;
+  studioTargetReps: number = 10;
+  studioCurrentSets: number = 1;
+  studioTargetSets: number = 3;
+  studioCurrentAngle: number = 0;
+  studioAngleTargetLabel: string = 'Joint Flexion';
+  studioFeedbackText: string = 'Position yourself in front of the camera';
+  studioFeedbackStatus: 'good' | 'adjust' | 'neutral' = 'neutral';
+  studioIsDetecting: boolean = false;
+  isCameraActive: boolean = false;
+  cameraErrorMsg: string = '';
+  private poseDetector: any = null;
+  private studioMediaStream: MediaStream | null = null;
+  private exerciseRepStage: 'up' | 'down' = 'up';
+  private lastSpokenTime: number = 0;
+
+  // 🔄 Multi-Exercise Routine Runner State
+  studioRoutineIndex: number = 0;
+  hasNextRoutineExercise: boolean = false;
+  nextRoutineExercise: ExerciseItem | null = null;
+  isRoutineCompleted: boolean = false;
+
+  // 🚨 Fall & Inactivity Emergency Monitor State
+  isSafetyVerificationActive: boolean = false;
+  safetyCountdownSeconds: number = 15;
+  private safetyCountdownInterval: any = null;
+  isEmergencyDispatched: boolean = false;
+  emergencyDispatchDetails: any = null;
+  private lastLandmarkMovementTime: number = Date.now();
+  private prevNoseY: number | null = null;
+  private prevNoseTime: number = Date.now();
+
+  // 📊 Clinical Telemetry & Exercise Analytics State
+  exerciseAnalytics: any = null;
+  loadingExerciseAnalytics: boolean = false;
+
+  // ⏱ Studio Phase & Recovery State Machine (Feature 7 & 9)
+  studioPhase: 'ACTIVE' | 'SET_REST' | 'SUMMARY' = 'ACTIVE';
+  restCountdownSeconds: number = 30;
+  private restIntervalTimer: any = null;
+
+  // 📈 Biomechanical Telemetry Accumulator (Feature 3, 4, & 9)
+  sessionStartTime: number = 0;
+  sessionValidReps: number = 0;
+  sessionIncompleteReps: number = 0;
+  sessionMinAngle: number = 999;
+  sessionMaxAngle: number = 0;
+  sessionFormErrors: string[] = [];
+  sessionSafetyIncidents: number = 0;
+  currentRepMinAngle: number = 180;
+  currentRepMaxAngle: number = 0;
+  sessionSummaryData: any = null;
+
+  // 🧪 Validation / Simulation Dev Mode (Feature 8)
+  showDevSimControls: boolean = false;
 
   // ─── 💊 Daily Medication & Pill Schedule State ─────────────────────────────
   medicationSchedule: MedicationScheduleResponse | null = null;
@@ -48,13 +210,13 @@ export class PatientDashboardComponent implements OnInit {
   isTogglingDose: boolean = false;
   sendingMedEmail: boolean = false;
 
-  // ─── Dietary CarePath & Edamam Modal State ─────────────────────────────────
+  // ─── Dietary CarePath & Clinical Meal Plan Modal State ─────────────────────
   showCarePathModal = false;
   selectedCarePathAppt: AppointmentItem | null = null;
-  activeCarePathTab: 'careplan' | 'edamam-recipes' = 'careplan';
-  edamamMealPlan: { breakfast: EdamamRecipe[]; lunch: EdamamRecipe[]; dinner: EdamamRecipe[] } | null = null;
-  edamamMealPlanRegion: string = '';
-  loadingEdamamPlan = false;
+  activeCarePathTab: 'careplan' | 'recipes' = 'careplan';
+  mealPlan: { breakfast: ClinicalRecipe[]; lunch: ClinicalRecipe[]; dinner: ClinicalRecipe[] } | null = null;
+  mealPlanRegion: string = '';
+  loadingMealPlan = false;
 
   // ─── AI Food & Macro Tracker State ─────────────────────────────────────────
   foodTrackerInput = '';
@@ -491,9 +653,11 @@ export class PatientDashboardComponent implements OnInit {
     private appointmentService: AppointmentService,
     private nutritionService: NutritionService,
     private medicationService: MedicationService,
+    private reportService: ReportService,
     private http: HttpClient,
     private router: Router,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef
   ) {
     this.syncPatientInfo();
   }
@@ -885,6 +1049,10 @@ export class PatientDashboardComponent implements OnInit {
     this.loadTodayWellnessTracker();
     this.loadTodayNutritionLogs();
     this.loadActiveMedications();
+    this.loadReports();
+    this.loadPrescribedExercises();
+    this.loadExerciseLogs();
+    this.loadExerciseAnalytics();
 
     if (this.isProfileIncomplete()) {
       setTimeout(() => {
@@ -925,7 +1093,7 @@ export class PatientDashboardComponent implements OnInit {
   }
 
   // ─── Tab ───────────────────────────────────────────────────────────────────
-  setTab(tab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'profile' | 'symptom-checker') {
+  setTab(tab: 'find-doctors' | 'my-appointments' | 'food-tracker' | 'reports' | 'profile' | 'symptom-checker') {
     this.activeTab = tab;
     this.closeUserDropdown();
     if (tab === 'my-appointments') {
@@ -934,6 +1102,8 @@ export class PatientDashboardComponent implements OnInit {
       this.loadTodayNutritionLogs();
       this.loadTodayWellnessTracker();
       this.loadActiveMedications();
+    } else if (tab === 'reports') {
+      this.loadReports();
     } else if (tab === 'profile') {
       this.syncPatientInfo();
     }
@@ -1201,7 +1371,8 @@ export class PatientDashboardComponent implements OnInit {
       type: this.appointmentType,
       symptoms: this.symptoms || (isEmergency ? 'Emergency Triage Request' : ''),
       parentAppointmentId: this.pendingParentAppointmentId || undefined,
-      patientConditionStatus: this.appointmentType === 'Follow-up' ? (this.patientConditionStatus || 'Unchanged') : undefined
+      patientConditionStatus: this.appointmentType === 'Follow-up' ? (this.patientConditionStatus || 'Unchanged') : undefined,
+      attachedReportIds: this.attachedReportIdsForBooking && this.attachedReportIdsForBooking.length > 0 ? this.attachedReportIdsForBooking : undefined
     };
 
     this.appointmentService.bookAppointment(payload).subscribe({
@@ -1427,12 +1598,12 @@ export class PatientDashboardComponent implements OnInit {
     return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  // ─── 🥗 Dietary CarePath & Edamam Modal Handlers ──────────────────────────
+  // ─── 🥗 Dietary CarePath & Clinical Meal Plan Modal Handlers ───────────────
   openCarePathModal(appt: AppointmentItem): void {
     this.selectedCarePathAppt = appt;
     this.showCarePathModal = true;
     this.activeCarePathTab = 'careplan';
-    this.loadEdamamMealPlan(appt._id);
+    this.loadMealPlan(appt._id);
   }
 
   closeCarePathModal(): void {
@@ -1440,19 +1611,19 @@ export class PatientDashboardComponent implements OnInit {
     this.selectedCarePathAppt = null;
   }
 
-  loadEdamamMealPlan(appointmentId?: string): void {
-    this.loadingEdamamPlan = true;
+  loadMealPlan(appointmentId?: string): void {
+    this.loadingMealPlan = true;
     this.nutritionService.getDynamicMealPlan(appointmentId).subscribe({
       next: (res) => {
-        this.loadingEdamamPlan = false;
+        this.loadingMealPlan = false;
         if (res && res.success) {
-          this.edamamMealPlan = res.mealPlan;
-          this.edamamMealPlanRegion = res.patientRegion || 'Kerala, India';
+          this.mealPlan = res.mealPlan;
+          this.mealPlanRegion = res.patientRegion || 'Kerala, India';
         }
       },
       error: (err) => {
-        this.loadingEdamamPlan = false;
-        console.error('Failed to load Edamam meal plan:', err);
+        this.loadingMealPlan = false;
+        console.error('Failed to load clinical meal plan:', err);
       }
     });
   }
@@ -1501,7 +1672,7 @@ export class PatientDashboardComponent implements OnInit {
           }
           this.showToast(`✨ Gemini Vision identified: "${res.dishName}"!`, 'success');
 
-          // Automatically trigger Edamam macro analysis
+          // Automatically trigger clinical macro analysis
           this.analyzeFoodItem();
         }
       },
@@ -1708,4 +1879,1300 @@ export class PatientDashboardComponent implements OnInit {
     // apply filtering
     this.onSearch();
   }
+
+  // ─── 📑 Medical Records Vault Handlers ─────────────────────────────────────
+  loadReports(): void {
+    this.loadingReports = true;
+    this.reportService.getMyReports().subscribe({
+      next: (res) => {
+        this.loadingReports = false;
+        if (res && res.success) {
+          this.reports = res.reports || [];
+        }
+      },
+      error: (err) => {
+        this.loadingReports = false;
+        console.warn('Could not load medical reports:', err);
+      }
+    });
+  }
+
+  get filteredReports(): MedicalReport[] {
+    let list = this.reports;
+    if (this.selectedReportTypeFilter !== 'all') {
+      list = list.filter(r => r.reportType === this.selectedReportTypeFilter);
+    }
+    if (this.reportSearch.trim()) {
+      const q = this.reportSearch.toLowerCase().trim();
+      list = list.filter(r => 
+        (r.title && r.title.toLowerCase().includes(q)) ||
+        (r.originalFilename && r.originalFilename.toLowerCase().includes(q)) ||
+        (r.aiAnalysis?.summary && r.aiAnalysis.summary.toLowerCase().includes(q)) ||
+        (r.aiAnalysis?.recommendedSpecialty && r.aiAnalysis.recommendedSpecialty.toLowerCase().includes(q)) ||
+        (r.aiAnalysis?.biomarkers && r.aiAnalysis.biomarkers.some(b => b.name.toLowerCase().includes(q)))
+      );
+    }
+    return list;
+  }
+
+  get totalNormalBiomarkersCount(): number {
+    return this.reports.reduce((acc, r) => {
+      const n = (r.aiAnalysis?.biomarkers || []).filter(b => b.flag === 'Normal').length;
+      return acc + n;
+    }, 0);
+  }
+
+  get totalCriticalOrAttentionFlagsCount(): number {
+    return this.reports.reduce((acc, r) => {
+      const n = (r.aiAnalysis?.biomarkers || []).filter(b => b.flag === 'High' || b.flag === 'Critical' || b.flag === 'Borderline').length;
+      return acc + n;
+    }, 0);
+  }
+
+  openUploadModal(preselectedApptId?: string): void {
+    this.uploadTitle = '';
+    this.uploadReportType = 'Blood Test';
+    this.uploadReportDate = this.getTodayDateString();
+    this.uploadAppointmentId = preselectedApptId || '';
+    this.isSharedAllToggle = true;
+    this.selectedFileToUpload = null;
+    this.selectedFilePreviewUrl = null;
+    this.uploadErrorMsg = '';
+    this.showUploadModal = true;
+  }
+
+  closeUploadModal(): void {
+    if (this.uploadingReport) return;
+    this.showUploadModal = false;
+    this.selectedFileToUpload = null;
+    this.selectedFilePreviewUrl = null;
+    this.uploadErrorMsg = '';
+  }
+
+  onReportFileSelected(event: any): void {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+
+    if (file.size > 25 * 1024 * 1024) {
+      this.uploadErrorMsg = 'File size exceeds 25MB limit. Please upload a smaller PDF or image.';
+      return;
+    }
+
+    this.uploadErrorMsg = '';
+    this.selectedFileToUpload = file;
+    if (!this.uploadTitle) {
+      this.uploadTitle = file.name.replace(/\.[^/.]+$/, '');
+    }
+
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.selectedFilePreviewUrl = reader.result as string;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      this.selectedFilePreviewUrl = null;
+    }
+  }
+
+  submitUploadReport(): void {
+    if (!this.selectedFileToUpload) {
+      this.uploadErrorMsg = 'Please select a PDF or image medical report to upload.';
+      return;
+    }
+
+    this.uploadingReport = true;
+    this.uploadErrorMsg = '';
+
+    const formData = new FormData();
+    formData.append('reportFile', this.selectedFileToUpload);
+    formData.append('title', this.uploadTitle || this.selectedFileToUpload.name);
+    formData.append('reportType', this.uploadReportType);
+    if (this.uploadReportDate) {
+      formData.append('reportDate', this.uploadReportDate);
+    }
+    if (this.uploadAppointmentId) {
+      formData.append('appointmentId', this.uploadAppointmentId);
+    }
+    formData.append('isSharedWithAllConsultingDoctors', this.isSharedAllToggle.toString());
+
+    this.reportService.uploadReport(formData).subscribe({
+      next: (res) => {
+        this.uploadingReport = false;
+        if (res && res.success) {
+          this.showToast('🎉 Medical report uploaded and analyzed by CarePath AI!', 'success');
+          this.closeUploadModal();
+          this.loadReports();
+          if (res.report) {
+            this.openReportDetailModal(res.report);
+          }
+        }
+      },
+      error: (err) => {
+        this.uploadingReport = false;
+        this.uploadErrorMsg = err.error?.message || 'Failed to upload report. Please check file format and try again.';
+      }
+    });
+  }
+
+  openReportDetailModal(report: MedicalReport): void {
+    this.selectedReportDetail = report;
+    this.showReportDetailModal = true;
+  }
+
+  closeReportDetailModal(): void {
+    this.showReportDetailModal = false;
+    this.selectedReportDetail = null;
+  }
+
+  deleteReport(reportId: string, event?: Event): void {
+    if (event) event.stopPropagation();
+    if (!confirm('Are you sure you want to permanently delete this report from your vault?')) {
+      return;
+    }
+
+    this.reportService.deleteReport(reportId).subscribe({
+      next: () => {
+        this.showToast('Medical report removed from vault.', 'success');
+        if (this.selectedReportDetail?._id === reportId) {
+          this.closeReportDetailModal();
+        }
+        this.loadReports();
+      },
+      error: () => {
+        this.showToast('Failed to delete report. Please try again.', 'error');
+      }
+    });
+  }
+
+  toggleDoctorSharing(report: MedicalReport, doctorId: string, isCurrentlyShared: boolean): void {
+    const action = isCurrentlyShared ? 'revoke' : 'grant';
+    this.reportService.updateSharing(report._id, { doctorId, action }).subscribe({
+      next: (res) => {
+        if (res && res.success) {
+          report.sharedWithDoctorIds = res.report.sharedWithDoctorIds;
+          this.showToast(`Doctor access ${action === 'grant' ? 'granted' : 'revoked'}.`, 'success');
+        }
+      },
+      error: () => this.showToast('Could not update doctor access permissions.', 'error')
+    });
+  }
+
+  toggleShareAllDoctors(report: MedicalReport): void {
+    const newVal = !report.isSharedWithAllConsultingDoctors;
+    this.reportService.updateSharing(report._id, { isSharedWithAllConsultingDoctors: newVal }).subscribe({
+      next: (res) => {
+        if (res && res.success) {
+          report.isSharedWithAllConsultingDoctors = newVal;
+          this.showToast(newVal ? 'Sharing enabled for all consulting doctors.' : 'Sharing restricted to linked doctors.', 'success');
+        }
+      },
+      error: () => this.showToast('Could not update sharing permissions.', 'error')
+    });
+  }
+
+  openLinkModal(report: MedicalReport, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.linkingReport = report;
+    this.targetAppointmentIdForLink = '';
+    this.showLinkModal = true;
+  }
+
+  closeLinkModal(): void {
+    this.showLinkModal = false;
+    this.linkingReport = null;
+    this.targetAppointmentIdForLink = '';
+  }
+
+  confirmLinkToConsultation(): void {
+    if (!this.linkingReport || !this.targetAppointmentIdForLink) return;
+    this.linkingInProgress = true;
+    this.reportService.linkToConsultation(this.linkingReport._id, this.targetAppointmentIdForLink).subscribe({
+      next: (res) => {
+        this.linkingInProgress = false;
+        if (res && res.success) {
+          this.showToast('Report linked to consultation successfully.', 'success');
+          this.closeLinkModal();
+          this.loadReports();
+        }
+      },
+      error: () => {
+        this.linkingInProgress = false;
+        this.showToast('Failed to link report to consultation.', 'error');
+      }
+    });
+  }
+
+  bookSpecialistForReport(report: MedicalReport, event?: Event): void {
+    if (event) event.stopPropagation();
+    const specialty = report.aiAnalysis?.recommendedSpecialty || 'General Practice';
+    
+    // Auto-attach this report to next booking
+    this.attachedReportIdsForBooking = [report._id];
+
+    // Filter doctors by specialty
+    this.searchQuery = specialty;
+    this.setTab('find-doctors');
+    this.onSearch();
+    
+    this.showToast(`🔍 Showing doctors specializing in ${specialty}. Report "${report.title}" is attached for your consultation!`, 'success');
+  }
+
+  toggleReportAttachmentForBooking(reportId: string): void {
+    const idx = this.attachedReportIdsForBooking.indexOf(reportId);
+    if (idx > -1) {
+      this.attachedReportIdsForBooking.splice(idx, 1);
+    } else {
+      this.attachedReportIdsForBooking.push(reportId);
+    }
+  }
+
+  isReportAttachedForBooking(reportId: string): boolean {
+    return this.attachedReportIdsForBooking.includes(reportId);
+  }
+
+  getBiomarkerBadgeClass(flag: string): string {
+    switch (flag) {
+      case 'High': return 'badge-flag-high';
+      case 'Critical': return 'badge-flag-critical';
+      case 'Borderline': return 'badge-flag-borderline';
+      case 'Low': return 'badge-flag-low';
+      case 'Normal':
+      default:
+        return 'badge-flag-normal';
+    }
+  }
+
+  formatReportFileSize(bytes: number): string {
+    if (!bytes) return '0 KB';
+    if (bytes < 1024 * 1024) {
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // ─── 🏋️ Clinical Physical Rehabilitation & AI Guided Studio Handlers ───────
+  loadPrescribedExercises(): void {
+    this.loadingExercises = true;
+    this.appointmentService.getMyPrescribedExercises().subscribe({
+      next: (res) => {
+        this.loadingExercises = false;
+        if (res && res.success && res.exercises && res.exercises.length > 0) {
+          this.prescribedExercisesList = res.exercises;
+        } else {
+          this.prescribedExercisesList = [];
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.loadingExercises = false;
+        console.warn('Failed to load prescribed exercises:', err);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  get activeExercises(): ExerciseItem[] {
+    return this.prescribedExercisesList.length > 0 ? this.prescribedExercisesList : this.defaultCatalogExercises;
+  }
+
+  openDemoModal(exercise: ExerciseItem): void {
+    this.selectedDemoExercise = exercise;
+    this.demoVideoFailed = false;
+    this.demoActiveTab = 'kinematics';
+    this.showDemoModal = true;
+  }
+
+  closeDemoModal(): void {
+    this.showDemoModal = false;
+    this.selectedDemoExercise = null;
+    this.demoVideoFailed = false;
+  }
+
+  onDemoVideoError(): void {
+    console.warn('[DEMO VIDEO] Video stream unavailable or hotlink restricted. Displaying AI Biomechanical Kinematics.');
+    this.demoVideoFailed = true;
+    this.demoActiveTab = 'kinematics';
+    this.cdr.detectChanges();
+  }
+
+  previewExerciseVoiceCue(exercise: ExerciseItem | null): void {
+    if (!exercise) return;
+    const cues: Record<string, string> = {
+      squats: 'Keep your chest tall, hinge your hips back, and bend your knees smoothly until 90 degrees.',
+      knee_extension: 'Sit tall, extend your leg straight until your knee reaches 180 degrees, and pause for two seconds.',
+      shoulder_abduction: 'Raise both arms smoothly out to your sides until shoulder level at 90 degrees, then lower with control.',
+      bicep_curl: 'Keep your elbows glued to your sides, curl upward toward your shoulders, then lower slowly.'
+    };
+    const cue = cues[exercise.exerciseId] || `Perform ${exercise.name} with controlled tempo and steady breathing.`;
+    this.speakVoiceFeedback(cue, 0);
+  }
+
+  loadExerciseLogs(): void {
+    this.loadingExerciseLogs = true;
+    this.appointmentService.getExerciseLogs().subscribe({
+      next: (res) => {
+        this.loadingExerciseLogs = false;
+        if (res && res.success && res.logs) {
+          this.exerciseLogsHistory = res.logs;
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.loadingExerciseLogs = false;
+        console.warn('[EXERCISE LOGS] Could not fetch exercise logs from MongoDB:', err);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  loadExerciseAnalytics(): void {
+    this.loadingExerciseAnalytics = true;
+    this.appointmentService.getExerciseAnalytics().subscribe({
+      next: (res) => {
+        this.loadingExerciseAnalytics = false;
+        if (res && res.success) {
+          this.exerciseAnalytics = res;
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.loadingExerciseAnalytics = false;
+        console.warn('[EXERCISE ANALYTICS] Could not fetch exercise analytics from MongoDB:', err);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  recordFormError(errorMsg: string): void {
+    if (!this.sessionFormErrors.includes(errorMsg)) {
+      this.sessionFormErrors.push(errorMsg);
+    }
+  }
+
+  async openExerciseStudio(exercise: ExerciseItem): Promise<void> {
+    this.activeStudioExercise = exercise;
+    this.studioTargetReps = exercise.targetReps || 10;
+    this.studioTargetSets = exercise.targetSets || 3;
+    this.studioCurrentReps = 0;
+    this.studioCurrentSets = 1;
+    this.exerciseRepStage = 'up';
+    this.studioCurrentAngle = 0;
+    this.studioFeedbackText = 'Position yourself so your full body is visible in the frame';
+    this.studioFeedbackStatus = 'neutral';
+    this.isExerciseStudioOpen = true;
+    this.isSafetyVerificationActive = false;
+    this.isEmergencyDispatched = false;
+    this.isRoutineCompleted = false;
+    this.lastLandmarkMovementTime = Date.now();
+    this.prevNoseY = null;
+    this.prevNoseTime = Date.now();
+    this.showDemoModal = false;
+
+    // Reset Biomechanical Telemetry Accumulator (Features 3, 4, 7, 9)
+    this.studioPhase = 'ACTIVE';
+    this.sessionStartTime = Date.now();
+    this.sessionValidReps = 0;
+    this.sessionIncompleteReps = 0;
+    this.sessionMinAngle = 999;
+    this.sessionMaxAngle = 0;
+    this.sessionFormErrors = [];
+    this.sessionSafetyIncidents = 0;
+    this.currentRepMinAngle = 180;
+    this.currentRepMaxAngle = 0;
+    this.sessionSummaryData = null;
+
+    // Resolve Routine Index
+    const idx = this.prescribedExercisesList.findIndex(e => (e.exerciseId === exercise.exerciseId || e.name === exercise.name));
+    this.studioRoutineIndex = idx >= 0 ? idx : 0;
+    this.checkNextRoutineExercise();
+
+    this.speakVoiceFeedback(`Starting ${exercise.name}. Follow my voice cues and keep steady form!`, 0);
+
+    setTimeout(() => {
+      this.initPoseDetection();
+    }, 250);
+  }
+
+  checkNextRoutineExercise(): void {
+    if (this.prescribedExercisesList && this.studioRoutineIndex < this.prescribedExercisesList.length - 1) {
+      this.hasNextRoutineExercise = true;
+      this.nextRoutineExercise = this.prescribedExercisesList[this.studioRoutineIndex + 1];
+    } else {
+      this.hasNextRoutineExercise = false;
+      this.nextRoutineExercise = null;
+    }
+  }
+
+  startNextRoutineExercise(): void {
+    if (!this.nextRoutineExercise) return;
+    const nextEx = this.nextRoutineExercise;
+    this.activeStudioExercise = nextEx;
+    this.studioRoutineIndex++;
+    this.checkNextRoutineExercise();
+    this.studioTargetReps = nextEx.targetReps || 10;
+    this.studioTargetSets = nextEx.targetSets || 3;
+    this.studioCurrentReps = 0;
+    this.studioCurrentSets = 1;
+    this.exerciseRepStage = 'up';
+    this.studioCurrentAngle = 0;
+    this.studioFeedbackText = `Ready! Begin ${nextEx.name}`;
+    this.studioFeedbackStatus = 'neutral';
+    this.isExerciseDone = false;
+
+    // Reset Telemetry for next routine exercise
+    this.studioPhase = 'ACTIVE';
+    this.sessionStartTime = Date.now();
+    this.sessionValidReps = 0;
+    this.sessionIncompleteReps = 0;
+    this.sessionMinAngle = 999;
+    this.sessionMaxAngle = 0;
+    this.sessionFormErrors = [];
+    this.sessionSafetyIncidents = 0;
+    this.currentRepMinAngle = 180;
+    this.currentRepMaxAngle = 0;
+    this.sessionSummaryData = null;
+
+    this.speakVoiceFeedback(`Next exercise: ${nextEx.name}. Follow my cues!`, 0);
+    this.cdr.detectChanges();
+  }
+
+  closeExerciseStudio(): void {
+    if (this.restIntervalTimer) {
+      clearInterval(this.restIntervalTimer);
+      this.restIntervalTimer = null;
+    }
+
+    if (this.safetyCountdownInterval) {
+      clearInterval(this.safetyCountdownInterval);
+      this.safetyCountdownInterval = null;
+    }
+
+    if (this.studioMediaStream) {
+      this.studioMediaStream.getTracks().forEach(t => t.stop());
+      this.studioMediaStream = null;
+    }
+
+    if (this.poseDetector && typeof this.poseDetector.close === 'function') {
+      try {
+        this.poseDetector.close();
+      } catch (e) {}
+      this.poseDetector = null;
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    this.isExerciseStudioOpen = false;
+    this.activeStudioExercise = null;
+    this.isCameraActive = false;
+    this.studioIsDetecting = false;
+    this.isSafetyVerificationActive = false;
+    this.isEmergencyDispatched = false;
+    this.studioPhase = 'ACTIVE';
+    this.sessionSummaryData = null;
+  }
+
+  async initPoseDetection(): Promise<void> {
+    this.cameraErrorMsg = '';
+    this.studioIsDetecting = true;
+    this.isCameraActive = false;
+
+    try {
+      this.studioMediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        audio: false
+      });
+
+      if (this.studioVideoRef && this.studioVideoRef.nativeElement) {
+        const videoEl = this.studioVideoRef.nativeElement;
+        videoEl.srcObject = this.studioMediaStream;
+        await videoEl.play();
+        this.isCameraActive = true;
+        this.cdr.detectChanges();
+      }
+    } catch (err: any) {
+      console.error('Camera access failed:', err);
+      this.cameraErrorMsg = 'Camera permission was denied or camera is unavailable. Please grant camera access in browser permissions.';
+      this.studioIsDetecting = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    try {
+      if (typeof Pose === 'undefined') {
+        console.warn('MediaPipe Pose script loading from CDN...');
+        await new Promise(r => setTimeout(r, 1200));
+      }
+
+      if (typeof Pose !== 'undefined') {
+        this.poseDetector = new Pose({
+          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+        });
+
+        this.poseDetector.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          enableSegmentation: false,
+          smoothSegmentation: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+
+        this.poseDetector.onResults((results: any) => {
+          this.ngZone.run(() => {
+            this.processPoseResults(results);
+          });
+        });
+
+        const videoEl = this.studioVideoRef?.nativeElement;
+        if (videoEl) {
+          const sendFrame = async () => {
+            if (!this.isExerciseStudioOpen || !this.isCameraActive) return;
+            if (videoEl.readyState >= 2 && this.poseDetector) {
+              try {
+                await this.poseDetector.send({ image: videoEl });
+              } catch (e) {}
+            }
+            if (this.isExerciseStudioOpen) {
+              requestAnimationFrame(sendFrame);
+            }
+          };
+          requestAnimationFrame(sendFrame);
+        }
+      } else {
+        this.studioFeedbackText = 'Pose model loading... Position yourself in frame to start.';
+      }
+    } catch (poseErr) {
+      console.warn('Pose detector init notice:', poseErr);
+    }
+  }
+
+  processPoseResults(results: any): void {
+    if (!this.studioCanvasRef || !this.studioCanvasRef.nativeElement) return;
+    const canvas = this.studioCanvasRef.nativeElement;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = canvas.width = canvas.parentElement?.clientWidth || 640;
+    const height = canvas.height = canvas.parentElement?.clientHeight || 480;
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (results.poseLandmarks && results.poseLandmarks.length > 0) {
+      const landmarks = results.poseLandmarks;
+
+      this.detectFallAndInactivity(landmarks);
+      if (this.isSafetyVerificationActive || this.isEmergencyDispatched) {
+        return;
+      }
+      this.evaluateExerciseForm(landmarks);
+      this.drawPoseSkeleton(ctx, landmarks, width, height);
+    } else {
+      this.studioFeedbackText = 'Step back so your full body is in the camera view';
+      this.studioFeedbackStatus = 'neutral';
+    }
+
+    this.cdr.detectChanges();
+  }
+
+  detectFallAndInactivity(landmarks: any[]): void {
+    if (this.isSafetyVerificationActive || this.isEmergencyDispatched) return;
+
+    const nose = landmarks[0];
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
+    const now = Date.now();
+
+    if (!nose || !leftShoulder || !rightShoulder) return;
+
+    if (this.prevNoseY !== null) {
+      const dt = Math.max(0.01, (now - this.prevNoseTime) / 1000);
+      const velocityY = (nose.y - this.prevNoseY) / dt;
+
+      if (velocityY > 1.25 && nose.y > 0.72) {
+        this.triggerSafetyVerification('Sudden downward fall detected during exercise');
+        return;
+      }
+
+      if (nose.y > 0.82 && leftShoulder.y > 0.78 && rightShoulder.y > 0.78) {
+        this.triggerSafetyVerification('Patient collapsed on floor during exercise');
+        return;
+      }
+
+      // Inactivity / stillness check (ONLY during active exercise phase, NOT during rest intervals!)
+      if (this.studioPhase === 'ACTIVE') {
+        const dNose = Math.abs(nose.y - this.prevNoseY);
+        if (dNose > 0.02) {
+          this.lastLandmarkMovementTime = now;
+        } else {
+          if (now - this.lastLandmarkMovementTime > 15000) {
+            this.triggerSafetyVerification('Prolonged unresponsiveness detected mid-exercise');
+            return;
+          }
+        }
+      }
+    }
+
+    this.prevNoseY = nose.y;
+    this.prevNoseTime = now;
+  }
+
+  evaluateExerciseForm(landmarks: any[]): void {
+    if (!this.activeStudioExercise || this.isSafetyVerificationActive || this.isEmergencyDispatched || this.studioPhase !== 'ACTIVE') return;
+    const exId = this.activeStudioExercise.exerciseId || 'squats';
+
+    const lHip = landmarks[23];
+    const rHip = landmarks[24];
+    const lKnee = landmarks[25];
+    const rKnee = landmarks[26];
+    const lAnkle = landmarks[27];
+    const rAnkle = landmarks[28];
+    const lShoulder = landmarks[11];
+    const rShoulder = landmarks[12];
+    const lElbow = landmarks[13];
+    const rElbow = landmarks[14];
+    const lWrist = landmarks[15];
+    const rWrist = landmarks[16];
+
+    const isLeftMoreVisible = (lKnee?.visibility || 0) > (rKnee?.visibility || 0);
+
+    if (exId === 'squats') {
+      const hip = isLeftMoreVisible ? lHip : rHip;
+      const knee = isLeftMoreVisible ? lKnee : rKnee;
+      const ankle = isLeftMoreVisible ? lAnkle : rAnkle;
+
+      if (!hip || !knee || !ankle) return;
+      const angle = this.calculateAngle(hip, knee, ankle);
+      this.studioCurrentAngle = angle;
+      this.studioAngleTargetLabel = 'Knee Flexion (Target: 90°)';
+
+      // Accumulate joint angle telemetry
+      this.currentRepMinAngle = Math.min(this.currentRepMinAngle, angle);
+      this.sessionMinAngle = Math.min(this.sessionMinAngle, angle);
+      this.sessionMaxAngle = Math.max(this.sessionMaxAngle, angle);
+
+      if (angle > 155) {
+        if (this.exerciseRepStage === 'down') {
+          this.studioCurrentReps++;
+          this.exerciseRepStage = 'up';
+
+          if (this.currentRepMinAngle <= 95) {
+            this.sessionValidReps++;
+            this.studioFeedbackText = `✓ Rep ${this.studioCurrentReps} complete: Excellent depth (${this.currentRepMinAngle}°)`;
+            this.studioFeedbackStatus = 'good';
+            this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} complete! Great depth.`, 3500);
+          } else {
+            this.sessionIncompleteReps++;
+            this.recordFormError(`Shallow squat depth (${this.currentRepMinAngle}° vs 90° target)`);
+            this.studioFeedbackText = `⚠ Rep ${this.studioCurrentReps}: Shallow depth (${this.currentRepMinAngle}°). Bend deeper next rep.`;
+            this.studioFeedbackStatus = 'adjust';
+            this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} counted. Bend a little deeper next rep.`, 3500);
+          }
+          this.currentRepMinAngle = 180;
+          this.checkSetCompletion();
+        } else {
+          this.studioFeedbackText = 'Begin squatting down by pushing hips back smoothly';
+          this.studioFeedbackStatus = 'neutral';
+        }
+      } else if (angle <= 95 && angle >= 70) {
+        this.exerciseRepStage = 'down';
+        this.studioFeedbackText = `Great depth (${angle}° reached)! Hold and push back up through heels`;
+        this.studioFeedbackStatus = 'good';
+        this.speakVoiceFeedback('Good depth! Now push up smoothly.', 3500);
+      } else if (angle > 95 && angle < 140) {
+        this.studioFeedbackText = 'Bend your knees further to reach the 90° target zone';
+        this.studioFeedbackStatus = 'adjust';
+        this.speakVoiceFeedback('Bend your knees a little further.', 3500);
+      }
+    } else if (exId === 'knee_extension') {
+      const hip = isLeftMoreVisible ? lHip : rHip;
+      const knee = isLeftMoreVisible ? lKnee : rKnee;
+      const ankle = isLeftMoreVisible ? lAnkle : rAnkle;
+
+      if (!hip || !knee || !ankle) return;
+      const angle = this.calculateAngle(hip, knee, ankle);
+      this.studioCurrentAngle = angle;
+      this.studioAngleTargetLabel = 'Knee Extension (Target: 170°)';
+
+      this.currentRepMaxAngle = Math.max(this.currentRepMaxAngle, angle);
+      this.sessionMinAngle = Math.min(this.sessionMinAngle, angle);
+      this.sessionMaxAngle = Math.max(this.sessionMaxAngle, angle);
+
+      if (angle >= 160) {
+        if (this.exerciseRepStage === 'up') {
+          this.studioFeedbackText = `Full extension (${angle}°)! Hold for a moment, then lower slowly`;
+          this.studioFeedbackStatus = 'good';
+          this.speakVoiceFeedback('Good hold! Now lower slowly with control.', 3500);
+          this.exerciseRepStage = 'down';
+        }
+      } else if (angle < 105) {
+        if (this.exerciseRepStage === 'down') {
+          this.studioCurrentReps++;
+          this.exerciseRepStage = 'up';
+
+          if (this.currentRepMaxAngle >= 160) {
+            this.sessionValidReps++;
+            this.studioFeedbackText = `✓ Rep ${this.studioCurrentReps} complete: Full extension (${this.currentRepMaxAngle}°)`;
+            this.studioFeedbackStatus = 'good';
+            this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} done! Full extension.`, 3500);
+          } else {
+            this.sessionIncompleteReps++;
+            this.recordFormError(`Incomplete knee extension (${this.currentRepMaxAngle}° vs 170° target)`);
+            this.studioFeedbackText = `⚠ Rep ${this.studioCurrentReps}: Incomplete extension (${this.currentRepMaxAngle}°). Straighten fully.`;
+            this.studioFeedbackStatus = 'adjust';
+            this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} counted. Straighten knee fully next time.`, 3500);
+          }
+          this.currentRepMaxAngle = 0;
+          this.checkSetCompletion();
+        } else {
+          this.studioFeedbackText = 'Extend your lower leg straight outward';
+          this.studioFeedbackStatus = 'neutral';
+        }
+      } else if (angle >= 115 && angle < 155) {
+        this.studioFeedbackText = 'Extend your knee further to reach full straightening';
+        this.studioFeedbackStatus = 'adjust';
+        this.speakVoiceFeedback('Extend your knee further.', 3500);
+      }
+    } else if (exId === 'shoulder_abduction') {
+      const isLeftArm = (lShoulder?.visibility || 0) > (rShoulder?.visibility || 0);
+      const hip = isLeftArm ? lHip : rHip;
+      const shoulder = isLeftArm ? lShoulder : rShoulder;
+      const elbow = isLeftArm ? lElbow : rElbow;
+
+      if (!hip || !shoulder || !elbow) return;
+      const angle = this.calculateAngle(hip, shoulder, elbow);
+      this.studioCurrentAngle = angle;
+      this.studioAngleTargetLabel = 'Shoulder Elevation (Target: 90°)';
+
+      this.currentRepMaxAngle = Math.max(this.currentRepMaxAngle, angle);
+      this.sessionMinAngle = Math.min(this.sessionMinAngle, angle);
+      this.sessionMaxAngle = Math.max(this.sessionMaxAngle, angle);
+
+      if (angle >= 80 && angle <= 98) {
+        this.exerciseRepStage = 'down';
+        this.studioFeedbackText = `Optimal shoulder level (${angle}°)! Hold and lower with control`;
+        this.studioFeedbackStatus = 'good';
+        this.speakVoiceFeedback('Perfect height! Lower slowly.', 3500);
+      } else if (angle > 105) {
+        this.studioFeedbackText = `Arms raised too high (${angle}°). Keep parallel to shoulders`;
+        this.studioFeedbackStatus = 'adjust';
+        this.recordFormError(`Shoulder hyper-abduction (${angle}°)`);
+        this.speakVoiceFeedback('A little lower, parallel to shoulders.', 3500);
+      } else if (angle < 35) {
+        if (this.exerciseRepStage === 'down') {
+          this.studioCurrentReps++;
+          this.exerciseRepStage = 'up';
+
+          if (this.currentRepMaxAngle >= 80 && this.currentRepMaxAngle <= 102) {
+            this.sessionValidReps++;
+            this.studioFeedbackText = `✓ Rep ${this.studioCurrentReps} complete: Optimal height (${this.currentRepMaxAngle}°)`;
+            this.studioFeedbackStatus = 'good';
+            this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} completed! Good control.`, 3500);
+          } else {
+            this.sessionIncompleteReps++;
+            this.recordFormError(`Shoulder elevation out of target range (${this.currentRepMaxAngle}°)`);
+            this.studioFeedbackText = `⚠ Rep ${this.studioCurrentReps}: Raise arms to 90° shoulder level next rep.`;
+            this.studioFeedbackStatus = 'adjust';
+            this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} counted. Aim for shoulder height.`, 3500);
+          }
+          this.currentRepMaxAngle = 0;
+          this.checkSetCompletion();
+        } else {
+          this.studioFeedbackText = 'Raise your arms laterally towards shoulder height';
+          this.studioFeedbackStatus = 'neutral';
+        }
+      } else if (angle >= 45 && angle < 78) {
+        this.studioFeedbackText = 'Raise your arms a little higher towards shoulder level';
+        this.studioFeedbackStatus = 'adjust';
+        this.speakVoiceFeedback('Raise your arms a little higher.', 3500);
+      }
+    } else if (exId === 'bicep_curl') {
+      const isLeftArm = (lElbow?.visibility || 0) > (rElbow?.visibility || 0);
+      const shoulder = isLeftArm ? lShoulder : rShoulder;
+      const elbow = isLeftArm ? lElbow : rElbow;
+      const wrist = isLeftArm ? lWrist : rWrist;
+
+      if (!shoulder || !elbow || !wrist) return;
+      const angle = this.calculateAngle(shoulder, elbow, wrist);
+      this.studioCurrentAngle = angle;
+      this.studioAngleTargetLabel = 'Elbow Flexion (Target: 50°)';
+
+      this.currentRepMinAngle = Math.min(this.currentRepMinAngle, angle);
+      this.sessionMinAngle = Math.min(this.sessionMinAngle, angle);
+      this.sessionMaxAngle = Math.max(this.sessionMaxAngle, angle);
+
+      if (angle <= 55) {
+        this.exerciseRepStage = 'down';
+        this.studioFeedbackText = `Great peak squeeze (${angle}°)! Now lower slowly with control`;
+        this.studioFeedbackStatus = 'good';
+        this.speakVoiceFeedback('Great curl! Lower slowly with control.', 3500);
+      } else if (angle > 145) {
+        if (this.exerciseRepStage === 'down') {
+          this.studioCurrentReps++;
+          this.exerciseRepStage = 'up';
+
+          if (this.currentRepMinAngle <= 60) {
+            this.sessionValidReps++;
+            this.studioFeedbackText = `✓ Rep ${this.studioCurrentReps} complete: Full bicep flexion (${this.currentRepMinAngle}°)`;
+            this.studioFeedbackStatus = 'good';
+            this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} completed!`, 3500);
+          } else {
+            this.sessionIncompleteReps++;
+            this.recordFormError(`Incomplete bicep curl flexion (${this.currentRepMinAngle}°)`);
+            this.studioFeedbackText = `⚠ Rep ${this.studioCurrentReps}: Incomplete curl (${this.currentRepMinAngle}°). Squeeze tighter at top.`;
+            this.studioFeedbackStatus = 'adjust';
+            this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} counted. Squeeze tighter at top next rep.`, 3500);
+          }
+          this.currentRepMinAngle = 180;
+          this.checkSetCompletion();
+        } else {
+          this.studioFeedbackText = 'Curl your forearm upwards towards your shoulder';
+          this.studioFeedbackStatus = 'neutral';
+        }
+      } else if (angle > 65 && angle < 135) {
+        this.studioFeedbackText = 'Curl a little further up to squeeze your bicep';
+        this.studioFeedbackStatus = 'adjust';
+        this.speakVoiceFeedback('Curl a little further up.', 3500);
+      }
+    } else {
+      this.studioAngleTargetLabel = 'Joint Mobility Motion';
+      this.studioFeedbackText = 'Maintain steady controlled pace and breathe evenly';
+      this.studioFeedbackStatus = 'good';
+    }
+  }
+
+  checkSetCompletion(): void {
+    if (this.studioCurrentReps >= this.studioTargetReps) {
+      if (this.studioCurrentSets < this.studioTargetSets) {
+        this.startInterSetRest();
+      } else {
+        this.finishExerciseSession();
+      }
+    }
+  }
+
+  startInterSetRest(): void {
+    if (this.restIntervalTimer) {
+      clearInterval(this.restIntervalTimer);
+      this.restIntervalTimer = null;
+    }
+    this.studioPhase = 'SET_REST';
+    this.restCountdownSeconds = 30;
+    this.studioFeedbackText = `Set ${this.studioCurrentSets} complete! Rest recovery active (30s).`;
+    this.studioFeedbackStatus = 'neutral';
+    this.speakVoiceFeedback(`Set ${this.studioCurrentSets} completed! Rest for 30 seconds before your next set.`, 0);
+
+    this.restIntervalTimer = setInterval(() => {
+      this.restCountdownSeconds--;
+      if (this.restCountdownSeconds <= 0) {
+        this.skipInterSetRest();
+      }
+      this.cdr.detectChanges();
+    }, 1000);
+    this.cdr.detectChanges();
+  }
+
+  skipInterSetRest(): void {
+    if (this.restIntervalTimer) {
+      clearInterval(this.restIntervalTimer);
+      this.restIntervalTimer = null;
+    }
+    this.studioCurrentSets++;
+    this.studioCurrentReps = 0;
+    this.exerciseRepStage = 'up';
+    this.currentRepMinAngle = 180;
+    this.currentRepMaxAngle = 0;
+    this.lastLandmarkMovementTime = Date.now();
+    this.studioPhase = 'ACTIVE';
+    this.studioFeedbackText = `Ready! Begin Set ${this.studioCurrentSets} of ${this.studioTargetSets}`;
+    this.studioFeedbackStatus = 'neutral';
+    this.speakVoiceFeedback(`Set ${this.studioCurrentSets} starting. Maintain steady form!`, 0);
+    this.cdr.detectChanges();
+  }
+
+  finishExerciseSession(): void {
+    if (this.restIntervalTimer) {
+      clearInterval(this.restIntervalTimer);
+      this.restIntervalTimer = null;
+    }
+    this.studioPhase = 'SUMMARY';
+    this.isExerciseDone = true;
+    this.saveExerciseDoneToStorage();
+
+    const totalReps = this.sessionValidReps + this.sessionIncompleteReps;
+    const finalAccuracy = totalReps > 0
+      ? Math.round((this.sessionValidReps / totalReps) * 100)
+      : 95;
+    const durationSeconds = Math.max(30, Math.round((Date.now() - this.sessionStartTime) / 1000));
+    const rangeOfMotion = (this.sessionMaxAngle > this.sessionMinAngle && this.sessionMinAngle < 900)
+      ? (this.sessionMaxAngle - this.sessionMinAngle)
+      : null;
+
+    this.sessionSummaryData = {
+      exerciseName: this.activeStudioExercise?.name || 'Rehab Exercise',
+      category: this.activeStudioExercise?.category || 'Physical Rehabilitation',
+      targetSets: this.studioTargetSets,
+      completedSets: this.studioCurrentSets,
+      targetReps: this.studioTargetReps,
+      totalCompletedReps: totalReps,
+      validReps: this.sessionValidReps,
+      incompleteReps: this.sessionIncompleteReps,
+      accuracyScore: finalAccuracy,
+      durationSeconds,
+      minJointAngle: this.sessionMinAngle < 900 ? this.sessionMinAngle : null,
+      maxJointAngle: this.sessionMaxAngle > 0 ? this.sessionMaxAngle : null,
+      rangeOfMotion,
+      formErrors: [...this.sessionFormErrors],
+      safetyEventsCount: this.sessionSafetyIncidents,
+      compliancePercentage: Math.min(100, Math.round((this.studioCurrentSets / this.studioTargetSets) * 100))
+    };
+
+    this.persistExerciseLog(this.activeStudioExercise, this.sessionSummaryData);
+
+    this.speakVoiceFeedback(`Outstanding session! You completed all sets with ${finalAccuracy}% movement quality. Review your session summary!`, 0);
+    this.cdr.detectChanges();
+  }
+
+  saveExerciseDoneToStorage(): void {
+    const todayStr = this.getTodayDateString();
+    localStorage.setItem(`carepath_exercise_${todayStr}`, 'true');
+  }
+
+  persistExerciseLog(exercise: ExerciseItem | null, summary?: any): void {
+    if (!exercise) return;
+    const completedReps = summary ? summary.totalCompletedReps : ((this.studioTargetReps || 10) * (this.studioTargetSets || 3));
+    const completedSets = summary ? summary.completedSets : (this.studioTargetSets || 3);
+    const accuracyScore = summary ? summary.accuracyScore : 96;
+    const durationSeconds = summary ? summary.durationSeconds : 180;
+
+    const payload = {
+      exerciseId: exercise.exerciseId || 'rehab_exercise',
+      exerciseName: exercise.name,
+      category: exercise.category || 'Physical Rehabilitation',
+      completedReps,
+      completedSets,
+      targetReps: this.studioTargetReps || 10,
+      targetSets: this.studioTargetSets || 3,
+      accuracyScore,
+      durationSeconds,
+      appointmentId: exercise.appointmentId,
+      doctorId: (exercise as any).doctorId,
+      validReps: summary ? summary.validReps : completedReps,
+      incompleteReps: summary ? summary.incompleteReps : 0,
+      minJointAngle: summary ? summary.minJointAngle : null,
+      maxJointAngle: summary ? summary.maxJointAngle : null,
+      rangeOfMotion: summary ? summary.rangeOfMotion : null,
+      formErrors: summary ? summary.formErrors : [],
+      compliancePercentage: summary ? summary.compliancePercentage : 100,
+      safetyEventsCount: summary ? summary.safetyEventsCount : 0
+    };
+
+    this.appointmentService.recordExerciseLog(payload).subscribe({
+      next: (res) => {
+        console.log('[EXERCISE LOG] Telemetry recorded to MongoDB Atlas:', res);
+        this.showToast(`🏆 ${exercise.name} logged to your medical record!`, 'success');
+        if (res && res.log) {
+          this.exerciseLogsHistory = [res.log, ...this.exerciseLogsHistory];
+        } else {
+          this.exerciseLogsHistory = [{
+            ...payload,
+            date: this.getTodayDateString(),
+            completedAt: new Date().toISOString()
+          }, ...this.exerciseLogsHistory];
+        }
+        this.loadExerciseAnalytics();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.warn('Could not save exercise log to DB:', err);
+      }
+    });
+  }
+
+  // 🧪 Feature 8: Exercise Validation / Test Mode Simulators
+  runSimulatorRep(type: 'valid' | 'shallow'): void {
+    if (!this.activeStudioExercise) return;
+    if (this.studioPhase !== 'ACTIVE') {
+      this.studioPhase = 'ACTIVE';
+    }
+
+    if (type === 'valid') {
+      this.studioCurrentReps++;
+      this.sessionValidReps++;
+      const simulatedAngle = this.activeStudioExercise.exerciseId === 'squats' ? 88 
+        : this.activeStudioExercise.exerciseId === 'knee_extension' ? 172 
+        : this.activeStudioExercise.exerciseId === 'shoulder_abduction' ? 90 
+        : 48;
+      this.studioCurrentAngle = simulatedAngle;
+      this.sessionMinAngle = Math.min(this.sessionMinAngle, simulatedAngle);
+      this.sessionMaxAngle = Math.max(this.sessionMaxAngle, simulatedAngle);
+      this.studioFeedbackText = `✓ Rep ${this.studioCurrentReps} complete: Optimal form achieved (${simulatedAngle}°)`;
+      this.studioFeedbackStatus = 'good';
+      this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} complete! Great form.`, 1500);
+    } else {
+      this.studioCurrentReps++;
+      this.sessionIncompleteReps++;
+      const simulatedAngle = this.activeStudioExercise.exerciseId === 'squats' ? 118 
+        : this.activeStudioExercise.exerciseId === 'knee_extension' ? 135 
+        : this.activeStudioExercise.exerciseId === 'shoulder_abduction' ? 62 
+        : 85;
+      this.studioCurrentAngle = simulatedAngle;
+      this.recordFormError(`Incomplete range of motion (${simulatedAngle}°)`);
+      this.studioFeedbackText = `⚠ Rep ${this.studioCurrentReps}: Shallow range (${simulatedAngle}°). Increase joint depth.`;
+      this.studioFeedbackStatus = 'adjust';
+      this.speakVoiceFeedback(`Rep ${this.studioCurrentReps} counted, but shallow. Aim deeper!`, 1500);
+    }
+
+    this.checkSetCompletion();
+    this.cdr.detectChanges();
+  }
+
+  runSimulatorRest(): void {
+    this.startInterSetRest();
+  }
+
+  runSimulatorSafetyTest(): void {
+    this.triggerSafetyVerification('Telemetry validation drill (Simulated Inactivity)');
+  }
+
+  drawPoseSkeleton(ctx: CanvasRenderingContext2D, landmarks: any[], width: number, height: number): void {
+    const connections = [
+      [11, 12],
+      [11, 13], [13, 15],
+      [12, 14], [14, 16],
+      [11, 23], [12, 24],
+      [23, 24],
+      [23, 25], [25, 27],
+      [24, 26], [26, 28]
+    ];
+
+    const lineColor = this.studioFeedbackStatus === 'good' 
+      ? '#10B981' 
+      : this.studioFeedbackStatus === 'adjust' 
+      ? '#F59E0B' 
+      : '#38BDF8';
+
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = lineColor;
+    ctx.lineCap = 'round';
+
+    connections.forEach(([p1, p2]) => {
+      const a = landmarks[p1];
+      const b = landmarks[p2];
+      if (a && b && (a.visibility || 1) > 0.4 && (b.visibility || 1) > 0.4) {
+        ctx.beginPath();
+        ctx.moveTo(a.x * width, a.y * height);
+        ctx.lineTo(b.x * width, b.y * height);
+        ctx.stroke();
+      }
+    });
+
+    landmarks.forEach((pt: any, idx: number) => {
+      if ((pt.visibility || 1) > 0.4 && idx <= 28) {
+        ctx.beginPath();
+        ctx.arc(pt.x * width, pt.y * height, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = lineColor;
+        ctx.stroke();
+      }
+    });
+
+    if (this.studioCurrentAngle > 0) {
+      const activeJoint = (this.activeStudioExercise?.exerciseId === 'squats' || this.activeStudioExercise?.exerciseId === 'knee_extension')
+        ? (landmarks[26] || landmarks[25])
+        : (landmarks[14] || landmarks[13]);
+
+      if (activeJoint) {
+        const x = activeJoint.x * width;
+        const y = Math.max(30, activeJoint.y * height - 20);
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.beginPath();
+        ctx.roundRect(x - 35, y - 22, 70, 26, 6);
+        ctx.fill();
+
+        ctx.fillStyle = lineColor;
+        ctx.font = 'bold 14px Outfit, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${this.studioCurrentAngle}°`, x, y - 4);
+      }
+    }
+  }
+
+  calculateAngle(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }): number {
+    const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+    let angle = Math.abs((radians * 180.0) / Math.PI);
+    if (angle > 180.0) {
+      angle = 360.0 - angle;
+    }
+    return Math.round(angle);
+  }
+
+  speakVoiceFeedback(text: string, throttleMs: number = 3000): void {
+    const isEmergencyAlert = text.toLowerCase().includes('safety') || 
+                             text.toLowerCase().includes('emergency') || 
+                             text.toLowerCase().includes('seconds remaining') ||
+                             text.toLowerCase().includes('glad you are ok');
+
+    // While emergency countdown or dispatch is active, strictly suppress any exercise form cues!
+    if ((this.isSafetyVerificationActive || this.isEmergencyDispatched) && !isEmergencyAlert) {
+      return;
+    }
+
+    const now = Date.now();
+    if (throttleMs > 0 && now - this.lastSpokenTime < throttleMs) return;
+    this.lastSpokenTime = now;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+  }
+
+  playWarningBeep(): void {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    } catch (e) {
+      console.warn('AudioContext not allowed or failed:', e);
+    }
+  }
+
+  playSirenTone(): void {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(1000, ctx.currentTime + 0.3);
+      osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 0.6);
+      osc.frequency.linearRampToValueAtTime(1000, ctx.currentTime + 0.9);
+      gain.gain.setValueAtTime(0.4, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 1.2);
+    } catch (e) {
+      console.warn('AudioContext siren failed:', e);
+    }
+  }
+
+  triggerSafetyVerification(reason: string): void {
+    if (this.isSafetyVerificationActive || this.isEmergencyDispatched) return;
+    this.sessionSafetyIncidents++;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    this.isSafetyVerificationActive = true;
+    this.safetyCountdownSeconds = 15;
+    this.studioFeedbackText = '⚠️ Safety Alert: Please confirm you are safe or tap I Am OK';
+    this.studioFeedbackStatus = 'adjust';
+    this.speakVoiceFeedback('Safety Alert. Are you OK? Please tap I am OK or move to continue.', 0);
+    this.playWarningBeep();
+
+    if (this.safetyCountdownInterval) clearInterval(this.safetyCountdownInterval);
+    this.safetyCountdownInterval = setInterval(() => {
+      this.safetyCountdownSeconds--;
+      if (this.safetyCountdownSeconds <= 0) {
+        clearInterval(this.safetyCountdownInterval);
+        this.safetyCountdownInterval = null;
+        this.dispatchExerciseEmergency(reason);
+      } else if (this.safetyCountdownSeconds === 5) {
+        this.playWarningBeep();
+        this.speakVoiceFeedback('5 seconds remaining before emergency contact dispatch.', 0);
+      }
+      this.cdr.detectChanges();
+    }, 1000);
+  }
+
+  dismissSafetyVerification(): void {
+    if (this.safetyCountdownInterval) {
+      clearInterval(this.safetyCountdownInterval);
+      this.safetyCountdownInterval = null;
+    }
+    this.isSafetyVerificationActive = false;
+    this.lastLandmarkMovementTime = Date.now();
+    this.prevNoseY = null;
+    this.speakVoiceFeedback('Glad you are OK! Resuming your exercise session.', 0);
+    this.cdr.detectChanges();
+  }
+
+  dispatchExerciseEmergency(reason: string): void {
+    this.isSafetyVerificationActive = false;
+    this.isEmergencyDispatched = true;
+    this.playSirenTone();
+    this.speakVoiceFeedback('Emergency detected. Contacting your emergency contacts and care team now.', 0);
+
+    let locationStr = 'Location coordinates not provided';
+    let latitude: number | undefined;
+    let longitude: number | undefined;
+    let accuracy: number | undefined;
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          latitude = pos.coords.latitude;
+          longitude = pos.coords.longitude;
+          accuracy = pos.coords.accuracy;
+          locationStr = `Lat: ${latitude.toFixed(5)}, Lng: ${longitude.toFixed(5)} (Accuracy: ~${Math.round(accuracy)}m)`;
+          this.sendEmergencyPayload(reason, locationStr, latitude, longitude, accuracy);
+        },
+        () => {
+          this.sendEmergencyPayload(reason, locationStr);
+        },
+        { timeout: 4000 }
+      );
+    } else {
+      this.sendEmergencyPayload(reason, locationStr);
+    }
+    this.cdr.detectChanges();
+  }
+
+  private sendEmergencyPayload(reason: string, locationStr: string, lat?: number, lng?: number, acc?: number): void {
+    const payload = {
+      exerciseName: this.activeStudioExercise?.name || 'Rehabilitation Routine',
+      reason: reason || 'Sudden fall or prolonged unresponsiveness detected during exercise',
+      location: locationStr,
+      latitude: lat,
+      longitude: lng,
+      accuracy: acc,
+      appointmentId: this.activeStudioExercise?.appointmentId,
+      doctorId: (this.activeStudioExercise as any)?.doctorId,
+      clientTimestamp: new Date().toISOString()
+    };
+
+    this.appointmentService.triggerExerciseEmergency(payload).subscribe({
+      next: (res) => {
+        this.emergencyDispatchDetails = res;
+        const docMsg = res.notifiedDoctor ? ` and ${res.doctorName}` : '';
+        this.showToast(`🚨 Emergency alert dispatched to your contact${docMsg}!`, 'error');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Failed to dispatch emergency API:', err);
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.closeExerciseStudio();
+  }
 }
+
